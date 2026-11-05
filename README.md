@@ -80,8 +80,9 @@ Settings on this Mac and press **Show a pairing code**, or run:
 ./vz pair
 ```
 
-Say yes in the box on your Mac. Phone access turns on with no restart, and you get a QR code and a
-PIN. It was off until then, and only this Mac could reach Venezia. Settings shows **Phone access is
+Say yes in the box on your Mac. The first time in a browser, a box also shows a code to type into
+the page, because a page cannot otherwise show that you are the one using it. Phone access turns on
+with no restart, and you get a QR code and a PIN. It was off until then, and only this Mac could reach Venezia. Settings shows **Phone access is
 on** with a **Turn off** button, and `./vz pair --off` does the same. Turning it off closes the
 network listener and disconnects every device, but they stay paired. A restart leaves it off, unless
 you start with `./vz serve --lan`.
@@ -95,7 +96,7 @@ the phone all list these steps in order:
 4. Download the profile, then tap Allow.
 5. Settings, Profile Downloaded, Install.
 6. Settings, General, About, Certificate Trust Settings, and turn on full trust for Venezia Local Root.
-7. Go back to Safari. The page sees the certificate is trusted, and pairs the phone.
+7. Go back to Safari. The page sees the certificate is trusted, and asks for the code on your Mac.
 
 If the phone cannot find `venezia.local`, use the IP address shown beside the QR code. Android has its
 own steps, in the same places.

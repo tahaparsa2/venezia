@@ -211,7 +211,7 @@ A local CA also handles DHCP changes. The phone trusts the root once, and the Ma
 
 This server can run code, so pairing is a security boundary.
 
-- QR opens `https://venezia.local:PORT/pair#t=<128-bit token>`. The token sits in the fragment, so it is never sent in the request line or logged.
+- QR opens `https://venezia.local:PORT/pair#t=<128-bit token>`. The token sits in the fragment, so it is never sent in the request line or logged. (Superseded: an impostor at that address could read the fragment once the warning was tapped through, so the QR now holds only the address. See SPEC section 11.)
 - The token is single-use and expires in a few minutes. It is exchanged by POST for an `HttpOnly; Secure; SameSite=Strict` cookie.
 - Check `Host` and `Origin` on every request and WebSocket upgrade, to block DNS rebinding.
 - Keep a paired-device list on the Mac with one-tap revoke. Rate-limit PIN attempts.
