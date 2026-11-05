@@ -480,6 +480,7 @@ describe('after a crash', () => {
     const id = await finished(first.engine);
     await send(first.engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
     const decision = await card(first.engine, id, 'publish');
+    const start = lastSeq(first.engine, id);
     await first.engine.close();
 
     // On the log and never acted on: the answer got in, and the host died before it moved.
@@ -487,7 +488,6 @@ describe('after a crash', () => {
     log.append({ type: 'decision.resolved', shipId: id, actor: 'human', data: { id: decision.id, optionId: 'approve', via: 'web' } });
     log.close();
 
-    const start = lastSeq(first.engine, id);
     const { engine } = factory(t, { browser, dir });
     await engine.start();
     await until(() => eventsOf(engine, id, 'publish.verified').length === 1 && shipOf(engine, id).state === 'done', { timeoutMs: 60000, what: 'the publish' });
@@ -496,26 +496,20 @@ describe('after a crash', () => {
     assert.deepEqual(tiles(engine, id), ['gate', 'receipt', 'live']);
   });
 
-  test('a plan with no card of its own never borrows an old yes', async (t) => {
+  test('a plan reaches the disk after its card, so a crash cannot pair it with a spent yes', async (t) => {
     if (noChrome(t)) return;
-    const dir = testDir(t);
-    const first = factory(t, { browser, dir });
-    const id = await finished(first.engine);
-    await send(first.engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
-    await holdAndApprove(first.engine, await card(first.engine, id, 'publish'));
-    await until(() => eventsOf(first.engine, id, 'publish.verified').length === 1 && shipOf(first.engine, id).state === 'done', { timeoutMs: 60000, what: 'the publish' });
-    const { hash } = eventsOf(first.engine, id, 'publish.applied')[0].data;
-    await first.engine.close();
-
-    // The same plan back on disk, as a crash just after saving it would leave it, with its old yes.
-    fs.mkdirSync(path.dirname(planFile(first.engine, id)), { recursive: true });
-    const stale = { hash, shipId: id };
-    fs.writeFileSync(planFile(first.engine, id), JSON.stringify(stale));
-    const restarted = lastSeq(first.engine, id);
-    const { engine } = factory(t, { browser, dir });
-    await engine.start();
-    await sleep(300);
-    assert.deepEqual(movesAfter(engine, id, restarted), [], 'the old yes was spent');
+    const { engine } = factory(t, { browser });
+    const id = await finished(engine);
+    const { open } = engine.decisions;
+    const onDisk = [];
+    engine.decisions.open = (spec) => {
+      if (spec.kind === 'publish') onDisk.push(fs.existsSync(planFile(engine, id)));
+      return open(spec);
+    };
+    await send(engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
+    await card(engine, id, 'publish');
+    await until(() => fs.existsSync(planFile(engine, id)), { what: 'the plan' });
+    assert.deepEqual(onDisk, [false]);
   });
 });
 
