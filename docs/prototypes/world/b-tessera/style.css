@@ -1,0 +1,71 @@
+/* Type: Cardo is an Aldine revival, the voice of Venetian print, used for what you read
+   as language. B612 Mono was drawn for Airbus cockpit displays, used for what you read as
+   an instrument. Five centuries apart, on purpose. */
+:root{
+  --night:#0B1F24;--verd:#3E8E7E;--gold:#D9A93A;--verm:#C8391F;--ink:#1B1A17;--vellum:#EFE4CB;
+  --mono:"B612 Mono",ui-monospace,Menlo,monospace;--serif:Cardo,"Iowan Old Style",Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#080B0B;color:var(--vellum);overflow:hidden;overscroll-behavior:none;
+  font-family:var(--serif);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+canvas#glass{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation}
+#safe{position:fixed;left:0;top:0;width:0;height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+#ui{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+#ui button,#card,#chip,.panel{pointer-events:auto}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;touch-action:none}
+button:focus{outline:none}
+button:focus-visible{outline:2px solid var(--vellum);outline-offset:3px;border-radius:10px}
+.ghost{position:absolute}
+
+.key{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;font-weight:700;text-transform:uppercase;
+  color:var(--vellum);transform:translateY(calc(var(--h,0px)*-1));will-change:transform;
+  text-shadow:0 1px 2px rgba(0,0,0,.65)}
+.key small{font-size:9.5px;opacity:.72;font-weight:400;letter-spacing:.08em}
+.hasTouch .key small{display:none}
+.key b{font-family:var(--serif);font-size:15px;font-weight:700;letter-spacing:.02em;text-transform:none;color:#14130F;text-shadow:none;line-height:1}
+.key.lampk i{font-style:normal;font-size:8px;letter-spacing:.01em;font-weight:700;color:#14130F;opacity:.82;text-shadow:none;line-height:1}
+#dial{gap:1px}
+#dial .a{font-size:9.5px;font-weight:400;opacity:.8}
+#dial .b{font-size:13px}
+#dial.ring .a{color:#F4E6BE;opacity:1}
+#dial.ring .b{color:#F4E6BE}
+#talk{flex-direction:row;justify-content:flex-start;gap:10px;padding-left:16px}
+#talk small{order:3;margin-left:6px}
+
+.slab{position:absolute;color:var(--ink);padding:9px 14px 9px;display:flex;flex-direction:column;justify-content:center;
+  transition:opacity .28s ease;opacity:0}
+.slab.up{opacity:1}
+.slab .who{display:none}
+.slab h2{font:700 19.5px/1.14 var(--serif);letter-spacing:-.003em;text-wrap:balance}
+.slab .meta{font:700 11.5px/1.3 var(--mono);margin-top:5px;letter-spacing:.005em}
+.slab .meta em{font-style:normal;color:#0D5B4C}
+.slab .how{font:italic 400 13.5px/1.15 var(--serif);margin-top:3px;color:#403A2C}
+#chip{position:absolute;font:400 12px/1.32 var(--mono);color:var(--vellum);padding:8px 12px;display:flex;align-items:center;
+  transition:opacity .2s}
+.panel{position:absolute;font-family:var(--mono);font-size:12px;line-height:1.42;color:#E6DCC4;overflow:hidden;padding:14px 16px}
+.panel h3{font:italic 400 17px/1.1 var(--serif);color:var(--vellum);margin-bottom:8px}
+#feed ol{list-style:none}
+#feed li{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:2.5px 0;color:#CFC7B2}
+#feed li:first-child{color:#F6EEDA}
+#feed time{color:#8FB5A9;font-size:11px;line-height:17px}
+#feed li b{font-weight:700;color:inherit}
+#detail h3{font:700 23px/1 var(--serif);margin-bottom:2px}
+#detail .sub{font:italic 400 15px/1.2 var(--serif);color:#BFD8CE;margin-bottom:5px}
+#detail dl{display:grid;grid-template-columns:auto 1fr;column-gap:14px;row-gap:1px}
+#detail dt{color:#8FB5A9}
+#detail dd{color:#F0E7D2}
+
+@media (prefers-reduced-motion:reduce){.slab,#chip{transition:none}}
+.noGL{display:flex;align-items:center;justify-content:center;height:100%;padding:24px;font:400 18px/1.4 var(--serif);text-align:center}
+
+@media (min-width:900px) and (min-height:620px){
+  .slab{padding:12px 20px}
+  .slab h2{font-size:24px;text-wrap:wrap}
+  .slab .meta{font-size:13px;margin-top:6px}
+  .slab .how{font-size:16px;margin-top:4px}
+  .key.lampk i{font-size:9px}
+  #detail{padding:10px 16px}
+  #detail h3{font-size:21px}
+}

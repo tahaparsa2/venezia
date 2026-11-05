@@ -1,0 +1,120 @@
+// Offline and reconnect against a real `vz serve --sim`, and the offline shell.
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { chromium } from 'playwright-core';
+import { OUT } from './audit-lib.mjs';
+
+const REPO = path.resolve(import.meta.dirname, '../..');
+const PORT = 4393;
+const BASE = `http://127.0.0.1:${PORT}`;
+const startServer = async () => {
+  const child = spawn('node', ['bin/vz.mjs', 'serve', '--sim', '--port', String(PORT), '--speed', '5', '--seed', '7'], { cwd: REPO, stdio: 'ignore' });
+  for (let i = 0; i < 100; i++) {
+    if (await fetch(`${BASE}/api/state`).then((r) => r.ok).catch(() => false)) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return child;
+};
+let server = await startServer();
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const page = await context.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+const requests = [];
+page.on('request', (r) => requests.push(`${r.method()} ${new URL(r.url()).pathname}`));
+
+await page.goto(`${BASE}/?nosw=1`);
+await page.waitForSelector('html[data-booted]');
+await page.waitForFunction(() => venezia.store.connection.get().state === 'live');
+console.log('link', await page.evaluate(() => venezia.store.connection.get()));
+await page.evaluate(() => {
+  window.__ribbon = [];
+  window.__polite = [];
+  const r = document.getElementById('link');
+  new MutationObserver(() => __ribbon.push([Math.round(performance.now()), r.className, r.textContent])).observe(r, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-tone'] });
+  for (const id of ['announce-polite', 'announce-urgent']) new MutationObserver(() => __polite.push([Math.round(performance.now()), id, document.getElementById(id).textContent])).observe(document.getElementById(id), { childList: true, characterData: true, subtree: true });
+});
+
+console.log('== A. network drop, then back (setOffline)');
+const seqBefore = await page.evaluate(() => venezia.store.getLiveState().seq);
+await context.setOffline(true);
+const t0 = Date.now();
+await page.waitForFunction(() => venezia.store.connection.get().state === 'offline', null, { timeout: 20000 });
+console.log('ribbon state offline after ms', Date.now() - t0, await page.evaluate(() => document.getElementById('link').textContent));
+requests.length = 0;
+await page.waitForTimeout(16000);
+await page.screenshot({ path: path.join(OUT, 'offline-ribbon.png') });
+console.log('requests while offline 16s', requests.length, [...new Set(requests)]);
+console.log('ribbon mutations', await page.evaluate(() => ({ n: __ribbon.length, texts: [...new Set(__ribbon.map((x) => x[2]))].slice(0, 20) })));
+console.log('role', await page.$eval('#link', (e) => e.getAttribute('role')));
+console.log('live regions', await page.evaluate(() => __polite.slice(-5)));
+const sent = await page.evaluate(async () => venezia.store.send({ type: 'dial.set', dial: 'effort', value: 'high' }));
+console.log('send offline answer', sent);
+await context.setOffline(false);
+const t1 = Date.now();
+await page.waitForFunction(() => venezia.store.connection.get().state === 'live', null, { timeout: 40000 });
+console.log('back live after ms', Date.now() - t1, await page.evaluate(() => venezia.store.connection.get()));
+await page.waitForTimeout(1500);
+const compare = async () => {
+  const s = await fetch(`${BASE}/api/state`).then((r) => r.json());
+  const c = await page.evaluate(() => ({ seq: venezia.store.getLiveState().seq, ships: Object.keys(venezia.store.getLiveState().ships).length, link: document.getElementById('link').className, ribbonHidden: getComputedStyle(document.getElementById('link')).transform }));
+  return { server: s.seq, client: c };
+};
+console.log('state match', await compare());
+
+console.log('== B. server killed, restarted (same data dir?)');
+await page.evaluate(() => { __ribbon.length = 0; });
+server.kill('SIGKILL');
+await page.waitForFunction(() => venezia.store.connection.get().state === 'offline', null, { timeout: 20000 });
+await page.waitForTimeout(6000);
+console.log('ribbon', await page.evaluate(() => [document.getElementById('link').textContent, document.documentElement.dataset.link]));
+await page.screenshot({ path: path.join(OUT, 'offline-server-down.png') });
+await page.reload().catch((e) => console.log('reload while server is down without SW:', e.message.split('\n')[0]));
+await page.waitForTimeout(1000);
+server = await startServer();
+await page.goto(`${BASE}/?nosw=1`);
+await page.waitForSelector('html[data-booted]');
+await page.waitForTimeout(2500);
+console.log('after restart', await compare());
+await page.close();
+
+console.log('== C. offline shell: first visit, then reload offline');
+const c2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const p2 = await c2.newPage();
+const failed = [];
+p2.on('requestfailed', (r) => failed.push(new URL(r.url()).pathname));
+p2.on('console', (m) => { if (m.type() === 'error') errors.push(`c2 ${m.text()}`); });
+await p2.goto(`${BASE}/`);
+await p2.waitForSelector('html[data-booted]');
+await p2.evaluate(() => navigator.serviceWorker.ready);
+await p2.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 8000 }).catch(() => console.log('no controller yet'));
+await p2.waitForTimeout(1500);
+const cached = await p2.evaluate(async () => { const c = await caches.open('venezia-shell-v1'); return (await c.keys()).map((k) => new URL(k.url).pathname); });
+console.log('cached', cached.length, cached.filter((x) => /world|cards|deck/.test(x)));
+const all = await p2.evaluate(() => performance.getEntriesByType('resource').map((e) => new URL(e.name).pathname).filter((x) => /\.(js|mjs|css|woff2|svg)$/.test(x)));
+const missing = [...new Set(all)].filter((x) => !cached.includes(x));
+console.log('loaded but not cached after first visit', missing.length, missing.slice(0, 50));
+await c2.setOffline(true);
+failed.length = 0;
+await p2.reload({ waitUntil: 'load', timeout: 20000 }).catch((e) => console.log('reload offline failed', e.message.split('\n')[0]));
+await p2.waitForSelector('html[data-booted]', { timeout: 15000 }).catch(() => console.log('did not boot offline'));
+await p2.waitForTimeout(3500);
+console.log('offline after one visit', await p2.evaluate(() => ({ failedSlots: [...document.querySelectorAll('.slot-failed')].map((e) => e.parentElement.id), link: document.documentElement.dataset.link, ribbon: document.getElementById('link').textContent, ships: window.venezia ? Object.keys(venezia.store.getLiveState().ships).length : null })));
+console.log('failed', [...new Set(failed)].slice(0, 40));
+await p2.screenshot({ path: path.join(OUT, 'offline-shell-first.png') });
+await c2.setOffline(false);
+await p2.reload();
+await p2.waitForSelector('html[data-booted]');
+await p2.waitForTimeout(2500);
+await c2.setOffline(true);
+failed.length = 0;
+await p2.reload({ waitUntil: 'load', timeout: 20000 }).catch((e) => console.log('2nd reload offline failed', e.message.split('\n')[0]));
+await p2.waitForSelector('html[data-booted]', { timeout: 15000 }).catch(() => console.log('did not boot offline 2'));
+await p2.waitForTimeout(3500);
+console.log('offline after two visits', await p2.evaluate(() => ({ failedSlots: [...document.querySelectorAll('.slot-failed')].map((e) => e.parentElement.id), link: document.documentElement.dataset.link, ribbon: document.getElementById('link').textContent, stale: venezia.store.connection.get().stale, ships: Object.keys(venezia.store.getLiveState().ships).length })));
+console.log('failed', [...new Set(failed)].slice(0, 40));
+await p2.screenshot({ path: path.join(OUT, 'offline-shell-second.png') });
+console.log(errors.slice(0, 12));
+await browser.close();
+server.kill('SIGKILL');

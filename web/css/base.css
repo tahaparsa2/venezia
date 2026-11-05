@@ -1,0 +1,192 @@
+/* The shell: reset, the layout grid for every layout in docs/DESIGN.md, and the few things
+   the shell itself draws (skip links, the offline ribbon, the screen reader list).
+   Surfaces style what is inside their slot, in web/css/<surface>.css, and never the slot's
+   position. Layout thresholds live here, and layout.js reads them through --layout. */
+
+*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,h1,h2,h3,h4,p,ol,ul,dl,dd,figure{margin:0;padding:0}
+ol,ul{list-style:none}
+html{height:100%;background:var(--lagoon-deep);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{height:100%;overflow:hidden;overscroll-behavior:none;background:var(--lagoon-deep);color:var(--text-on-night);
+  font:400 var(--fs-body)/1.35 var(--serif);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  font-variant-numeric:lining-nums}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+input,textarea,select{font:inherit;color:inherit}
+a{color:inherit}
+canvas,svg,img{display:block}
+[hidden]{display:none!important}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--vellum);outline-offset:2px}
+.on-vellum :focus-visible,#slot-folio :focus-visible,#slot-cards :focus-visible{outline-color:var(--ink)}
+::selection{background:var(--verdigris-deep);color:var(--vellum)}
+#slot-folio ::selection,#slot-cards ::selection{background:var(--verdigris);color:var(--ink)}
+
+/* ---------------------------------------------------------------------- which layout */
+
+@media (orientation:landscape) and (max-height:519px){:root{--layout:landscape}}
+@media (min-width:700px) and (min-height:520px){:root{--layout:desk}}
+@media (min-width:1800px) and (min-height:520px){:root{--layout:ultrawide}}
+:root.only-deck{--layout:deckonly}
+
+/* ---------------------------------------------------------- phone: world, card, deck */
+
+#app{position:fixed;inset:0;height:100dvh;overflow:clip;display:grid;
+  grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"world" "deck"}
+
+#slot-world{grid-area:world;position:relative;min-width:0;min-height:0;overflow:hidden;z-index:var(--z-world);
+  background:var(--lagoon);transition:filter 1.2s ease}
+
+.dock{display:contents}
+
+#slot-deck{grid-area:deck;position:relative;z-index:var(--z-deck);min-width:0;container:deck/inline-size;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* The card rides on top of the world, resting on the deck. It holds no height of its own
+   when nothing is asked. */
+#slot-cards{grid-area:world;align-self:end;position:relative;z-index:var(--z-card);min-width:0;
+  padding:0 10px;container:cards/inline-size;pointer-events:none}
+#slot-cards>*{pointer-events:auto}
+
+/* Details rise as a vellum sheet above the deck. Closed, it leaves the tab order. */
+#slot-folio{grid-area:world;align-self:end;position:relative;z-index:var(--z-sheet);min-width:0;min-height:0;
+  max-height:min(76%,calc(100dvh - var(--deck-h) - var(--safe-t) - 44px));display:flex;flex-direction:column;overflow:hidden;
+  color:var(--ink);background:var(--vellum-sheet);box-shadow:var(--lift-sheet);container:folio/inline-size;
+  padding-bottom:var(--card-h);
+  visibility:hidden;transform:translateY(102%);
+  transition:transform var(--t-sheet) var(--ease-out),visibility 0s linear var(--t-sheet)}
+:root[data-panel] #slot-folio{visibility:visible;transform:none;transition:transform var(--t-sheet) var(--ease-out),visibility 0s}
+
+#slot-mosaic{display:none}
+
+/* Over everything but the deck on a phone: the first-run mouth and hold-to-talk. Empty, it
+   lets every touch through. */
+#slot-intake{grid-area:world;position:relative;z-index:var(--z-intake);min-width:0;min-height:0;pointer-events:none}
+#slot-intake>*{pointer-events:auto}
+
+/* ---------------------------------- phone landscape: world left, deck on the right edge */
+
+@media (orientation:landscape) and (max-height:519px){
+  #app{grid-template-columns:minmax(0,1fr) calc(var(--deck-col) + var(--safe-r));
+    grid-template-rows:minmax(0,1fr);grid-template-areas:"world deck"}
+  #slot-deck{height:100dvh;padding-right:var(--safe-r);overflow:hidden}
+  #slot-cards{padding:0 8px 0 max(8px,var(--safe-l))}
+  #slot-folio{justify-self:start;width:min(440px,100%);max-height:100%;height:100%;
+    padding-left:var(--safe-l)}
+}
+
+/* ------------------------- tablet and laptop: world fills, deck docks, folio on the right */
+
+@media (min-width:700px) and (min-height:520px){
+  #app{grid-template-columns:minmax(0,1fr) var(--folio-w);grid-template-rows:minmax(0,1fr);
+    grid-template-areas:"world folio"}
+
+  .dock{grid-area:world;align-self:end;justify-self:start;display:flex;flex-direction:column;align-items:stretch;
+    position:relative;z-index:var(--z-deck);min-width:0;
+    width:min(var(--deck-max),calc(100% - 2*var(--dock-margin)));
+    margin:0 0 calc(var(--dock-margin) + var(--safe-b)) calc(var(--dock-margin) + var(--safe-l));
+    pointer-events:none}
+  #slot-deck{pointer-events:auto;box-shadow:var(--lift-dock)}
+  #slot-cards{padding:0;align-self:stretch;max-width:600px;margin:0 0 var(--s3);z-index:0}
+
+  #slot-folio{grid-area:folio;align-self:stretch;max-height:none;padding-bottom:0;z-index:var(--z-card);
+    background:var(--vellum-folio);box-shadow:var(--lift-folio);
+    visibility:visible;transform:none;transition:none}
+}
+
+/* ------------------ ultrawide: world grows, folio keeps reading width, mosaic gets a column */
+
+@media (min-width:1800px) and (min-height:520px){
+  #app{grid-template-columns:minmax(0,1fr) var(--mosaic-w) 400px;grid-template-areas:"world mosaic folio"}
+  #slot-mosaic{grid-area:mosaic;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;overflow:hidden;
+    background:var(--ink);box-shadow:inset 1px 0 0 rgba(239,228,203,.08);container:mosaic/inline-size}
+}
+
+/* ---------------------------------------- /deck: the deck alone, for a phone beside a screen */
+
+:root.only-deck #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"cards" "deck";background:var(--iron-lo)}
+:root.only-deck .dock{display:contents}
+:root.only-deck #slot-cards{grid-area:cards;align-self:stretch;padding:calc(var(--safe-t) + 8px) 10px 0;margin:0;max-width:none;max-height:none;z-index:1}
+:root.only-deck #slot-deck{grid-area:deck;height:100%;width:auto;padding:0;box-shadow:none;overflow:hidden}
+
+@media (min-width:1000px) and (min-height:520px){
+  :root.only-deck #app{background:var(--lagoon-deep)}
+  :root.only-deck #slot-deck{display:flex;padding:0 var(--s4) var(--s4)}
+  :root.only-deck #slot-cards{width:100%;max-width:calc(1120px + 20px);justify-self:center}
+}
+
+/* A phone on its side beside a screen: the card takes the left, and only if one is up. */
+@media (orientation:landscape) and (max-height:519px){
+  :root.only-deck #app{grid-template-columns:minmax(0,auto) minmax(0,1fr);grid-template-rows:minmax(0,1fr);grid-template-areas:"cards deck"}
+  :root.only-deck #slot-cards{align-self:center;width:fit-content;max-width:46vw;max-height:100dvh;overflow:auto;
+    padding:8px 8px 8px max(8px,var(--safe-l));container-type:normal}
+  :root.only-deck #slot-deck{height:100dvh}
+}
+
+/* Past 200% zoom the deck cannot share the width with a decision. The card carries its own
+   keys, so while one is up the whole screen is the card, and the deck comes back after. */
+@media (max-height:340px) and (orientation:landscape){
+  :root:has(#slot-cards .card) #app{grid-template-columns:minmax(0,1fr);grid-template-areas:"world"}
+  :root:has(#slot-cards .card) #slot-deck{display:none}
+}
+
+/* ---------------------------------------------------------- states the shell itself draws */
+
+/* Lost the factory: the water goes to fog until the link comes back. Every state is drawn. */
+:root[data-link=offline] #slot-world{filter:saturate(.4) brightness(.68)}
+
+/* Skip links, then the hidden real structure behind the canvas. */
+.skips{position:fixed;left:var(--s2);top:calc(var(--safe-t) + var(--s2));z-index:var(--z-skip);display:flex;flex-direction:column;gap:var(--s1);pointer-events:none}
+.skip{position:absolute;left:0;top:0;padding:10px 14px;min-height:var(--tap);background:var(--vellum);color:var(--ink);font:500 var(--fs-label)/1.5 var(--mono);text-decoration:none;white-space:nowrap;
+  clip-path:inset(50%);pointer-events:auto}
+.skip:focus-visible{clip-path:none;outline-color:var(--ink);outline-offset:-4px}
+
+.sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+#structure{position:fixed;left:0;top:0;width:1px;height:1px;z-index:var(--z-skip)}
+#structure ol{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#structure li{height:1px;overflow:hidden}
+#structure li:has(:focus-visible){overflow:visible}
+#structure button{display:block;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;text-align:left}
+#structure button:focus-visible{position:fixed;left:var(--s2);top:calc(var(--safe-t) + var(--s2));width:auto;height:auto;max-width:calc(100vw - 16px);min-height:var(--tap);overflow:visible;clip-path:none;white-space:normal;
+  padding:10px 14px;background:var(--vellum);color:var(--ink);font:400 var(--fs-small)/1.4 var(--mono);outline-color:var(--ink);outline-offset:-4px}
+
+/* The link ribbon: a strip of vellum let down from the top of the sheet, cut like the hull
+   ribbons, only while the link to the factory is down. */
+#link{position:fixed;left:50%;top:calc(var(--safe-t) + 6px);z-index:var(--z-link);
+  width:max-content;max-width:calc(100vw - 24px);min-height:var(--tap);padding:0 26px;display:flex;align-items:center;gap:var(--s3);
+  color:var(--ink);background:var(--vellum-sheet);font:400 var(--fs-label)/1.3 var(--mono);
+  clip-path:polygon(0 0,100% 0,calc(100% - 11px) 50%,100% 100%,0 100%,11px 50%);
+  transform:translate(-50%,-160%);visibility:hidden;
+  transition:transform var(--t-sheet) var(--ease-out),visibility 0s linear var(--t-sheet)}
+#link.up{transform:translate(-50%,0);visibility:visible;transition:transform var(--t-sheet) var(--ease-out),visibility 0s}
+#link b{font:italic 700 var(--fs-body)/1 var(--serif);color:var(--vermilion-ink);white-space:nowrap}
+#link[data-tone=alarm] b{white-space:normal}
+#link[data-tone=alarm] span{white-space:normal;max-width:60ch}
+#link span{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+#link button{position:relative;min-height:var(--tap);padding:0 var(--s1);font:500 var(--fs-label)/1 var(--mono);color:var(--verdigris-ink);
+  text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+#link button:focus-visible{outline-color:var(--ink);outline-offset:-6px}
+#link[data-tone=notice] b{color:var(--ink)}
+#link{max-width:min(calc(100vw - 24px),640px)}
+/* The ribbon hangs inside the world and never crosses into the folio or the deck column. */
+:root[data-layout=landscape] #link{left:calc((100vw - var(--deck-col))/2);max-width:calc(100vw - var(--deck-col) - 16px)}
+:root[data-layout=desk] #link,:root[data-layout=ultrawide] #link{left:calc((100vw - var(--folio-w))/2);top:calc(var(--safe-t) + 72px);max-width:calc(100vw - var(--folio-w) - 40px)}
+:root[data-layout=ultrawide] #link{left:calc((100vw - 700px)/2)}
+@media (max-width:374px){#link{gap:var(--s2);padding:0 20px}#link span{display:none}#link[data-tone=notice] span,#link[data-tone=alarm] span{display:inline;white-space:normal}}
+
+/* An honest label: the demo is a scripted fleet, so nothing on screen is real work. Set up the
+   edge of the plate, where an engraver signs. */
+#demo-mark{position:absolute;z-index:5;right:8px;bottom:8px;max-width:calc(100% - 16px);padding:3px 8px;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font:400 var(--fs-micro)/1.3 var(--mono);color:var(--text-on-night);background:color-mix(in srgb,var(--lagoon-deep) 84%,transparent);box-shadow:0 0 0 .5px var(--iron-engrave-vellum)}
+:root[data-layout=desk] #demo-mark,:root[data-layout=ultrawide] #demo-mark{right:auto;left:var(--dock-margin);bottom:auto;top:calc(var(--safe-t) + 122px)}
+:root.only-deck #demo-mark{position:fixed;left:50%;right:auto;top:auto;bottom:calc(var(--safe-b) + 2px);transform:translateX(-50%);z-index:5}
+:root[data-first-run] #demo-mark,:root[data-bocca] #demo-mark{display:none}
+
+/* A surface that failed to start says so, in its own slot, without taking the others down. */
+.slot-failed{padding:var(--s4);font:400 var(--fs-label)/1.4 var(--mono);color:var(--vermilion-glow)}
+#slot-folio .slot-failed,#slot-cards .slot-failed{color:var(--vermilion-ink)}
+
+@media (prefers-reduced-motion:reduce){
+  #slot-world{transition:none}
+}

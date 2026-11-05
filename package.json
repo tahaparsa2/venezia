@@ -1,0 +1,21 @@
+{
+  "name": "venezia",
+  "version": "0.1.0",
+  "description": "An agentic factory for one person: idea in, contract, build, proof, launch, lessons.",
+  "private": true,
+  "type": "module",
+  "bin": { "vz": "bin/vz.mjs" },
+  "engines": { "node": ">=25" },
+  "scripts": {
+    "start": "node bin/vz.mjs serve",
+    "sim": "node bin/vz.mjs serve --sim",
+    "test": "node --test --test-concurrency=4 \"test/**/*.test.mjs\"",
+    "test:ui": "node test/ui/run-all.mjs",
+    "doctor": "node bin/vz.mjs doctor"
+  },
+  "dependencies": {
+    "playwright-core": "1.64.1",
+    "qrcode-generator": "2.0.4",
+    "ws": "8.18.3"
+  }
+}

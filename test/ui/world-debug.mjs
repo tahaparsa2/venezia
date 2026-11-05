@@ -1,0 +1,12 @@
+import path from 'node:path';
+import { SHOTS, launch, open, showEvents } from './world-lib.mjs';
+const app = await launch();
+const { page } = await open(app, { width: 390, height: 844, touch: true, query: 'demo=fleet&nosw=1&hour=23&ambient=0', scale: 3 });
+await showEvents(page, () => [{ type: 'ship.created', shipId: 'a', data: { idea: 'x', name: 'Marea' } }]);
+await page.addStyleTag({ content: '#slot-cards,#demo-mark,.w-rib{display:none!important}' });
+await page.waitForTimeout(1200);
+await page.screenshot({ path: path.join(SHOTS, 'debug-a.png'), clip: { x: 200, y: 90, width: 190, height: 130 } });
+await page.addStyleTag({ content: '.w-ships{display:none!important}' });
+await page.waitForTimeout(300);
+await page.screenshot({ path: path.join(SHOTS, 'debug-b.png'), clip: { x: 200, y: 90, width: 190, height: 130 } });
+await app.close();

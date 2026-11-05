@@ -1,0 +1,230 @@
+/* The world surface. An engraving under glass, with a little real DOM laid over it. Colours,
+   type and motion come from tokens.css. Gold here means a receipt, a real publish or Renown. */
+
+.w{position:absolute;inset:0;overflow:hidden;background:var(--lagoon);container:world/inline-size;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.w-stage{position:absolute;inset:0;transition:transform .6s var(--ease-out)}
+.w canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.w-city{transition:opacity 2.4s ease,filter 2.4s ease}
+.w.is-day .w-city{filter:brightness(1.22) saturate(.86)}
+.w-gloom{position:absolute;inset:0;background:var(--lagoon-deep);opacity:0;pointer-events:none}
+.w-ships{pointer-events:none}
+.w-marks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+:where(.w button){appearance:none;border:0;background:none;color:inherit;font:inherit;cursor:pointer;margin:0}
+.w button:focus-visible{outline:2px solid var(--vellum);outline-offset:2px}
+
+/* The HUD keeps its place when the stage lifts, so it needs its own night sky to sit on. */
+.w-hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(100% + 26px);z-index:-1;opacity:0;pointer-events:none;
+  background:linear-gradient(180deg,var(--lagoon-deep) calc(100% - 26px),transparent);transition:opacity .35s ease}
+.w.is-lifted .w-hud::before{opacity:1}
+/* Words on a pale sky need the night brought with them: an engraved band, not a glow. */
+.w.is-day .w-hud::before{opacity:.92;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(239,228,203,.035) 3px 4px),linear-gradient(180deg,var(--lagoon-deep) calc(100% - 26px),transparent)}
+.w.is-day .w-weather{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 88%,transparent)}
+
+/* -------------------------------------------------------------------------- the lion */
+
+.w-bocca{position:absolute;left:0;top:0;padding:0;pointer-events:auto;--voice:0;transform:var(--at);transform-origin:50% 50%;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));transition:filter .6s ease,transform 1.5s var(--ease-out)}
+.w-bocca img{display:block;width:100%;height:100%;transform:scale(calc(1 + var(--voice)*.05));transition:transform .08s linear}
+.w-bocca::after{content:"";position:absolute;inset:-6px}   /* 44 px at any lion */
+/* The mouth is a letter slot and the only lit thing. Its light is the page's, not an effect:
+   vellum, breathing wider with your voice. */
+.w-bocca-mouth{position:absolute;left:35.2%;right:35.2%;top:67.4%;height:7.2%;border-radius:1.5px;background:var(--vellum-warm);
+  mix-blend-mode:normal;opacity:calc(.4 + var(--voice)*.6);
+  box-shadow:0 0 calc(6px + var(--voice)*22px) calc(1px + var(--voice)*6px) rgba(243,233,210,.5);
+  transform:scaleY(calc(1 + var(--voice)*.9))}
+/* The breath is a drawn glow, faded. Animating the shadow itself would repaint every frame. */
+.w-bocca-mouth::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;box-shadow:0 0 16px 4px rgba(243,233,210,.62);will-change:opacity}
+.w-bocca.is-fed .w-bocca-mouth{animation:w-fed 1.6s var(--ease-out)}
+@keyframes w-fed{0%{opacity:1;box-shadow:0 0 34px 12px rgba(243,233,210,.8)}100%{opacity:.4}}
+
+/* ---------------------------------------------------------------- stations, 1 to 6 */
+
+.w-st{position:absolute;left:0;top:0;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px 0 2px;white-space:nowrap;
+  pointer-events:auto;border-radius:11px;background:var(--lagoon-deep);box-shadow:0 0 0 .5px rgba(239,228,203,.55),0 1px 5px rgba(0,0,0,.6);
+  font:500 var(--fs-micro)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--vellum);transition:opacity .25s ease,background var(--t-quick) ease}
+.w-st::after{content:"";position:absolute;inset:-11px -2px}   /* the tap target is 44 tall */
+.w-st i{display:grid;place-items:center;min-width:18px;height:18px;padding:0 3px;border-radius:9px;font:700 .75rem/1 var(--serif);letter-spacing:0;font-style:normal;
+  color:var(--vellum);box-shadow:inset 0 0 0 .5px rgba(239,228,203,.7);text-transform:none;transition:background .9s ease,color .9s ease}
+/* A numeral fills in when its window has opened: the journey reads even with no hull in sight. */
+.w-st.is-open i{background:var(--vellum);color:var(--ink)}
+.w-st.is-picked{background:var(--lagoon-lift)}
+.w-st-n{display:none;font:500 var(--fs-micro)/1 var(--mono);color:var(--lagoon-deep);background:var(--verdigris-light);padding:2px 4px;border-radius:7px;letter-spacing:0}
+.w-st.has-n .w-st-n{display:block}
+@media (hover:hover){.w-st:hover{background:var(--lagoon-lift)}}
+/* Someone here needs you, or has failed. With only some hulls named, the plaque still says so. */
+.w-st.is-need .w-st-n{background:var(--amber)}
+.w-st.is-need:not(.has-n)::before{content:"";width:7px;height:7px;margin-right:1px;order:3;transform:rotate(45deg);background:var(--amber)}
+.w-st.is-fail .w-st-n{background:var(--vermilion-glow)}
+.w-st.is-fail:not(.has-n)::before{content:"";width:7px;height:7px;margin-right:1px;order:3;background:var(--vermilion-glow)}
+/* Anything a card or the deck would slice steps out, whole, until it can be seen whole. */
+.w .is-under{opacity:0!important;pointer-events:none}
+
+/* ----------------------------------------------------------------- the hull ribbons */
+
+.w-rib{position:absolute;left:0;top:0;display:flex;align-items:baseline;gap:5px;height:21px;padding:1px 13px 0;pointer-events:auto;will-change:transform;
+  background:var(--vellum);color:var(--ink);font:italic 700 var(--fs-small)/19px var(--serif);white-space:nowrap;
+  clip-path:polygon(0 0,100% 0,calc(100% - 7px) 50%,100% 100%,0 100%,7px 50%);transition:opacity .25s ease}
+/* clip-path eats an outline, so the ring has to be drawn inside the ribbon. */
+.w .w-rib:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
+.w-rib::after{content:"";position:absolute;inset:-12px 0}    /* 44 tall */
+.w-rib em{font:500 var(--fs-micro)/1 var(--mono);font-style:normal;color:var(--ink-muted);letter-spacing:-.01em}
+.w-rib em:empty{display:none}
+.w-rib.is-sel{background:var(--vellum-warm);box-shadow:inset 0 -2px 0 var(--ink)}
+/* "Needs you" is a dark ribbon that burns, so it can never be taken for a gilded name. */
+.w-rib.is-need{background:var(--lagoon-deep);color:var(--amber);padding-inline:15px;
+  box-shadow:inset 0 0 0 2px var(--amber)}
+.w-rib.is-need em{color:var(--vellum)}
+.w .w-rib.is-need:focus-visible{outline-color:var(--vellum)}
+.w-rib.is-fail:not(.is-need) em,.w-rib.is-void em{color:var(--vermilion-ink)}
+.w-rib.is-gilt:not(.is-need):not(.is-fail){background:var(--gold-light)}
+.w-rib.is-gilt:not(.is-need):not(.is-fail) em{color:var(--ink-soft)}
+
+/* The basin's one tag: however many hulls lie here, they are counted once. */
+.w-rib.w-moor{gap:6px;height:22px;padding:0 10px;border-radius:11px;clip-path:none;align-items:center;background:var(--lagoon-deep);color:var(--vellum);
+  box-shadow:0 0 0 .5px rgba(239,228,203,.55),0 1px 5px rgba(0,0,0,.6);font:italic 700 var(--fs-small)/1 var(--serif)}
+.w-rib.w-moor[hidden]{display:none}
+.w-rib.w-moor em{color:var(--verdigris-light)}
+.w-rib.w-moor.is-picked{background:var(--lagoon-lift)}
+
+/* ---------------------------------------------------------- who is at a station */
+
+.w-who{position:absolute;left:0;top:0;width:min(244px,calc(100% - 16px));z-index:3;padding:10px 12px 8px;color:var(--ink);
+  background:var(--vellum-sheet);box-shadow:0 8px 22px rgba(0,0,0,.55)}
+.w-who-head{display:flex;gap:6px;align-items:baseline;margin:0;font:700 var(--fs-body)/1.2 var(--serif)}
+.w-who-head i{font-style:normal;color:var(--vermilion-ink)}
+.w-who-blurb{margin:2px 0 6px;font:italic 400 var(--fs-small)/1.25 var(--serif);color:var(--ink-soft)}
+.w-who-none{margin:0 0 4px;font:400 var(--fs-label)/1.4 var(--mono);color:var(--ink-muted)}
+.w-who ul{list-style:none;margin:0;padding:0;max-height:220px;overflow:auto;-webkit-overflow-scrolling:touch}
+.w-who li+li{border-top:.5px solid var(--rule-soft)}
+.w-who li button{display:flex;justify-content:space-between;align-items:baseline;gap:10px;width:100%;min-height:var(--tap);padding:0 2px;text-align:left;
+  font:italic 700 var(--fs-body)/1 var(--serif);color:var(--ink)}
+.w-who li em{font:400 var(--fs-label)/1 var(--mono);font-style:normal;color:var(--ink-muted)}
+.w-who button:focus-visible{outline-color:var(--ink)}
+
+/* ---------------------------------------------------------------------- the HUD */
+
+.w-hud{position:absolute;left:0;right:0;top:0;isolation:isolate;padding:calc(9px + var(--safe-t)) 14px 0;display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:start;pointer-events:none;
+  text-shadow:0 0 3px var(--lagoon),0 0 6px var(--lagoon),0 1px 2px var(--lagoon-deep);transition:opacity 1.6s ease}
+.w-purse{display:flex;flex-direction:column;gap:1px;min-width:0}
+.w-fame{align-items:flex-end;text-align:right}
+.w-k{font:500 var(--fs-micro)/1.2 var(--mono);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--verdigris-light)}
+.w-k-gold{color:var(--gold-light)}
+.w-v{display:flex;align-items:baseline;gap:4px}
+.w-v b{font:700 var(--fs-title)/1.1 var(--serif);color:var(--vellum);font-variant-numeric:lining-nums tabular-nums}
+.w-fame .w-v b{color:var(--gold-light)}
+.w-u{font:italic 400 var(--fs-small)/1 var(--serif);color:var(--vellum)}
+.w-s{font:400 var(--fs-micro)/1.25 var(--mono);color:var(--vellum)}
+.w-meter{display:flex;gap:1.5px;height:6px;margin:1px 0 2px;width:92px}
+.w-meter i{flex:1;background:repeating-linear-gradient(0deg,var(--verdigris-light) 0 1px,transparent 1px 2px);opacity:.3}
+.w-meter i.on{background:var(--verdigris-light);opacity:1}
+.w-title{display:flex;flex-direction:column;align-items:center;gap:5px;padding-top:1px}
+.w-venetie{font:400 .8125rem/1 var(--serif);letter-spacing:.42em;margin-right:-.42em;color:var(--vellum)}
+.w-tilerow{display:flex;align-items:center;gap:5px}
+/* A small tidy block at every width: gold stays precious here, and the wall is the mosaic. */
+.w-tiles{display:grid;grid-template-columns:repeat(6,9px);grid-auto-rows:9px;gap:2px;justify-content:center}
+.w-tally{font:500 var(--fs-micro)/1 var(--mono);color:var(--gold-light)}
+.w-tally:empty{display:none}
+.w-tiles i{width:9px;height:9px;display:block;background:var(--gold-face);box-shadow:0 0 0 .5px var(--gold-wire);transform:rotate(var(--r,0deg))}
+.w-tiles i.is-dull{background:linear-gradient(135deg,var(--tile-dark-edge),var(--tile-dark));box-shadow:0 0 0 .5px var(--tile-dark-edge)}
+.w-tiles i.is-dim{opacity:.35;filter:saturate(.3)}
+.w-tiles i.is-new{animation:w-set 1.1s cubic-bezier(.2,1.5,.3,1) both}
+@keyframes w-set{from{transform:scale(3.2) rotate(30deg);opacity:0}to{transform:scale(1) rotate(var(--r,0deg));opacity:1}}
+
+.w-weather{position:absolute;left:0;top:0;display:flex;flex-direction:column;line-height:1.1;pointer-events:none;
+  text-shadow:0 0 3px var(--lagoon),0 0 6px var(--lagoon);transition:opacity 1.6s ease}
+.w-weather b{font:italic 700 var(--fs-body)/1.05 var(--serif);color:var(--vellum)}
+.w-weather span{font:400 var(--fs-micro)/1.3 var(--mono);color:var(--vellum);white-space:nowrap}
+
+/* --------------------------------------------------------------- the first night */
+
+/* The water goes quiet behind the first words, so no engraved line runs through them. */
+.w-veil{position:absolute;left:0;right:0;top:calc(var(--lion-b,40%) - 4px);height:236px;pointer-events:none;opacity:0;transition:opacity 1.2s ease;
+  background:radial-gradient(74% 50% at 50% 50%,var(--lagoon) 58%,transparent 100%)}
+.w.is-empty .w-veil{opacity:.94}
+
+/* The intake surface can take over these words by marking its own copy. */
+#app:has(#slot-intake [data-first-run-copy]) .w-first{display:none}
+
+.w-first{position:absolute;left:0;right:0;top:calc(var(--lion-b,40%) + 34px);margin:0;padding:0 var(--gutter);text-align:center;pointer-events:none;
+  font:italic 400 var(--fs-title)/1.25 var(--serif);color:var(--vellum);text-shadow:0 0 6px var(--lagoon),0 0 12px var(--lagoon);
+  opacity:0;visibility:hidden;transition:opacity 1.2s ease,visibility 0s linear 1.2s}
+.w.is-empty .w-first{opacity:1;visibility:visible;transition:opacity 1.2s ease .3s}
+.w.is-empty .w-city{opacity:.14}
+.w.is-empty .w-hud,.w.is-empty .w-weather,.w.is-empty .w-st{opacity:0;pointer-events:none}
+.w.is-empty .w-st{visibility:hidden}
+.w.is-empty .w-bocca{transform:var(--night);filter:drop-shadow(0 0 14px rgba(243,233,210,.22))}
+.w.is-empty .w-bocca-mouth{opacity:calc(.82 + var(--voice)*.18)}
+.w.is-empty .w-bocca-mouth::after{animation:w-breathe 6s ease-in-out infinite}
+:root[data-away] .w.is-empty .w-bocca-mouth::after{animation-play-state:paused}
+@keyframes w-breathe{50%{opacity:1}}
+/* When the first hull comes out, the street lights one window at a time. */
+.w:not(.is-empty) .w-st:nth-child(2){transition-delay:.3s}
+.w:not(.is-empty) .w-st:nth-child(3){transition-delay:.6s}
+.w:not(.is-empty) .w-st:nth-child(4){transition-delay:.9s}
+.w:not(.is-empty) .w-st:nth-child(5){transition-delay:1.2s}
+.w:not(.is-empty) .w-st:nth-child(6){transition-delay:1.5s}
+
+/* -------------------------------------------------------------------- the Sensa */
+
+.w-sensa{position:absolute;left:0;right:0;top:calc(112px + var(--safe-t));display:flex;justify-content:center;pointer-events:none;z-index:4}
+.w-sensa-rib{position:relative;width:min(372px,calc(100% - 16px));padding:11px 30px 12px;text-align:center;color:var(--ink);background:var(--vellum-sheet);
+  box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;clip-path:polygon(50% 0,50% 0,50% 100%,50% 100%);
+  transition:clip-path .6s var(--ease-out),opacity .3s ease}
+.w-sensa.is-on .w-sensa-rib{opacity:1;clip-path:polygon(0 0,100% 0,calc(100% - 15px) 50%,100% 100%,0 100%,15px 50%,0 0)}
+.w-sensa-rib::before{content:"";position:absolute;left:18px;right:18px;top:4px;bottom:4px;border-top:.5px solid var(--rule);border-bottom:.5px solid var(--rule)}
+.w-sensa-lat{margin:0;font:italic 400 var(--fs-head)/1.05 var(--serif);color:var(--ink)}
+/* The peak of the product was earned, so its one rule is gold. */
+.w-sensa-rib::after{content:"";position:absolute;left:28%;right:28%;top:calc(100% - 7px);height:1.5px;background:var(--gold-face)}
+.is-failed .w-sensa-lat{color:var(--vermilion-ink)}
+.w-sensa-rib.is-failed::after{display:none}
+.w-sensa-pl{margin:4px 0 0;font:400 var(--fs-body)/1.2 var(--serif);color:var(--ink)}
+.w-sensa-ln{margin:1px 0 0;font:400 var(--fs-micro)/1.4 var(--mono);color:var(--ink-soft);overflow-wrap:anywhere}
+.w-sensa-ln a{color:var(--verdigris-ink);pointer-events:auto;text-underline-offset:3px}
+.w.is-sensa .w-st,.w.is-sensa .w-rib{opacity:0;pointer-events:none}
+@container world (min-width:760px){
+  .w-sensa{top:92px}
+  .w-sensa-rib{width:640px;padding:16px 40px 18px}
+  .w-sensa-lat{font-size:var(--fs-display)}
+  .w-sensa-pl{font-size:var(--fs-title);margin-top:6px}
+  .w-sensa-ln{font-size:var(--fs-label)}
+}
+
+/* --------------------------------------------------------------------- the past */
+
+:root[data-layout=desk] .w-past,:root[data-layout=ultrawide] .w-past{display:none}
+.w-past{position:absolute;left:50%;top:calc(var(--safe-t) + 66px);transform:translateX(-50%);margin:0;padding:3px 10px;
+  background:var(--vellum);color:var(--ink);font:500 var(--fs-micro)/1.4 var(--mono);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--t-quick) ease}
+.w-past.is-on{opacity:1}
+.w.is-past .w-water{filter:saturate(.55)}
+
+/* -------------------------------------------------------------- wider and shorter */
+
+@container world (min-width:760px){
+  .w-hud{padding:14px 26px 0}
+  .w-venetie{font-size:1.25rem}
+  .w-tiles{grid-template-columns:repeat(6,12px);grid-auto-rows:12px}
+  .w-tiles i{width:12px;height:12px}
+  .w-meter{width:120px}
+  .w-v b{font-size:var(--fs-head)}
+  .w-st{height:24px;font-size:var(--fs-label);padding-right:10px}
+  .w-st i{min-width:20px;height:20px;font-size:.875rem}
+  .w-rib{height:23px;font-size:var(--fs-body);line-height:21px}
+  .w-weather b{font-size:var(--fs-title)}
+}
+.w[data-chart=low] .w-hud{padding-top:calc(6px + var(--safe-t))}
+.w[data-chart=low] .w-meter,.w[data-chart=low] .w-title,.w[data-chart=low] .w-s{display:none}
+.w[data-chart=low] .w-hud{grid-template-columns:1fr 1fr}
+.w[data-chart=low] .w-k{display:none}
+.w[data-chart=low] .w-v b{font-size:var(--fs-body)}
+.w[data-chart=low] .w-weather{flex-direction:row;align-items:baseline;gap:6px}
+.w[data-chart=low] .w-weather b{font-size:var(--fs-small)}
+
+@media (prefers-reduced-motion:reduce){
+  .w-stage,.w-city,.w-hud,.w-weather,.w-first,.w-st,.w-rib,.w-sensa-rib{transition:none}
+  .w.is-empty .w-bocca-mouth::after,.w-bocca-mouth,.w-tiles i.is-new{animation:none}
+  .w:not(.is-empty) .w-st{transition-delay:0s}
+}
+
+/* On a phone the weather line runs over the mountains, so it carries its own dark plate. */
+:root[data-layout=phone] .w-weather{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 82%,transparent)}

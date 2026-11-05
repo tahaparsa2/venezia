@@ -1,0 +1,158 @@
+/* Venezia design tokens. Binding rules are in docs/DESIGN.md. Every colour, size and curve in
+   web/ comes from here, so a surface never invents one.
+
+   Gold means verified, and nothing else. The --gold-* tokens may only colour tesserae,
+   gilded hulls, receipts, the ring during a real publish, and Renown. If it was not earned
+   it must not be gold. Vermilion is danger and failure. Verdigris is action and working
+   water. Vellum is what you read. Amber is "needs you". The --lamp-* colours appear on the
+   lamps and nowhere else. */
+
+/* Type. Cardo is an Aldine revival, the voice of Venetian print, used for what you read as
+   language. DM Mono is used for what you read as an instrument. Both are vendored, OFL. */
+@font-face{font-family:'Cardo';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/cardo-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Cardo';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/cardo-latin-ext-400-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Cardo';font-style:italic;font-weight:400;font-display:swap;src:url(/fonts/cardo-latin-400-italic.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Cardo';font-style:italic;font-weight:400;font-display:swap;src:url(/fonts/cardo-latin-ext-400-italic.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Cardo';font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/cardo-latin-700-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Cardo';font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/cardo-latin-ext-700-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'DM Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/dm-mono-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'DM Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/dm-mono-latin-ext-400-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'DM Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/dm-mono-latin-500-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'DM Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/dm-mono-latin-ext-500-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+:root{
+  /* --- water and night --- */
+  --lagoon:#0B1F24;
+  --lagoon-deep:#071619;
+  --lagoon-lift:#12303A;
+
+  /* --- line work --- */
+  --verdigris:#3E8E7E;          /* lines and fills, not small text on lagoon */
+  --verdigris-light:#79C2B0;    /* text on lagoon and iron, 8.2:1 and 7.5:1 */
+  --verdigris-deep:#1F5A4E;
+  --verdigris-ink:#1C6355;      /* verdigris text on vellum, 5.6:1 */
+
+  /* --- gold: earned only --- */
+  --gold:#D9A93A;
+  --gold-light:#F2CF7A;
+  --gold-pale:#FFF0B8;
+  --gold-deep:#8E6A1E;
+  --gold-wire:#5A3C0C;
+  --gold-face:linear-gradient(135deg,var(--gold-pale),var(--gold) 45%,var(--gold-deep));
+
+  /* --- danger --- */
+  --vermilion:#C8391F;          /* fills and large marks */
+  --vermilion-ink:#A42A14;      /* text on vellum, 5.7:1 */
+  --vermilion-glow:#EE7A61;     /* text on lagoon and iron, 6.1:1 and 5.6:1 */
+
+  /* --- needs you --- */
+  --amber:#FF9330;              /* a hot orange, so it can never be read as gold */
+
+  /* --- what you read --- */
+  --vellum:#EFE4CB;
+  --vellum-warm:#F3E9D2;
+  --vellum-shade:#E2D3B0;
+  --vellum-edge:#D9CBA8;
+  --ink:#1B1A17;
+  --ink-soft:#33291A;
+  --ink-muted:#5C4A2C;          /* 6.7:1 on vellum, 5.7:1 on shade */
+  --rule:rgba(27,26,23,.5);
+  --rule-soft:rgba(27,26,23,.22);
+  --text-on-night:#EFE4CB;
+  --text-on-night-soft:#C4CFC6; /* 10.6:1 on lagoon */
+
+  /* --- blackened iron: the deck. Never brass. --- */
+  --iron-hi:#3C3A35;
+  --iron:#26241F;
+  --iron-lo:#191714;
+  --iron-well:#0C0B09;
+  --iron-rim:rgba(239,228,203,.14);
+  --iron-engrave:rgba(121,194,176,.34);  /* verdigris hairline cut into the plate */
+  --iron-engrave-vellum:rgba(239,228,203,.26);
+  --enamel-reject:#B2301A;
+  --enamel-reject-skirt:#5D1507;
+  --enamel-approve:#2A7464;
+  --enamel-approve-skirt:#123E36;
+  --enamel-quiet:#46443E;       /* a "no" that costs nothing is not a warning */
+  --enamel-quiet-skirt:#1C1A17;
+
+  /* --- lamps: status colours live here and only here. Shape carries the same meaning. --- */
+  --lamp-white:#F5EEDC;
+  --lamp-blue:#5EA8E0;
+  --lamp-green:#57C58A;
+  --lamp-amber:#F0A83A;
+  --lamp-red:#EC4A2B;
+  --lamp-off:#2A2925;
+  --tile-dark:#2B3638;           /* a failed gate: dull glass, kept honest */
+  --tile-dark-edge:#4D6063;
+
+  /* --- paper grain, for any vellum surface --- */
+  --laid-lines:repeating-linear-gradient(0deg,rgba(90,60,12,.035) 0 1px,transparent 1px 3px);
+  --vellum-sheet:var(--laid-lines),linear-gradient(180deg,var(--vellum-warm),#E9DCBC);
+  --vellum-folio:var(--laid-lines),linear-gradient(95deg,var(--vellum-edge),var(--vellum) 7%,#F2E8D1 60%,#EDE1C6);
+
+  /* --- text --- */
+  --serif:'Cardo','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --mono:'DM Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --fs-micro:.6875rem;   /* 11, the floor for readable text */
+  --fs-label:.75rem;     /* 12 */
+  --fs-small:.875rem;    /* 14 */
+  --fs-body:1rem;        /* 16 */
+  --fs-read:1.0625rem;   /* 17 */
+  --fs-title:1.3125rem;  /* 21 */
+  --fs-head:1.75rem;     /* 28 */
+  --fs-display:2.75rem;  /* 44 */
+  --tracking-caps:.12em;
+
+  /* --- space, on a 4 px beat --- */
+  --s1:.25rem; --s2:.5rem; --s3:.75rem; --s4:1rem; --s5:1.25rem; --s6:1.5rem; --s8:2rem;
+  --gutter:16px;
+  --tap:44px;            /* the smallest hit target anywhere */
+
+  /* --- the shell --- */
+  --folio-w:clamp(300px,30vw,372px);
+  --mosaic-w:300px;
+  --deck-col:clamp(244px,38vw,316px);
+  --deck-max:860px;
+  --dock-margin:20px;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-r:env(safe-area-inset-right,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);
+
+  /* written by layout.js, measured from the real boxes */
+  --deck-h:0px;
+  --card-h:0px;
+
+  /* --- stacking, lowest first --- */
+  --z-world:0;
+  --z-sheet:20;
+  --z-card:30;
+  --z-deck:40;
+  --z-intake:50;
+  --z-link:60;
+  --z-skip:70;
+
+  /* --- motion --- */
+  --ease-out:cubic-bezier(.2,.7,.2,1);
+  --ease-in:cubic-bezier(.5,0,.8,.4);
+  --ease-key:cubic-bezier(.2,.9,.3,1);
+  --t-key:60ms;
+  --t-quick:200ms;
+  --t-sheet:420ms;
+  --t-card:750ms;
+  --print:steps(14,end);   /* the card rises as if drawn from a press */
+
+  /* --- elevation --- */
+  --lift-sheet:0 -8px 22px rgba(0,0,0,.42);
+  --lift-dock:0 18px 40px rgba(0,0,0,.6);
+  --lift-folio:-10px 0 28px rgba(0,0,0,.55);
+
+  /* Which layout is active. layout.js reads this, so CSS is the one source of truth. */
+  --layout:phone;
+  color-scheme:dark;
+}
+
+@media (prefers-reduced-motion:reduce){
+  :root{--t-quick:0ms;--t-sheet:0ms;--t-card:0ms}
+}

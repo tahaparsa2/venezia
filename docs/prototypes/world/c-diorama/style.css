@@ -1,0 +1,248 @@
+/* Type: Cardo is David Perry's revival of the Aldine roman of 1495, cut in Venice, with the
+   italic Aldus's press made famous. IBM Plex Mono carries telemetry and engraving: square,
+   exact, and its own italic keeps a typewriter's manners next to a humanist face. */
+:root{
+  --lagoon:#0B1F24; --verd:#3E8E7E; --gold:#D9A93A; --verm:#C8391F; --ink:#1B1A17; --vellum:#EFE4CB;
+  --verm-ink:#A42C16;            /* 5.3:1 on vellum; #C8391F is only 3.9:1 */
+  --lamp-idle:#f4efe2; --lamp-work:#58a9ff; --lamp-done:#49d68f; --lamp-need:#ffb12e; --lamp-fail:#ff4630;
+  --body-hi:#4c4538; --body:#2a2620; --body-lo:#181613;
+  --deck-w:min(calc(100vw - 16px),414px);
+  --serif:'Cardo','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --safe:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--lagoon);color:var(--vellum);overscroll-behavior:none}
+body{font-family:var(--serif);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+canvas#world{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;display:block;touch-action:none}
+#labels,#fly{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#labels{z-index:2}#fly{z-index:30}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* HUD: set straight on the table, like a printed legend */
+#hud{position:fixed;z-index:5;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 26px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;
+  background:linear-gradient(to bottom,rgba(6,16,20,.74),rgba(6,16,20,.42) 62%,transparent);pointer-events:none}
+.hud-cell{display:flex;flex-direction:column;gap:1px;text-align:left;pointer-events:auto;min-height:44px}
+.hud-cell.weather{justify-self:center;align-items:center;text-align:center}
+.hud-cell.renown{align-items:flex-end;text-align:right;padding-right:0}
+.hud-k{font:500 9.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#bfc9c0}
+.hud-v{display:flex;align-items:baseline;gap:5px;font-size:22px;line-height:1.08;color:var(--vellum);text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.hud-v b{font-weight:400;font-variant-numeric:oldstyle-nums}
+.hud-v small{font:italic 400 13px var(--serif);color:#d8cdb4}
+.hud-s{font:400 10px/1.3 var(--mono);color:#b9c6c2;letter-spacing:.01em;white-space:nowrap}
+.weather .hud-v{align-items:center}
+#vane{color:var(--gold);transition:transform 1.2s cubic-bezier(.3,1.5,.5,1)}
+.tiles{display:flex;gap:2px;margin-top:3px;height:10px;align-items:flex-end;justify-content:flex-end}
+.tile{width:9px;height:9px;border-radius:1px;background:linear-gradient(calc(var(--r)*1deg + 130deg),#7b5414 0%,#e0b347 34%,#fff0b7 50%,#d9a93a 66%,#8b6118);background-size:260% 260%;animation:shimmer 7s linear infinite;animation-delay:calc(var(--r)*-.33s);box-shadow:0 0 5px rgba(217,169,58,.5);transform:rotate(calc(var(--r)*.5deg))}
+.tile.dark{background:linear-gradient(135deg,#2b2e2f,#4b4f50 45%,#1e2122);box-shadow:none;animation:none}
+@keyframes shimmer{to{background-position:260% 260%}}
+.plain-toggle,.sound-toggle{position:absolute;top:calc(env(safe-area-inset-top,0px) + 66px);pointer-events:auto;height:26px;font:500 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#c8d1cb;display:flex;align-items:center;justify-content:center;border-radius:13px;background:rgba(7,18,22,.5);border:1px solid rgba(239,228,203,.2)}
+.plain-toggle{left:50px;width:56px}.sound-toggle{left:14px;width:32px}
+.plain-toggle[aria-pressed=true]{color:var(--ink);background:var(--vellum)}
+.sound-toggle[aria-pressed=false] .w{display:none}.sound-toggle[aria-pressed=false]{opacity:.6}
+
+/* Tags in the world: pins stuck in the model */
+.tag{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
+.flag{position:absolute;left:0;top:0;padding:2px 7px 3px 6px;background:var(--vellum);color:var(--ink);border-radius:0 2px 2px 0;box-shadow:0 3px 7px rgba(0,0,0,.45),inset 0 0 0 .5px rgba(90,70,30,.35);white-space:nowrap;line-height:1.05;border-radius:2px}
+.flag b{display:flex;align-items:center;gap:4px;font:italic 700 13.5px/1.1 var(--serif)}
+.flag b::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c,#999);box-shadow:0 0 0 .5px rgba(0,0,0,.35)}
+.flag i{display:none;font:500 9.5px/1.25 var(--mono);font-style:normal;color:#433d31;letter-spacing:-.01em}
+.tag.sel .flag i,.tag.attn .flag i{display:block}
+.tag .lead{position:absolute;left:0;top:-.5px;height:1px;background:rgba(245,230,190,.85);transform-origin:0 50%;box-shadow:0 1px 2px rgba(0,0,0,.7)}
+.tag .pin{position:absolute;left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,#b88a2c 60%,#664917);box-shadow:0 0 2px rgba(0,0,0,.7)}
+.tag.sel .flag{box-shadow:0 3px 9px rgba(0,0,0,.5),0 0 0 1.5px var(--gold),0 0 14px rgba(217,169,58,.5)}
+.sta{position:absolute;left:0;top:0;will-change:transform;font:600 9.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:#f5e6be;text-shadow:0 1px 2px #000,0 0 7px #000,0 0 2px #000;white-space:nowrap}
+.sta::before{content:'';display:inline-block;width:10px;height:1px;background:#efd893;vertical-align:3px;margin-right:4px;box-shadow:0 1px 1px #000}
+.sta.here{color:var(--gold)}
+.tag,.sta{transition:opacity .4s}
+body.ceremony .tag:not(.sel),body.ceremony .sta{opacity:0}
+
+/* Console stack */
+#console{position:fixed;z-index:6;left:50%;bottom:0;width:var(--deck-w);transform:translateX(-50%);pointer-events:none}
+
+/* Decision slip: feeds up out of the slot in the deck */
+#card{position:absolute;left:9px;right:9px;bottom:calc(100% - 22px);padding:9px 12px 24px;background-color:var(--vellum);color:var(--ink);
+  background-image:var(--paper),linear-gradient(180deg,#f6edd9,#ebdfc4);background-blend-mode:multiply;
+  box-shadow:0 -6px 22px rgba(0,0,0,.5),inset 0 0 26px rgba(150,110,50,.12);pointer-events:auto;
+  clip-path:polygon(0 3px,4% 1px,9% 3px,15% 0,22% 2px,30% 1px,38% 3px,47% 1px,55% 3px,63% 0,71% 2px,79% 1px,86% 3px,93% 1px,100% 2px,100% 100%,0 100%);
+  transform:translateY(calc(100% + 2px));transition:transform .85s steps(11,end);z-index:0;will-change:transform}
+#card.in{transform:translateY(0)}
+.card-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px}
+.stamp{flex:none;font:600 9.5px/1 var(--mono);text-transform:uppercase;color:#1f5b4e;border:1.2px solid #1f5b4e;padding:2px 5px 1.5px;border-radius:2px;transform:rotate(-2deg);letter-spacing:.06em}
+#card h1{margin:0;font:400 20px/1.12 var(--serif);letter-spacing:-.012em;text-wrap:balance}
+#card p{margin:0}
+#cardBody{font:400 16.5px/1.2 var(--serif);color:#2c2a24}
+.card-foot{display:flex;gap:6px;align-items:center;margin-top:5px;border-top:1px solid rgba(27,26,23,.2);padding-top:4px}
+#cardHint{font:italic 400 13.4px/1.15 var(--serif);color:#4a3a1c;flex:1;letter-spacing:-.005em}
+.point{color:var(--verm-ink);flex:none}
+#card.holding #cardHint{color:var(--verm-ink)}
+#card.done .stamp{color:#7c5a10;border-color:#7c5a10}
+#card.nudge{animation:nudge .4s}
+@keyframes nudge{20%{margin-left:-5px}50%{margin-left:4px}80%{margin-left:-2px}}
+#replay{display:block;margin-top:6px;font:600 11px var(--mono);letter-spacing:.02em;color:var(--ink);text-decoration:underline;text-underline-offset:3px;min-height:30px}
+#replay[hidden]{display:none}
+
+/* The deck: a milled block, bead blasted bronze, brass at the chamfer */
+#deck{position:relative;z-index:2;pointer-events:auto;padding:12px 11px calc(10px + var(--safe));border-radius:20px 20px 12px 12px;
+  background-image:var(--grain),radial-gradient(120% 90% at 50% -10%,#5a4f3e 0,transparent 55%),linear-gradient(176deg,var(--body-hi) 0,var(--body) 9%,#201d18 62%,var(--body-lo) 100%);
+  background-blend-mode:overlay,normal,normal;
+  box-shadow:0 -1px 0 #a98a4a,0 -2px 0 #4a3b1e,0 -16px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,236,190,.38),inset 0 2px 1px rgba(255,236,190,.1),inset 0 -2px 4px rgba(0,0,0,.6)}
+#deck .slot{position:absolute;left:14px;right:14px;top:4px;height:3px;border-radius:2px;background:#050404;box-shadow:inset 0 1px 1px #000,0 1px 0 rgba(255,236,190,.2)}
+.screw{position:absolute;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#a59a84,#4c4639 65%,#26231e);box-shadow:0 1px 0 rgba(255,236,190,.2),inset 0 0 1px #000}
+.screw::after{content:'';position:absolute;left:1px;right:1px;top:3.3px;height:1.3px;background:#191714;transform:rotate(var(--a,24deg))}
+.s1{left:3px;top:8px}.s2{right:3px;top:8px;--a:-40deg}.s3{left:3px;bottom:calc(5px + var(--safe));--a:70deg}.s4{right:3px;bottom:calc(5px + var(--safe));--a:12deg}
+.perimeter{position:absolute;inset:-2px;border-radius:22px 22px 13px 13px;padding:2.5px;opacity:0;transition:opacity .25s;pointer-events:none;
+  background:conic-gradient(from var(--sweep,0deg),transparent 0 62%,rgba(90,235,190,.25) 72%,#6ff5c9 88%,#d7fff0 93%,transparent 94%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+@property --sweep{syntax:'<angle>';inherits:false;initial-value:0deg}
+#deck.talking .perimeter{opacity:1;animation:sweep 1.5s linear infinite}
+#deck.processing .perimeter{opacity:1;filter:grayscale(1) brightness(1.4);animation:sweep .7s linear infinite}
+@keyframes sweep{to{--sweep:360deg}}
+
+/* Six lamps: frosted glass tesserae in a milled pocket */
+#lamps{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:6px 7px 3px;border-radius:9px;background:linear-gradient(180deg,#0e0d0b,#14120f);box-shadow:inset 0 2px 5px #000,inset 0 -1px 0 rgba(255,236,190,.05),0 1px 0 rgba(255,236,190,.14)}
+.lamp{position:relative;display:flex;flex-direction:column;align-items:stretch;min-width:0;--c:var(--lamp-idle);touch-action:manipulation}
+.lamp .glass{position:relative;display:block;height:39px;border-radius:5px;transition:transform .07s cubic-bezier(.3,0,.6,1),box-shadow .07s;
+  background:radial-gradient(90% 90% at 50% 42%,color-mix(in srgb,var(--c) 92%,#fff 8%) 0,color-mix(in srgb,var(--c) 66%,#000 34%) 62%,color-mix(in srgb,var(--c) 30%,#000 70%) 100%);
+  box-shadow:0 3px 0 color-mix(in srgb,var(--c) 22%,#000 78%),0 4px 3px rgba(0,0,0,.8),0 0 calc(10px + var(--pulse,0)*14px) color-mix(in srgb,var(--c) 62%,transparent),inset 0 1px 0 rgba(255,255,255,.52),inset 0 -6px 9px rgba(0,0,0,.26)}
+.lamp .glass::after{content:'';position:absolute;inset:0;border-radius:inherit;background-image:var(--grain);background-size:60px;opacity:.55;mix-blend-mode:soft-light}
+.lamp .sym{position:absolute;inset:0;display:grid;place-items:center;color:rgba(14,12,8,.8);z-index:1}
+.lamp .nm{display:block;margin-top:5px;font:italic 400 12.5px/1.2 var(--serif);color:#d9ceb5;text-align:center;overflow:hidden;text-overflow:clip;white-space:nowrap;letter-spacing:-.01em;min-height:16px}
+.lamp.down .glass{transform:translateY(3px);box-shadow:0 0 0 #000,0 1px 2px rgba(0,0,0,.8),0 0 22px color-mix(in srgb,var(--c) 80%,transparent),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 6px rgba(0,0,0,.2)}
+.lamp.sel .nm{color:var(--gold)}
+.lamp.sel .nm::after{content:'';display:block;height:1.5px;margin:0 22%;background:var(--gold);border-radius:1px}
+.lamp[data-s=idle]{--c:var(--lamp-idle)}.lamp[data-s=work]{--c:var(--lamp-work)}.lamp[data-s=done]{--c:var(--lamp-done)}.lamp[data-s=need]{--c:var(--lamp-need)}.lamp[data-s=fail]{--c:var(--lamp-fail)}
+.lamp[data-s=need] .glass{animation:breathe 1.9s ease-in-out infinite}
+.lamp[data-s=fail] .glass{animation:breathe .9s ease-in-out infinite}
+.lamp[data-s=work] .glass{animation:work 2.8s ease-in-out infinite}
+@keyframes breathe{50%{filter:brightness(1.32);--pulse:1}}
+@keyframes work{50%{filter:brightness(1.16)}}
+
+.deck-low{display:grid;grid-template-columns:1fr 128px;gap:9px;margin-top:9px;align-items:stretch}
+.deck-left{display:flex;flex-direction:column;gap:7px;min-width:0}
+.tape{position:relative;height:28px;border-radius:5px;background:#0a0908;box-shadow:inset 0 2px 4px #000,0 1px 0 rgba(255,236,190,.14);overflow:hidden}
+.tape-paper{position:absolute;inset:3px 3px;background-image:var(--paper),linear-gradient(#efe4cb,#dfd2b4);background-blend-mode:multiply;border-radius:2px;display:flex;align-items:center;padding:0 7px;font:500 10.5px/1 var(--mono);color:var(--ink);white-space:nowrap;overflow:hidden;letter-spacing:-.02em;box-shadow:inset 0 2px 3px rgba(0,0,0,.4);transition:opacity .15s}
+#tapeText{display:block}
+@keyframes tapeRun{to{transform:translateX(var(--over,0))}}
+#voice{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .15s}
+#deck.talking #voice,#deck.processing #voice{opacity:1}
+#deck.talking .tape-paper,#deck.processing .tape-paper{opacity:0}
+.keyrow{display:grid;grid-template-columns:1fr 1fr;gap:7px;flex:1}
+
+/* Keys: socket, stem light, cap with a visible wall that shortens as it travels */
+.key{position:relative;display:block;width:100%;height:60px;--cap:#d9ccb0;--capd:#bfae8d;--wall:#7e7056;--leg:#25221c;--light:#ffe7b0;touch-action:none}
+.key .well{position:absolute;inset:0;border-radius:11px;background:#080706;box-shadow:inset 0 2px 5px #000,0 1px 0 rgba(255,236,190,.16)}
+.key .well::after{content:'';position:absolute;inset:3px;border-radius:9px;background:radial-gradient(70% 90% at 50% 100%,var(--light),transparent 72%);opacity:.12;transition:opacity .08s}
+.key .cap{position:absolute;left:4px;right:4px;top:3px;bottom:9px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--leg);
+  background:radial-gradient(85% 130% at 50% 26%,color-mix(in srgb,var(--cap) 92%,#fff 8%) 0,var(--cap) 46%,var(--capd) 100%);
+  box-shadow:0 1.5px 0 var(--wall),0 3px 0 var(--wall),0 5px 0 color-mix(in srgb,var(--wall) 74%,#000 26%),0 6px 4px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.55),inset 0 0 0 .5px rgba(0,0,0,.2),inset 0 -3px 5px rgba(0,0,0,.12);
+  transition:transform .13s cubic-bezier(.2,1.6,.4,1),box-shadow .13s cubic-bezier(.2,1.6,.4,1),filter .1s}
+.key .legend{font:600 11.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.28)}
+.key .glyph{display:grid;place-items:center}
+.key::after{content:'';position:absolute;inset:-18px;border-radius:30px;background:radial-gradient(closest-side,color-mix(in srgb,var(--light) 55%,transparent),transparent);opacity:0;transition:opacity .22s;pointer-events:none;mix-blend-mode:screen}
+.key.down .cap{transform:translateY(5px);box-shadow:0 .5px 0 var(--wall),0 1px 2px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.4),inset 0 0 0 .5px rgba(0,0,0,.2),inset 0 -2px 4px rgba(0,0,0,.14);transition:transform .05s cubic-bezier(.4,0,1,1),box-shadow .05s;filter:brightness(1.1)}
+.key.down .well::after{opacity:1}
+.key.down::after{opacity:.9;transition:opacity .04s}
+.approve{--cap:#6cb3a1;--capd:#3e8e7e;--wall:#1f5549;--leg:#08231d;--light:#8cf0d3}
+.reject{--cap:#dc5a3f;--capd:#b1321a;--wall:#6b1b0d;--leg:#fff0d9;--light:#ff8a60}
+.reject .legend{text-shadow:0 1px 0 rgba(0,0,0,.3)}
+.approve .legend{text-shadow:0 1px 0 rgba(255,255,255,.2)}
+.talk{height:62px;--cap:#e3d7bb;--capd:#c5b592;--wall:#807154;--light:#7ff5cf}
+.talk .cap{justify-content:center;gap:9px}
+.grille{display:inline-block;width:27px;height:18px;background:repeating-linear-gradient(90deg,#3a3429 0 2px,transparent 2px 5px);border-radius:1.5px;opacity:.72}
+#deck.talking .talk .grille{opacity:1}
+
+/* Dial: knurled skirt you turn, gold ring you hold */
+#dial{position:relative;width:128px;height:100%;min-height:128px;align-self:center;touch-action:none;--a:-46deg;display:flex;align-items:center;justify-content:center;border-radius:50%;outline-offset:-4px}
+#dial>*{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.dial-scale,.dial-arc{width:128px;height:128px;overflow:visible;pointer-events:none}
+.dial-scale .t{stroke:#a39678;stroke-width:1.1}.dial-scale .t.m{stroke:#e0d3b0;stroke-width:1.6}
+.dial-scale text{font:600 7.4px var(--mono);fill:#c2b596;letter-spacing:.05em;text-anchor:middle}
+.dial-scale text.on{fill:var(--gold)}
+.knurl{width:100px;height:100px;border-radius:50%;background:repeating-conic-gradient(from var(--a),#6d5a35 0 2.5deg,#2a2317 2.5deg 5deg);box-shadow:0 7px 9px rgba(0,0,0,.72),0 2px 2px rgba(0,0,0,.8),inset 0 0 0 1px rgba(0,0,0,.5)}
+.knurl::after{content:'';position:absolute;inset:0;border-radius:50%;background:linear-gradient(160deg,rgba(255,240,200,.4),transparent 40%,rgba(0,0,0,.5) 80%)}
+.dome{width:86px;height:86px;border-radius:50%;background:conic-gradient(from calc(var(--a) + 20deg),#574f40,#8e8267 12%,#4d4538 28%,#2e2a22 44%,#6e6450 60%,#38322a 78%,#574f40);box-shadow:inset 0 1px 1px rgba(255,240,205,.6),inset 0 -1px 1px rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.7)}
+.dome .index{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a))}
+.dome .index::after{content:'';position:absolute;left:-1.5px;top:-41px;width:3px;height:8px;border-radius:1.5px;background:#f5ecd8;box-shadow:0 0 3px rgba(255,240,200,.8)}
+.ring{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle,#15120d 0 56%,transparent 57%),conic-gradient(from 30deg,#7d5b1b,#f4dc95,#b3862a,#fff2bf,#8c6620,#e8c566,#7d5b1b);
+  box-shadow:0 1.5px 2px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.5),inset 0 0 2px rgba(0,0,0,.7);transition:box-shadow .3s,transform .1s}
+#ringLabel{font:600 8.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#cdb784}
+.ring-arc{opacity:0;fill:none;stroke:#fff1bd;stroke-width:4.5;stroke-dasharray:0 100;stroke-linecap:round;filter:drop-shadow(0 0 5px #ffc94d);transition:stroke-dasharray .12s linear}
+#dial.armed .ring{box-shadow:0 0 18px 4px rgba(255,205,90,.55),0 1.5px 2px rgba(0,0,0,.85)}
+#dial.ask .ring{animation:ask 1.8s ease-in-out infinite}
+#dial.ask #ringLabel{color:#ffe7a4}
+@keyframes ask{50%{box-shadow:0 0 22px 5px rgba(255,200,80,.72),0 1.5px 2px rgba(0,0,0,.85)}}
+#dial.hold .ring{transform:translate(-50%,-50%) scale(.95);box-shadow:0 0 24px 8px rgba(255,205,90,.7)}
+#deck.sweep #lamps{animation:lampSweep 1.1s ease-out}
+@keyframes lampSweep{20%{filter:brightness(1.8) sepia(.5)}}
+
+/* Feed and folio are hidden on phones; on a desk they lie on the table beside the model */
+#feed,#detail{display:none}
+#nogl{position:fixed;z-index:9;left:16px;right:16px;top:40%;text-align:center}
+
+@media (min-width:1000px) and (min-aspect-ratio:5/4){
+  :root{--deck-w:420px}
+  #hud{left:318px;right:0;padding:18px 26px 40px;grid-template-columns:auto auto auto 1fr;justify-content:start;gap:48px;background:linear-gradient(to bottom,rgba(6,16,20,.42),transparent)}
+  .plain-toggle,.sound-toggle{top:22px;position:absolute}
+  .plain-toggle{left:auto;right:26px}.sound-toggle{left:auto;right:90px}
+  .hud-cell.weather{justify-self:start;align-items:flex-start;text-align:left}.hud-cell.renown{align-items:flex-start;text-align:left}.tiles{justify-content:flex-start}
+  .hud-v{font-size:27px}.hud-k{font-size:10.5px}.hud-s{font-size:11px}.tile{width:11px;height:11px}.tiles{height:12px}
+  #console{left:auto;right:18px;bottom:0;transform:none}
+  #feed,#detail{display:flex;flex-direction:column;position:fixed;z-index:4;color:var(--ink);background-image:var(--paper),linear-gradient(180deg,#f3ead4,#e6d9bc);background-blend-mode:multiply;box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 0 40px rgba(150,110,50,.14)}
+  #feed{left:16px;top:330px;bottom:16px;width:284px;padding:14px 16px 10px;transform:rotate(-.2deg);overflow:hidden;
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 3px),92% 100%,80% calc(100% - 3px),64% 100%,48% calc(100% - 2px),30% 100%,14% calc(100% - 3px),0 100%)}
+  #feed h2{margin:0 0 8px;font:italic 400 22px/1.1 var(--serif);border-bottom:1px solid rgba(27,26,23,.3);padding-bottom:6px}
+  #feedList{list-style:none;margin:0;padding:0;overflow:hidden;flex:1;display:flex;flex-direction:column;gap:9px;-webkit-mask:linear-gradient(#000 82%,transparent);mask:linear-gradient(#000 82%,transparent)}
+  #feedList li{font:400 15px/1.24 var(--serif);padding-left:11px;position:relative;animation:slip .5s both}
+  #feedList li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:1px;background:var(--c,#777);transform:rotate(calc(var(--r)*1deg))}
+  #feedList time{display:block;font:500 10px/1.3 var(--mono);color:#5a5244;letter-spacing:.02em}
+  #feedList em{font-style:italic;font-weight:700}
+  @keyframes slip{from{opacity:0;transform:translateY(-8px)}}
+  #detail{left:16px;width:284px;top:16px;height:300px;padding:14px 16px;overflow:hidden;transform:rotate(.15deg)}
+  #detail h2{margin:0;font:italic 700 30px/1.04 var(--serif)}
+  #detail .sub{font:500 11px/1.4 var(--mono);color:#4a4336;margin:2px 0 8px}
+  #detail .lede{font:400 15px/1.24 var(--serif);margin:0 0 8px}
+  .line{display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:0 0 10px;list-style:none;padding:0;position:relative}
+  .line::before{content:'';position:absolute;left:8%;right:8%;top:6px;height:1.5px;background:#6d6350}
+  .line li{position:relative;text-align:center;font:500 8.2px/1.2 var(--mono);color:#574e3f;padding-top:15px;letter-spacing:-.05em}
+  .line li::before{content:'';position:absolute;left:50%;top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#efe4cb;border:1.5px solid #6d6350;box-sizing:border-box}
+  .line li.past::before{background:#7c5a10;border-color:#7c5a10}
+  .line li.now{color:var(--ink);font-weight:600}.line li.now::before{background:var(--c,#d9a93a);border-color:var(--ink);box-shadow:0 0 0 2px #efe4cb,0 0 0 3px var(--ink)}
+  #detail dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font:400 10.5px/1.3 var(--mono);flex:1;align-content:start;overflow:hidden}
+  #detail dt{color:#5a5244}#detail dd{margin:0;color:var(--ink)}
+  #card{bottom:calc(100% - 26px);left:12px;right:12px}
+  #card h1{font-size:23px}
+  .sta{font-size:10.5px}
+  .flag b{font-size:16px}
+}
+@media (max-height:720px) and (max-width:999px){
+  .key{height:50px}.talk{height:52px}#deck{padding-top:10px}.lamp .glass{height:32px}#dial{min-height:118px}
+  #card h1{font-size:20px}#cardBody{font-size:15px}
+}
+@media (max-width:374px){
+  .hud-v{font-size:19px}.hud-s{font-size:9.5px;letter-spacing:-.03em}
+  .key .legend{font-size:10.5px;letter-spacing:.02em}.key .glyph{display:none}
+  .deck-low{grid-template-columns:1fr 120px}#dial{width:120px;transform:none}
+  .dial-scale,.dial-arc{width:120px;height:120px}
+}
+/* a phone on its side: deck to the right thumb, slip beside it */
+@media (max-height:499px) and (min-aspect-ratio:5/4){
+  :root{--deck-w:min(46vw,344px)}
+  #console{left:auto;right:6px;transform:none}
+  #deck{padding:7px 9px 6px}
+  .lamp .glass{height:24px}.lamp .nm{margin-top:3px;font-size:11px;min-height:13px}
+  .deck-low{grid-template-columns:1fr 112px;margin-top:6px;gap:7px}.deck-left{gap:5px}
+  .tape{height:24px}.key{height:44px}.talk{height:46px}.key .cap{bottom:8px}
+  #dial{width:112px;min-height:112px}.dial-scale,.dial-arc{width:112px;height:112px}.knurl{width:88px;height:88px}.dome{width:76px;height:76px}.ring{width:54px;height:54px}
+  #card{left:auto;right:calc(100% + 8px);bottom:6px;width:min(44vw,320px);padding-bottom:9px;clip-path:none;transform:translateY(calc(100% + 12px))}
+  #card.in{transform:translateY(0)}
+  #hud{right:calc(var(--deck-w) + 8px);padding:6px 12px 14px;grid-template-columns:auto auto 1fr;background:none}
+  .hud-v{font-size:17px}.hud-s{display:none}.plain-toggle,.sound-toggle{top:auto;bottom:-16px;display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .tile,.lamp .glass,#dial.ask .ring,#deck.talking .perimeter,#deck.processing .perimeter,#deck.sweep #lamps{animation:none!important}
+  #card{transition:transform .2s linear}
+  #dial.ask .ring{box-shadow:0 0 18px 4px rgba(255,200,80,.6)}
+}

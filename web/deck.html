@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" class="only-deck">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1F24">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Venezia">
+<meta name="description" content="An agentic factory for one person: idea in, contract, build, proof, launch, lessons.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preload" href="/fonts/cardo-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/dm-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/cards.css">
+<link rel="stylesheet" href="/css/deck.css">
+<title>Venezia Deck</title>
+</head>
+<body>
+<h1 class="sr-only">Venezia</h1>
+<nav class="skips" aria-label="Skip to">
+  <a class="skip" href="#slot-cards">Skip to the decision</a>
+  <a class="skip" href="#slot-deck">Skip to the deck</a>
+</nav>
+<div id="app">
+  <section id="slot-cards" tabindex="-1" aria-label="Decisions"></section>
+  <main id="slot-deck" tabindex="-1" aria-label="Control deck"></main>
+</div>
+<div id="structure" aria-label="All projects and stations" role="region"></div>
+<div id="announce-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="announce-urgent" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+<div id="link"><b></b><span></span><button type="button" hidden>Try now</button></div>
+<div id="demo-mark" hidden>Scripted demo. Nothing here is real work.</div>
+<noscript><p style="padding:24px">Venezia needs JavaScript, because the factory floor is drawn live.</p></noscript>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

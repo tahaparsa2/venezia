@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0B1F24">
+<title>Venezia, The Mosaic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Cardo:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="glass" aria-hidden="true"></canvas>
+<div id="safe" aria-hidden="true"></div>
+
+<main id="ui">
+  <h1 class="vh">Venezia, the Arsenale. Six hulls on the water street.</h1>
+  <p class="vh" id="status" aria-live="polite"></p>
+
+  <button id="plainBtn" class="ghost" aria-pressed="false" aria-label="Plain mode, turn fiction words off"></button>
+  <button id="wxBtn" class="ghost" aria-label="Weather. Tap to preview clear, wind and storm"></button>
+
+  <section id="card" class="slab" aria-live="assertive" hidden>
+    <p class="who"></p>
+    <h2></h2>
+    <p class="meta"></p>
+    <p class="how"></p>
+  </section>
+
+  <div id="chip" role="status" hidden></div>
+
+  <section id="feed" class="panel" aria-label="Live feed" hidden>
+    <h3>Water street, live</h3>
+    <ol></ol>
+  </section>
+  <section id="detail" class="panel" aria-label="Selected hull" hidden></section>
+
+  <div id="deck" role="group" aria-label="Control deck">
+    <button class="key lampk" data-lamp="0"><b></b><i></i></button>
+    <button class="key lampk" data-lamp="1"><b></b><i></i></button>
+    <button class="key lampk" data-lamp="2"><b></b><i></i></button>
+    <button class="key lampk" data-lamp="3"><b></b><i></i></button>
+    <button class="key lampk" data-lamp="4"><b></b><i></i></button>
+    <button class="key lampk" data-lamp="5"><b></b><i></i></button>
+    <button class="key" id="reject"><span>Reject</span><small>N</small></button>
+    <button class="key" id="dial" role="slider" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3" aria-label="Effort dial"><span class="a">Effort</span><span class="b">Medium</span></button>
+    <button class="key" id="approve"><span>Approve</span><small>Y</small></button>
+    <button class="key" id="talk" aria-label="Hold to talk. Double tap to latch."><span>Hold to talk</span><small>Space</small></button>
+  </div>
+</main>
+
+<noscript>Venezia needs JavaScript.</noscript>
+<script src="gl.js"></script>
+<script src="art.js"></script>
+<script src="audio.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

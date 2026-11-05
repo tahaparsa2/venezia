@@ -1,0 +1,80 @@
+# Dependencies and generated binaries
+node_modules/
+engine/voice/bin/
+*.tgz
+*.log
+
+# Local state: the database, evidence, caches and every yard
+data/
+yards/
+
+# Databases, transcripts and network captures, wherever they land
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.jsonl
+*.har
+
+# The factory's memory. Generated, and it holds private project history.
+# Only the seed README and the empty Mariegola are tracked.
+portolano/ATLAS.md
+portolano/lessons/*
+!portolano/lessons/.gitkeep
+
+# Secrets and credentials
+.env*
+.npmrc
+.netrc
+.mcp.json
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+
+# Certificates, the local CA and pairing material (normally under data/net/)
+*.crt
+*.cer
+*.csr
+*.der
+*.srl
+*.mobileconfig
+ca.cnf
+devices.json
+
+# Prototype output: screenshots, browser profiles, captures and builds
+# Three small screenshots stay, one for each world prototype.
+docs/prototypes/world/*/shots/*
+!docs/prototypes/world/a-engraving/shots/size-360x640.png
+!docs/prototypes/world/b-tessera/shots/extra-size-360x640.png
+!docs/prototypes/world/c-diorama/shots/narrow-360.png
+docs/prototypes/**/dist/
+docs/prototypes/**/out/
+docs/prototypes/**/ev/
+**/chrome-profile*/
+**/*-profile/
+**/user-data-dir/
+
+# The two large desktop screenshots. See docs/PUBLISHING.md.
+docs/shots/3-desktop-gate-failed-proof.png
+docs/shots/4-desktop-steer-in-preview.png
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
