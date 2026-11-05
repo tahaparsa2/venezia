@@ -195,7 +195,10 @@ describe('never widened, at any level', () => {
   });
 
   test('a worker cannot drive the factory from a shell', () => {
-    for (const command of ['vz do dial.set', 'node ../../bin/vz.mjs do dial.set --shipId a --key autonomy --value 2', 'node bin/vz.mjs new x']) {
+    for (const command of [
+      'vz do dial.set', 'node ../../bin/vz.mjs do dial.set --shipId a --key autonomy --value 2', 'node bin/vz.mjs new x',
+      './vz new x', '../../vz do dial.set', 'sh ../../vz new x', 'env ../../vz new x', 'npm run vz -- new x', 'npm --prefix ../.. run vz -- new x', 'npm run-script vz',
+    ]) {
       same(bash(command), 'refuse', command);
     }
   });
