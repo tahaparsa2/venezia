@@ -3,7 +3,7 @@
 // Desktop keeps it open on the right. A phone raises it as a sheet above the deck.
 
 import { cmd } from '/js/commands.js';
-import { STATIONS } from '/shared/vocabulary.mjs';
+import { PUBLISHABLE, STATIONS } from '/shared/vocabulary.mjs';
 import { clockSeconds, h, reducedMotion, roman, setText } from '/js/folio/dom.js';
 import { createLeaves } from '/js/folio/leaves.js';
 import { installSheet } from '/js/folio/sheet.js';
@@ -229,7 +229,8 @@ export function mountFolio(el, store) {
 
     const done = ['done', 'failed'].includes(ship.state);
     const live = ship.receipt && !ship.receipt.voided;
-    publishKey.hidden = !(live || ship.state === 'ready');
+    // A voided receipt on a ready ship still gets the leaf, which says why it cannot go.
+    publishKey.hidden = !(PUBLISHABLE.includes(ship.state) && (live || ship.state === 'ready'));
     refitKey.hidden = ship.state !== 'done';
     rateKey.hidden = !(done || ['ready', 'launched', 'learning'].includes(ship.state));
     // New idea lives in the head on a sheet, so an empty foot takes no room there.
