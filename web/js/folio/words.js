@@ -92,7 +92,7 @@ export function stateSentence(ship, plain = false, pausedBy = null) {
     case 'publishing': return 'The publish broker is at work, and will check the live page after.';
     case 'launched': return 'Live, and the live check passed.';
     case 'learning': return 'The scribe is writing it up and drafting lessons.';
-    case 'done': return 'Finished. It can be refit.';
+    case 'done': return ship.receipt && !ship.receipt.voided ? 'Finished. It can be published or refit.' : 'Finished. It can be refit.';
     case 'paused': return pausedBy === 'sim' ? 'The demo paused this. It spends nothing until you resume.' : 'Paused by you. It spends nothing until you resume.';
     case 'blocked': return BLOCKED[ship.blockReason] ?? 'Blocked.';
     case 'failed': return 'Stopped. The lessons are kept, and it can be retried.';

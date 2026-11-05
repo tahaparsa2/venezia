@@ -8,7 +8,7 @@ import path from 'node:path';
 const HERE = import.meta.dirname;
 const LIMIT_MS = 15 * 60_000;
 
-const ASSERTED = ['shell', 'contract', 'intake', 'folio', 'folio-sizes', 'folio-real', 'deck-check', 'deck-server', 'transport', 'world', 'tour'];
+const ASSERTED = ['shell', 'contract', 'intake', 'folio', 'folio-sizes', 'folio-real', 'folio-publish', 'deck-check', 'deck-server', 'transport', 'world', 'tour'];
 const AUDITS = [
   'ax', 'boot', 'contrast', 'critique', 'focus', 'hidden', 'idle', 'kb-phone', 'kb1', 'kb2', 'kb3', 'kb4', 'kb5', 'last', 'live', 'mem', 'misc',
   'motion', 'nosound', 'offline', 'perf', 'ribbon', 'touch', 'zoom', 'zoom2',

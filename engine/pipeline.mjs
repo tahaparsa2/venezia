@@ -8,12 +8,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { hullName } from '../shared/names.mjs';
-import { DEFAULT_AUTONOMY, LAMP_SLOTS, RECEIPT_RESTS, STATE, canTransition, whyNoPrototype } from '../shared/vocabulary.mjs';
+import { DEFAULT_AUTONOMY, LAMP_SLOTS, PUBLISHABLE, RECEIPT_RESTS, STATE, canTransition, whyNoPrototype } from '../shared/vocabulary.mjs';
 import { runGate } from './gate/index.mjs';
 import { building } from './stations/build.mjs';
 import { awaitingContract, contracting } from './stations/contract.mjs';
 import { awaitingAnswers, intake } from './stations/intake.mjs';
-import { checkReceipt, dropPlan, launched, openPrototype, publishing, ready } from './stations/launch.mjs';
+import { checkReceipt, done, dropPlan, launched, openPrototype, publishHome, publishing, ready } from './stations/launch.mjs';
 import { failed, learning } from './stations/learn.mjs';
 import { proving, repairing } from './stations/prove.mjs';
 import { reviewing } from './stations/review.mjs';
@@ -28,6 +28,8 @@ const SAYS_NO = new Set(['deny', 'reject', 'cancel']);
 const BEFORE_CONTRACT = new Set(['intake', 'awaiting_answers']);
 /** While these run, nothing may stop halfway. */
 const UNSTOPPABLE = new Set(['publishing']);
+/** On the way out already, so asking again would publish twice. */
+const GOING_OUT = new Set(['publishing', 'launched']);
 /** States with no builder left to come, so a message sent now would reach nobody. */
 const BUILT = new Set(['ready', 'publishing', 'launched', 'learning']);
 /** States that stand on a gate pass a fork does not have, since no gate has run on its commit. */
@@ -41,7 +43,13 @@ function blocked(ctx, ship) {
   const card = blockCard(ctx, ship);
   if (!card || card.resolvedAt === null) return wait();
   if (card.resolution.optionId === 'retry') return go(ship.resumeState);
-  return card.resolution.optionId === 'stop' ? go('failed') : wait();
+  if (card.resolution.optionId !== 'stop') return wait();
+  // A finished ship keeps what it finished with: only this publish ends, and the plan with it.
+  if (ship.resumeState === 'publishing' && publishHome(ctx, ship.id) === 'done') {
+    dropPlan(ctx, ship.id);
+    return go('done');
+  }
+  return go('failed');
 }
 
 const blockCard = (ctx, ship) => ['gap', 'budget'].map((kind) => latestCard(ctx, ship.id, kind))
@@ -64,6 +72,8 @@ const STATIONS = {
   blocked,
   failed,
 };
+/** Every state a driver looks at. `done` is no place to rewind to, so it stays out of the list above. */
+const DRIVEN = { ...STATIONS, done };
 
 /**
  * @param {object} parts everything built by `createEngine`
@@ -103,6 +113,8 @@ export function createPipeline({
     gateAborts: new Map(),
     publishTargets: new Map(),
     publishFailures: new Map(),
+    /** Ships whose publish is being planned, which a second request must not race. */
+    publishPreparing: new Set(),
     itemFailures: new Map(),
     /** `worker.stopped` events the log refused, to be written when it takes them. */
     unrecorded: [],
@@ -192,7 +204,7 @@ export function createPipeline({
       let carryOn = true;
       while (carryOn && !closing) {
         const ship = shipOf(shipId);
-        const station = ship && STATIONS[ship.state];
+        const station = ship && DRIVEN[ship.state];
         if (!station) break;
         let step;
         try {
@@ -336,7 +348,7 @@ export function createPipeline({
     lastReceiptCheck = now();
     for (const ship of Object.values(store.state().ships)) {
       if (!RECEIPT_RESTS.includes(ship.state) || !ship.receipt || ship.receipt.voided) continue;
-      if (!checkReceipt(ctx, ship) && ship.state === 'ready') poke(ship.id);
+      if (!checkReceipt(ctx, ship) && PUBLISHABLE.includes(ship.state)) poke(ship.id);
     }
   }
 
@@ -477,6 +489,7 @@ export function createPipeline({
         move(shipId, 'scuttled');
         await stopWork(shipId);
         closeOpenCards(shipId, 'The project was scuttled.');
+        ctx.publishTargets.delete(shipId);
         dropPlan(ctx, shipId);
       });
       return { ok: true, id: shipId };
@@ -525,6 +538,7 @@ export function createPipeline({
         move(shipId, 'contracting', { force: true });
         await stopWork(shipId);
         closeOpenCards(shipId, 'A refit started a new contract.');
+        ctx.publishTargets.delete(shipId);
         dropPlan(ctx, shipId);
         const yard = yardPath(config, shipId);
         if (dirtyPaths(yard).length) sweep(yard, 'Work in progress when the refit started');
@@ -536,12 +550,21 @@ export function createPipeline({
     async 'publish.request'({ shipId, target }) {
       const ship = shipOf(shipId);
       if (!ship) return notFound();
-      if (ship.state !== 'ready') return refuse(`${nameOf(ship)} has to pass the gate before it can be published`);
-      if (!ship.receipt || ship.receipt.voided) return refuse(`${nameOf(ship)} has no valid receipt, so it cannot be published`);
+      const refused = whyNoPublish(ship);
+      if (refused) return refuse(refused);
+      // No station is watching a finished ship, so a tree that moved is found here.
+      if (ship.state === 'done' && !checkReceipt(ctx, ship)) {
+        poke(shipId);
+        return refuse(whyNoPublish(shipOf(shipId)));
+      }
       const probe = await broker.probe(target);
       if (!probe.ready) return refuse(`${target} is not ready: ${probe.needs.join(' ')}`);
-      ctx.publishTargets.set(shipId, target);
+      // The probe took a while, and another request may have got there first.
+      const overtaken = whyNoPublish(shipOf(shipId));
+      if (overtaken) return refuse(overtaken);
       const card = latestCard(ctx, shipId, 'publish');
+      if (card?.resolvedAt === null && card.payloadHash && card.detail?.target === target) return { ok: true, id: shipId };
+      ctx.publishTargets.set(shipId, target);
       dropPlan(ctx, shipId);
       if (card?.resolvedAt === null) decisions.withdraw(card.id, `Replaced by a request to publish to ${target}.`);
       else poke(shipId);
@@ -603,6 +626,14 @@ export function createPipeline({
       return ship ? openPrototype(ctx, ship) : notFound();
     },
   };
+
+  /** Why a ship cannot take a publish request now, or null. */
+  function whyNoPublish(ship) {
+    if (GOING_OUT.has(ship.state) || ctx.publishTargets.has(ship.id) || ctx.publishPreparing.has(ship.id)) return `${nameOf(ship)} is already being published`;
+    if (!PUBLISHABLE.includes(ship.state)) return `${nameOf(ship)} has to pass the gate before it can be published`;
+    if (!ship.receipt || ship.receipt.voided) return `${nameOf(ship)} has no valid receipt, so it cannot be published`;
+    return null;
+  }
 
   /** Say yes to the card holding a blocked ship. */
   function retryBlocked(ship) {
@@ -670,6 +701,8 @@ export function createPipeline({
       if (!STATE[ship.state].terminal) clearStaleLocks(yardPath(config, ship.id));
       if (ship.preview && !previews.get(ship.id)) store.append({ type: 'preview.down', shipId: ship.id, actor: 'host', data: {} });
       const current = shipOf(ship.id);
+      // A finished ship may have been cleared to publish when the host stopped.
+      if (current.state === 'done') poke(ship.id);
       if (STATE[current.state].terminal && current.state !== 'failed') continue;
       if (current.state === 'paused') continue;
       if (lost > 0 && !STATE[current.state].holds && current.state !== 'failed') {

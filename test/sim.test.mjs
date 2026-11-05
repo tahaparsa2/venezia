@@ -7,7 +7,7 @@ import { COMMAND_TYPES } from '../shared/commands.mjs';
 import { EVENT_TYPES, reduceAll, validateEvent } from '../shared/reducer.mjs';
 import { SIM_PROLOGUE_MS, createSim, simTimeline } from '../shared/sim.mjs';
 import {
-  BLOCK_REASONS, canTransition, DECISION_KINDS, STATE, TESSERA_KINDS, WEATHER,
+  BLOCK_REASONS, canTransition, DECISION_KINDS, RENOWN_AWARDS, STATE, TESSERA_KINDS, WEATHER,
 } from '../shared/vocabulary.mjs';
 import { createStore } from '../engine/store.mjs';
 
@@ -333,6 +333,29 @@ test('refit only works on a finished ship, voids the receipt, and rebuilds only 
   untilShip(sim, 'sim-zattere', (next) => next.state === 'ready');
   assert.equal(sim.state().ships['sim-zattere'].items.length, ship.items.length + 1);
   assert.equal(sim.state().ships['sim-zattere'].receipt.voided, false);
+});
+
+test('a finished ship can publish in the sim too, and comes back to done', () => {
+  const sim = fullRun();
+  const finished = Object.values(sim.state().ships).find((ship) => ship.state === 'done' && ship.receipt && !ship.receipt.voided);
+  const before = sim.state().tesserae.filter((tile) => tile.shipId === finished.id).map((tile) => tile.kind);
+  const renown = sim.state().renown.total;
+  const runs = Object.keys(finished.runs).length;
+  assert.equal(sim.command({ type: 'publish.request', shipId: finished.id, target: 'gist-secret' }).ok, true);
+  assert.equal(sim.command({ type: 'publish.request', shipId: finished.id, target: 'vercel' }).ok, false);
+  untilShip(sim, finished.id, (ship) => ship.openDecisions.some((entry) => entry.kind === 'publish'));
+  assert.equal(sim.state().ships[finished.id].state, 'done');
+  const [{ id }] = sim.state().ships[finished.id].openDecisions.filter((entry) => entry.kind === 'publish');
+  assert.equal(sim.command({ type: 'decision.resolve', id, optionId: 'publish' }).ok, true);
+  untilShip(sim, finished.id, (ship) => ship.state === 'publishing');
+  assert.match(sim.command({ type: 'publish.request', shipId: finished.id, target: 'tarball' }).error, /already being published/);
+  untilShip(sim, finished.id, (ship) => ship.state === 'done');
+  assert.equal(sim.state().ships[finished.id].publishes['gist-secret'].status, 'verified');
+  assert.equal(Object.keys(sim.state().ships[finished.id].runs).length, runs, 'no second scribe');
+  const after = sim.state().tesserae.filter((tile) => tile.shipId === finished.id).map((tile) => tile.kind);
+  const hadLive = before.includes('live');
+  assert.equal(after.filter((kind) => kind === 'live').length, 1, 'one live tile, however often it goes out');
+  assert.equal(sim.state().renown.total, renown + (hadLive ? 0 : RENOWN_AWARDS.launch));
 });
 
 test('publish.request can change the target, and refuses what it cannot do', () => {

@@ -74,13 +74,15 @@ export const STATES = freezeAll([
   // A tree that moved between the gate and the verdict goes back to the gate.
   state('reviewing', 'collaudo', 'Reviewer', ['ready', 'repairing', 'proving']),
   state('ready', 'varo', 'Local preview is live, receipt issued', ['publishing', 'learning']),
-  state('publishing', 'varo', 'Publish broker, no model', ['launched', 'ready']),
-  state('launched', 'varo', 'Live check passed', ['learning']),
+  // A publish ends where it set out from: a finished ship has learned, so it goes straight home.
+  state('publishing', 'varo', 'Publish broker, no model', ['launched', 'ready', 'done']),
+  state('launched', 'varo', 'Live check passed', ['learning', 'done']),
   // A failed ship passes through learning for its retrospective and then stays failed.
   state('learning', 'portolano', 'Scribe', ['done', 'failed']),
-  state('done', 'portolano', 'Finished. Can be refit', ['contracting'], { terminal: true }),
+  state('done', 'portolano', 'Finished. Can be published or refit', ['contracting', 'publishing'], { terminal: true }),
   state('paused', SAME_STATION, 'You', [], { holds: true }),
-  state('blocked', SAME_STATION, 'You', ['failed'], { holds: true }),
+  // `done` only for a finished ship stopped on its way out: the publish ends, the ship stands.
+  state('blocked', SAME_STATION, 'You', ['failed', 'done'], { holds: true }),
   state('failed', SAME_STATION, 'Finished. Can retry or fork', ['learning'], { terminal: true }),
   state('scuttled', SAME_STATION, 'Finished', [], { terminal: true }),
 ]);
@@ -90,6 +92,9 @@ const EXCEPTION_STATES = Object.freeze(['paused', 'blocked', 'failed', 'scuttled
 
 /** The states a receipt rests in. Only these can show a prototype. */
 export const RECEIPT_RESTS = Object.freeze(['ready', 'launched', 'done']);
+
+/** The states a publish can set out from, and go back to if it fails. */
+export const PUBLISHABLE = Object.freeze(['ready', 'done']);
 
 /**
  * Why a ship has no prototype to open, in plain English, or null when it has one. A ship that
