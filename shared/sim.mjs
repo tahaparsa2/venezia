@@ -13,7 +13,7 @@
 import { validateCommand } from './commands.mjs';
 import { hullName } from './names.mjs';
 import { initialState, reduce, validateEvent } from './reducer.mjs';
-import { RENOWN_AWARDS, TIERS, canTransition, whyNoPrototype } from './vocabulary.mjs';
+import { PUBLISHABLE, RENOWN_AWARDS, TIERS, canTransition, whyNoPrototype } from './vocabulary.mjs';
 
 /** Virtual time spent on the backstory before the demo opens. */
 export const SIM_PROLOGUE_MS = 240_000;
@@ -1032,7 +1032,17 @@ export function createSim({
     const { plan } = v;
     move(v, 'ready');
     bell(v.id, 'marangona', `${hull(v).name} passed and is ready`);
-    let target = plan.publish ?? 'github-pages';
+    return yield* publishFrom(v, 'ready', plan.publish ?? 'github-pages');
+  }
+
+  /** A finished ship going out. Same card, same checks, and it comes back to `done`. */
+  function* republish(v) {
+    return yield* publishFrom(v, 'done', v.plan.publish);
+  }
+
+  function* publishFrom(v, home, firstTarget) {
+    const { plan } = v;
+    let target = firstTarget;
     let again = false;
     for (;;) {
       const answer = yield* planPublish(v, target, again);
@@ -1041,7 +1051,7 @@ export function createSim({
         again = false;
         continue;
       }
-      if (answer.optionId !== 'publish') return 'learning';
+      if (answer.optionId !== 'publish') return home === 'done' ? null : 'learning';
       yield jitter(1200);
       move(v, 'publishing');
       const url = `https://example.invalid/${v.id}/`;
@@ -1052,22 +1062,32 @@ export function createSim({
         plan.verifyFailures--;
         emit('publish.rolledback', v.id, { target, reason: 'The live page did not pass the browser checks' }, 'publish');
         bell(v.id, 'maleficio', 'Live check failed, publish rolled back');
-        move(v, 'ready');
+        move(v, home);
+        if (home === 'done') return null;
         again = true;
         continue;
       }
       emit('publish.verified', v.id, { target, url }, 'publish');
-      tile('live', v.id);
-      renown(RENOWN_AWARDS.launch, 'Launched and verified live', v.id);
+      if (!state.tesserae.some((entry) => entry.kind === 'live' && entry.shipId === v.id)) {
+        tile('live', v.id);
+        renown(RENOWN_AWARDS.launch, 'Launched and verified live', v.id);
+      }
       move(v, 'launched');
       bell(v.id, 'marangona', `${hull(v).name} is live`);
-      return 'launchedPause';
+      return home === 'done' ? 'launchedHome' : 'launchedPause';
     }
   }
 
   function* launchedPause() {
     yield jitter(1500);
     return 'learning';
+  }
+
+  /** A finished ship has already learned, so there is no second write-up. */
+  function* launchedHome(v) {
+    yield jitter(1500);
+    move(v, 'done');
+    return null;
   }
 
   function* failed(v) {
@@ -1104,7 +1124,7 @@ export function createSim({
   }
 
   const STAGES = {
-    intake, contracting, building, proving, repairing, reviewing, ready, launchedPause, failed, learning,
+    intake, contracting, building, proving, repairing, reviewing, ready, republish, launchedPause, launchedHome, failed, learning,
   };
 
   function* pipeline(v, from) {
@@ -1401,6 +1421,14 @@ export function createSim({
       const ship = shipOf(shipId);
       if (!ship) return notFound();
       if (ship.state !== 'done') return refuse(`${ship.name} can be refit once it has finished`);
+      const going = voyages.get(shipId);
+      if (going) {
+        closeVoyage(going);
+        for (const entry of ship.openDecisions.filter(({ kind }) => kind === 'publish')) {
+          waiters.delete(entry.id);
+          emit('decision.resolved', shipId, { id: entry.id, optionId: 'superseded' });
+        }
+      }
       emit('ship.refit', shipId, { text }, actor);
       if (ship.receipt && !ship.receipt.voided) emit('receipt.voided', shipId, { reason: 'A refit changes the contract' }, 'receipt');
       if (ship.preview) emit('preview.down', shipId);
@@ -1418,7 +1446,13 @@ export function createSim({
       if (!ship) return notFound();
       if (NEEDS_SETUP[target]) return refuse(NEEDS_SETUP[target]);
       const v = voyages.get(shipId);
-      if (ship.state !== 'ready' || !v) return refuse(`${ship.name} has to pass the gate before it can be published`);
+      if (ship.state === 'done' && !v) {
+        if (!ship.receipt || ship.receipt.voided) return refuse(`${ship.name} has no valid receipt, so it cannot be published`);
+        launch({ ...planFor(ship), publish: target }, 'republish');
+        return { ok: true, id: shipId };
+      }
+      if (['publishing', 'launched'].includes(ship.state)) return refuse(`${ship.name} is already being published`);
+      if (!PUBLISHABLE.includes(ship.state) || !v) return refuse(`${ship.name} has to pass the gate before it can be published`);
       if (!v.publishDecision || v.parked?.await !== 'decision') return refuse(`${ship.name} is already being published`);
       const id = v.parked.id;
       emit('decision.resolved', shipId, { id, optionId: 'superseded' });
