@@ -23,19 +23,20 @@ Venezia is a local tool for one person on one Mac. It has not had an outside sec
 - Every request and WebSocket upgrade is checked for Host and Origin, which stops DNS rebinding and cross-site requests.
 - Preview servers run on their own port for each project, so a project is a separate origin.
 
-## LAN access and pairing
+## Phone access and pairing
 
-LAN access is off until you run `vz serve --lan`, which listens on port 8443 by default, over HTTPS only.
+Phone access is off until you ask. Say yes in the box on your Mac after pressing Show a pairing code or running `./vz pair`, or start with `./vz serve --lan`. It then listens on port 8443 by default, over HTTPS only, plus a second free port that answers one word and is how the pairing page checks the certificate. Turn it off in Settings or with `./vz pair --off`: that closes both listeners and disconnects every device. It is off again after a restart without `--lan`.
 
 - HTTPS uses a local certificate authority that Venezia creates in `data/net/`. Its root is name-constrained to `.local`, `localhost` and private addresses, so a stolen key cannot intercept public sites. Installing that root on a phone is still a real trust decision.
-- `vz pair` needs your yes on the Mac, then gives a QR code and a PIN. Each works once and expires after 5 minutes. A PIN allows 5 tries, and wrong tries are also limited per address.
+- `./vz pair` and the Show a pairing code button need your yes on the Mac, then give a QR code and a PIN. Each works once and expires after 5 minutes. A PIN allows 5 tries, and wrong tries are also limited per address.
 - Before pairing, the LAN can reach only the pairing page, the claim endpoint and the certificate downloads.
-- **A paired device can approve anything you can**, for up to a year, until revoked. List them with `vz pair --list` and remove one with `vz pair --revoke <id>`.
+- **A paired device can approve anything you can**, for up to a year, until revoked. Turning phone access off does not unpair anything. List devices with `./vz pair --list` and remove one with `./vz pair --revoke <id>`.
+- The pairing page keeps the one-time code on the phone until the phone trusts your certificate, because before that nothing proves who it is talking to. **Pair anyway** skips that wait, and should only be used on your own Wi-Fi.
 - Pairing is tested against the real server, but not yet on a physical phone.
 
 ## Publishing
 
-Only the host can publish, and only an artifact that passed the gate, matched by hash. Public publishing needs a hold on a button or `vz approve --confirm`, every time, at every autonomy level. Voice and MCP can ask for it but cannot approve it. No model decides that something is safe to publish.
+Only the host can publish, and only an artifact that passed the gate, matched by hash. Public publishing needs a hold on a button or `./vz approve --confirm`, every time, at every autonomy level. Voice and MCP can ask for it but cannot approve it. No model decides that something is safe to publish.
 
 The gate's secret scan matches known secret shapes. It will not catch everything.
 

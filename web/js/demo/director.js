@@ -10,7 +10,7 @@
 // It only ever adds, rewrites or drops events on their way to the real reducer. The events keep
 // their own numbering here, so history, scrubbing and rewinding all still work.
 
-// Relative paths, because `vz serve --sim` runs this in Node too: one demo, whichever way it opens.
+// Relative paths, because `./vz serve --sim` runs this in Node too: one demo, whichever way it opens.
 import { initialState, reduce } from '../../../shared/reducer.mjs';
 import { matchesItem, previewPage, readAnswers, readIdea, readNote } from './reading.js';
 import { sizeHint } from '../intake/ideas.js';

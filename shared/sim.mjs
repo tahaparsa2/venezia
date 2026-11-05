@@ -1,6 +1,6 @@
 // The scripted fleet. A complete, believable story told only through real events and the
 // real reducer, so the renderer cannot tell it from a working factory. No I/O and no Node
-// imports: the same code runs behind `vz serve --sim` and in a browser with no server.
+// imports: the same code runs behind `./vz serve --sim` and in a browser with no server.
 //
 // Time is virtual. `advance(ms)` runs the story forward synchronously, which is the
 // fast-forward. `start({speed})` runs it on timers. The same seed always tells the same story.

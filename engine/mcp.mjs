@@ -1,4 +1,4 @@
-// `vz mcp`: a stdio MCP server, plain newline-delimited JSON-RPC, so any Claude session can run
+// `./vz mcp`: a stdio MCP server, plain newline-delimited JSON-RPC, so any Claude session can run
 // the factory (SPEC 12). It is a thin surface over a running server: it sends the same commands
 // as every other surface, and nothing else.
 //
@@ -119,7 +119,7 @@ export function createMcpHandler({ client, version = '0.1.0' }) {
       const state = await client.state();
       const decision = state.decisions[args?.id];
       if (decision && decision.voiceAllowed === false) {
-        return toolResult(`"${decision.title}" needs a person to hold the control, so it cannot be approved from here. Ask them to approve it on the deck or with vz approve.`, true);
+        return toolResult(`"${decision.title}" needs a person to hold the control, so it cannot be approved from here. Ask them to approve it on the deck or with ./vz approve.`, true);
       }
     }
     const result = await client.command({ type, ...args });

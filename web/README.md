@@ -1,14 +1,14 @@
 # web/: the Venezia front end
 
 Vanilla ES modules, no build step, no framework, and nothing from a CDN. Binding rules are in
-`docs/DESIGN.md`. Served by `vz serve`, with `/shared/*` from `shared/`.
+`docs/DESIGN.md`. Served by `./vz serve`, with `/shared/*` from `shared/`.
 
 ```
 node test/ui/serve.mjs            static server for UI work, prints the URL
 http://127.0.0.1:4173/?demo=1     the sim in this tab, no server needed
 node test/ui/shell.mjs            every layout, geometry checks, screenshots in data/shots/
 node test/ui/tour.mjs             every state at every width, audited, in data/shots/tour/
-node test/ui/tour.mjs --server    the same walk against vz serve --sim
+node test/ui/tour.mjs --server    the same walk against ./vz serve --sim
 ```
 
 `data/shots/tour/index.html` lists every scene with the query that reaches it, so any shot can be

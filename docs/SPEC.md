@@ -35,8 +35,8 @@ These answer "it is hard to keep Claude steerable and dependable".
 - SQLite through `node:sqlite`, with FTS5.
 - 8 GB RAM. At most 3 active workers, and headless Chrome holds an exclusive browser slot.
 - The Claude subscription window is the real limit, so work is serial by default. Model choice is not cut to save usage: opus for planning, building, repair and review, sonnet for basic tasks, haiku only for very basic explore and classify tasks.
-- Everything runs on the existing `claude` login. No API keys needed. Pin to `2.1.318`; `vz doctor` warns on any other version and runs a protocol smoke test.
-- Server binds `127.0.0.1` by default. LAN access is opt-in, HTTPS only, and needs pairing.
+- Everything runs on the existing `claude` login. No API keys needed. Pin to `2.1.318`; `./vz doctor` warns on any other version and runs a protocol smoke test.
+- Server binds `127.0.0.1` by default. Phone access is opt-in, HTTPS only, and needs pairing. It starts at boot with `--lan`, or on demand after a yes on the Mac, and closes again with no restart. It is off again after any restart without `--lan`.
 - Builders never hold publish credentials. Only the publish broker touches `gh`.
 
 ## 3. Vocabulary
@@ -86,7 +86,7 @@ engine/
   pipeline.mjs          deterministic ship state machine
   decisions.mjs         decision inbox, tiers, approval tokens
   tool-policy.mjs       what a tool call may do at each autonomy level
-  mcp.mjs               `vz mcp`, a thin surface over a running server
+  mcp.mjs               `./vz mcp`, a thin surface over a running server
   sim-engine.mjs        the scripted fleet behind the real server
   stations/             intake, contract, build, prove, review, launch, learn, plus yard, bells
   doctrine/             role system prompts and stack guidance (markdown)
@@ -249,7 +249,7 @@ The policy, in order. The first four rows hold at every level, and autonomy is o
 | Network to any other host | `network` card, held. Never automatic |
 | A write tool, or a shell redirect, `tee`, `touch`, `mkdir`, `rm`, `cp`, `mv` or `ln`, landing outside the yard | Denied, and raises a `gap`. The folders the OS sandbox opens for temp files are not outside, and a path in a variable cannot be read, so the sandbox has the last word |
 | A credential path, in `sandbox.denyRead` or `data/publish` and `data/net` | Denied, no card |
-| `gh`, `git push`, `curl`, the publishing verbs of npm, pnpm, yarn and bun, and every other program in `BARRED_PROGRAMS`, through wrappers, `sh -c`, `eval`, substitutions and heredocs given to a shell. Also `vz` | Denied, no card. It is matched after `DENY_RULES`, which is built from the same list |
+| `gh`, `git push`, `curl`, the publishing verbs of npm, pnpm, yarn and bun, and every other program in `BARRED_PROGRAMS`, through wrappers, `sh -c`, `eval`, substitutions and heredocs given to a shell. Also `vz` by any path, and `npm run vz` | Denied, no card. It is matched after `DENY_RULES`, which is built from the same list |
 | Not confined: a request to leave the sandbox, a read outside the yard, a write in `.git`, `.claude` or `.venezia`, a file Claude Code marks with `safetyCheck`, a tool the host does not know | `tool` card, held, at every level |
 | A worker's report (`StructuredOutput`) | Runs at every level |
 | Confined work at Tiller (0) | `tool` card, held, reads included |
@@ -335,7 +335,7 @@ Who can say yes. A surface asks the server for a token and sends it with `decisi
 | Surface | Tier 0 to 2 | Tier 3 and 4 |
 |---|---|---|
 | Web, deck, keyboard, gamepad | Yes | `POST /api/decisions/:id/hold` at the press and `POST /api/decisions/:id/approval` with that `holdId` at the end. The host times the hold on its own clock, with 250 ms of slack for the network. A hold counts once |
-| CLI | Yes | `vz approve --confirm` |
+| CLI | Yes | `./vz approve --confirm` |
 | Voice | Yes | No. It can request |
 | MCP | Yes | No. It can request, and it can see the card |
 
@@ -343,7 +343,7 @@ A command read from speech and then tapped on the chip is a web command, so it i
 
 The `dry-run` step of preflight is the adapter's own rehearsal. It runs inside `preflight`, and every step's result goes on the card as `detail.preflight`, so `decision.opened` is its log entry. No event of its own is written.
 
-Surfaces identify themselves with `X-Venezia-Surface`. Only a plain local caller can claim `cli` or `mcp`: a request with an `Origin`, or anything from the LAN, is `web`, which is the strictest case. A token cannot cross this line, because `decision.resolve` refuses a yes from voice or MCP whatever it carries. Below tier 3 there is no hold to prove, so the host signs for you. Saying no never needs a token. A token dies with the process, and the card stays open.
+Surfaces identify themselves with `X-Venezia-Surface`. Only a plain local caller can claim `cli` or `mcp`: a request with an `Origin` or `Sec-Fetch-Site: same-origin`, or anything from the LAN, is `web`, which is the strictest case. A token cannot cross this line, because `decision.resolve` refuses a yes from voice or MCP whatever it carries. Below tier 3 there is no hold to prove, so the host signs for you. Saying no never needs a token. A token dies with the process, and the card stays open.
 
 ## 10. Memory: Portolano
 
@@ -416,7 +416,7 @@ Lamp colour derives from ship state: white idle, blue working, green finished un
 - `POST /api/command` takes `{type, ...args}` from `shared/commands.mjs`, returns `{ok, id?, url?, error?}`. `url` is the address `preview.open` opened. All surfaces use only this, plus the two approval steps in section 9.
 - `GET /api/ships/:id`, `/api/ships/:id/events`, `/api/ships/:id/contract`, `/api/ships/:id.md`, `/api/lessons`, `/llms.txt`. `/contract` returns `{version, hash, title, acceptance, outOfScope}`, or 404 before there is a contract.
 - `GET /shared/*` serves `shared/` to the browser. `GET /sim/preview/:id/` serves a sim preview.
-- LAN only, HTTPS on port 8443: `/pair`, `/pair/ca.crt`, `/pair/venezia.mobileconfig`, `POST /api/pair/claim`. This machine only: `POST /api/pair/start`, `GET /api/devices`, `POST /api/devices/revoke`.
+- LAN only, HTTPS on port 8443: `/pair`, `/pair/ca.crt`, `/pair/venezia.mobileconfig`, `POST /api/pair/claim`. This machine only: `POST /api/pair/start` (turns phone access on after a yes on the Mac, then gives the QR and PIN; in a demo with no listener it refuses, in one line), `GET /api/phone-access`, `POST /api/phone-access/off` (closes the listeners and drops every device's connection, keeping every pairing), `GET /api/devices`, `POST /api/devices/revoke`. While phone access is on, a second HTTPS listener on a free port answers one word under a second leaf from the same root. `/pair` loads it to learn whether the phone trusts the root, because accepting a warning covers only the certificate that was shown. The one-time token is not sent until that check passes, or the person chooses Pair anyway.
 - `GET /evidence/<ship>/<run>/<file>`: read-only, path-checked.
 - `GET /api/say?text=` returns AAC by way of `say` and `afconvert`.
 - `/ws/voice` takes 16 kHz Int16 PCM frames and returns partials, then a final `{t:'intent'}` frame. `?mode=transcribe` runs nothing and leaves `result` off that frame (section 8).
@@ -445,8 +445,8 @@ All surfaces are clients of section 11.
 - **Deck** at `/deck`: the phone or tablet alone as a physical panel, next to any screen showing the world.
 - **Keyboard**: `1-6` lamps, `Y` approve, `N` reject, `Space` hold to talk, `S` steer, `[ ]` dial, arrow keys for the eight-wind stick.
 - **Gamepad**: mapping from research 04 section 6.3.
-- **CLI** `vz`: `serve, new, status, watch, steer, stop, approve, reject, publish, open, lessons, doctor, pair`, each with `--json`, plus `vz do <command>` for anything in the catalog. `approve` needs `--confirm` at tier 3 and above.
-- **MCP server** `vz mcp`: stdio, plain JSON-RPC, exposing the same commands, so any Claude session can run the factory. It will not answer a decision that needs a hold, yes or no.
+- **CLI** `./vz`, a wrapper at the repo root that needs nothing installed and works from any folder and through a symlink, or `npm run vz --`: `serve, new, status, watch, steer, stop, approve, reject, publish, open, lessons, doctor, pair`, each with `--json`, plus `./vz do <command>` for anything in the catalog. `approve` needs `--confirm` at tier 3 and above.
+- **MCP server** `./vz mcp`: stdio, plain JSON-RPC, exposing the same commands, so any Claude session can run the factory. It will not answer a decision that needs a hold, yes or no.
 - **Voice**: hold to talk, double tap to latch. Hull names are addressable ("tell Aurora to use a darker theme"). Grammar first, haiku classifier only as a fallback. Spoken briefing on request and on finish. Voice leaves tier 3 and above alone entirely, including saying no, and it cannot scuttle. The classifier can never answer a decision.
 
 ## 13. Reward system, all real

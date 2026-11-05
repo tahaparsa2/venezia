@@ -231,7 +231,7 @@ async function boot() {
   const checkRoute = deckOnly ? () => {} : installRoutes(store);
   const mark = document.getElementById('demo-mark');
   mark.hidden = !demo;
-  // `vz serve --sim` looks like the real thing, so it has to say that it is not.
+  // `./vz serve --sim` looks like the real thing, so it has to say that it is not.
   if (!demo) fetch('/api/health').then((response) => response.json()).then(({ sim }) => { mark.hidden = !sim; }).catch(() => {});
 
   await store.start();
