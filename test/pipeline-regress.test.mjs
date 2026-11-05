@@ -162,13 +162,14 @@ test('a failed ship stopped in its write-up goes back to the write-up, and remem
 });
 
 test('Stop during a failed ship\'s write-up, then Resume, finishes the write-up and starts no builder', async (t) => {
-  const scenarios = [scene('builder', [{ structured: gapReport('I need a key') }]), scene('scribe', [{ waitForMessage: true }], { times: 1 }), ...happyPath()];
+  const scenarios = [scene('builder', [{ structured: gapReport('I need a key') }]), scene('scribe', ['Writing it up.', { waitForMessage: true }], { times: 1 }), ...happyPath()];
   const { engine } = setup(t, { scenarios });
   const { id } = await send(engine, { type: 'ship.create', idea: 'A shopping list' });
   await reach(engine, id, 'blocked');
   await send(engine, { type: 'decision.resolve', id: (await card(engine, id, 'gap')).id, optionId: 'stop' });
   await reach(engine, id, 'learning');
-  await running(engine, id);
+  // Until it has spoken, the scene may not be taken, and Resume would run into it and wait for good.
+  await spoken(engine, id);
   await send(engine, { type: 'ship.stop', shipId: id });
   assert.equal(shipOf(engine, id).resumeState, 'learning');
   await send(engine, { type: 'ship.resume', shipId: id });

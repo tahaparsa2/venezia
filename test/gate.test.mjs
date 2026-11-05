@@ -16,6 +16,7 @@ import { createJail } from '../engine/gate/jail.mjs';
 import { sha256, yardEnv, runCommand } from '../engine/gate/util.mjs';
 import { appendApp, gitCommit, makeCliYard, makeYard, read, sharedBrowser, write } from './gate-helpers.mjs';
 import { evt, testDir } from './helpers.mjs';
+import { until } from './worker-support.mjs';
 
 let browser;
 before(async () => { browser = await sharedBrowser(); });
@@ -218,7 +219,10 @@ describe('yard code', { concurrency: 4 }, () => {
     const result = await runCommand(`sh -c 'echo $$ > ${pidFile}; sleep 30' & wait`, { jail, cwd: dir, env: process.env, timeoutMs: 300 });
     assert.equal(result.timedOut, true);
     const pid = Number(read(dir, 'pid'));
-    assert.throws(() => process.kill(pid, 0), 'the grandchild is gone');
+    // A killed process stays in the table until it is reaped, which under load takes a moment.
+    await until(() => {
+      try { process.kill(pid, 0); return false; } catch { return true; }
+    }, { timeoutMs: 5000, what: 'the grandchild to go' });
   });
 
   test('a stopped gate kills what it is running and says it was stopped', async (t) => {
