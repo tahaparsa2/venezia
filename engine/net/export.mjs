@@ -34,7 +34,7 @@ export function shipMarkdown(ship, events, { lessons = [] } = {}) {
   }
   if (ship.preview) lines.push(`- Preview: ${ship.preview.url}`);
   for (const [target, publish] of Object.entries(ship.publishes)) {
-    lines.push(`- Publish to ${target}: ${publish.status}${publish.url ? ` at ${publish.url}` : ''}`);
+    lines.push(`- Publish to ${target}: ${publish.live ? 'live' : publish.status}${publish.url ? ` at ${publish.url}` : ''}`);
   }
   if (ship.rating) lines.push(`- Rating: ${ship.rating.score} of 5${ship.rating.note ? `, "${ship.rating.note}"` : ''}`);
 

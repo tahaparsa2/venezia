@@ -4,7 +4,7 @@
 // Three depths. Simple is sentences for the owner. Technical is the record. Commentary
 // is what the numbers say, still computed and never invented.
 
-import { TERM, label } from '../../shared/vocabulary.mjs';
+import { LOCAL_TARGETS, TERM, label } from '../../shared/vocabulary.mjs';
 import { isoMinute, oneLine, tableCell } from '../portolano/text.mjs';
 
 export const DEPTHS = Object.freeze(['simple', 'technical', 'commentary']);
@@ -36,7 +36,7 @@ const isOwnRecord = (event) => event.type === 'doc.written' && event.data.path =
 export function chronicleFacts(events) {
   const facts = {
     created: null, stages: [], runs: new Map(), gates: [], steers: [], decisions: 0, artifacts: new Map(),
-    items: { planned: 0, finished: 0 }, review: null, publish: [], live: null, preview: null, rating: null,
+    items: { planned: 0, finished: 0 }, review: null, publish: [], live: null, saved: null, stillOut: false, preview: null, rating: null,
     receipts: 0, voided: 0, refits: 0, spent: 0, hints: { used: 0, wins: 0, losses: 0 }, last: events.at(-1) ?? null, automatic: [],
   };
   let gate = null;
@@ -78,8 +78,16 @@ export function chronicleFacts(events) {
       case 'preview.up': facts.preview = data.url; break;
       case 'publish.planned': case 'publish.applied': case 'publish.verified': case 'publish.rolledback':
         facts.publish.push({ step: event.type.split('.')[1], ...data });
-        if (event.type === 'publish.verified') facts.live = data.url ?? facts.publish.findLast((entry) => entry.url)?.url ?? null;
-        if (event.type === 'publish.rolledback') facts.live = null;
+        if (LOCAL_TARGETS.includes(data.target)) {
+          if (event.type === 'publish.verified') facts.saved = data.url ?? null;
+          if (event.type === 'publish.rolledback') facts.saved = null;
+        } else if (event.type === 'publish.verified') {
+          facts.live = data.url ?? facts.publish.findLast((entry) => entry.url)?.url ?? null;
+          facts.stillOut = false;
+        } else if (event.type === 'publish.rolledback') {
+          facts.stillOut = Boolean(data.stillOut);
+          if (!data.stillOut) facts.live = null;
+        }
         break;
       case 'lesson.used': facts.hints.used += 1; break;
       case 'lesson.scored':
@@ -154,7 +162,9 @@ function simple(ship, facts) {
   if (facts.review) lines.push(`The independent reviewer's verdict was ${oneLine(facts.review.verdict)}.`);
   if (facts.steers.length) lines.push(`You steered it ${plural(facts.steers.length, 'time')}.`);
   if (facts.live) lines.push(`It is live at ${oneLine(facts.live)}.`);
-  else if (facts.publish.some((entry) => entry.step === 'rolledback')) lines.push('A publish was rolled back, and it is not live.');
+  if (facts.stillOut) lines.push(facts.live ? 'A later publish was rolled back, and the version before it is the one out there.' : 'A publish was rolled back, and an earlier version is still out there.');
+  else if (!facts.live && facts.publish.some((entry) => entry.step === 'rolledback' && !LOCAL_TARGETS.includes(entry.target))) lines.push('A publish was rolled back, and it is not live.');
+  if (facts.saved) lines.push(`A copy is saved on this machine at ${oneLine(facts.saved)}, and nothing left it.`);
   if (facts.rating) lines.push(`You rated it ${facts.rating.score} of 5.`);
   lines.push(`It is now in the state "${stateWords(ship)}", and used ${usd(facts.spent)} at list price.`);
   return lines.join(' ');

@@ -64,6 +64,7 @@ function publishLeaf(ctx, ship, close) {
 
   for (const target of TARGETS) {
     const standing = ship.publishes[target.id]?.status;
+    const standingWord = standing === 'verified' && target.tier === 0 ? 'Checked, on this computer' : STATUS[standing];
     const tier = TIERS[target.tier];
     ladder.append(h('li', { data: { tier: target.tier } },
       h('button', {
@@ -71,7 +72,7 @@ function publishLeaf(ctx, ship, close) {
       },
       h('span', { class: 'tier-rung', 'aria-hidden': 'true' }),
       h('span', { class: 'tier-words' },
-        h('span', { class: 'tier-name' }, target.name, standing ? h('em', { class: `tier-state tier-${standing}`, text: STATUS[standing] }) : null),
+        h('span', { class: 'tier-name' }, target.name, standing ? h('em', { class: `tier-state tier-${standing}`, text: standingWord }) : null),
         h('span', { class: 'tier-reach', text: target.reach }),
         h('span', { class: 'tier-ask', text: target.setup ? 'Not set up on this machine yet.' : TIER_ASK[target.tier] }),
         h('span', { class: 'sr-only', text: `Tier ${target.tier}: ${tier.plain}` })))));

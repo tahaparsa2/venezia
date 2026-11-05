@@ -146,7 +146,7 @@ export function createProofTab(ctx) {
     } else if (!chosen && rolled && ship.state !== 'launched') {
       why.hidden = false;
       setText(head, 'Why it was rolled back');
-      setText(body, `The live page on ${TARGET[rolled.target]?.name ?? rolled.target} did not pass the browser checks, so the publish was undone. Nothing is live.`);
+      setText(body, `The live page on ${TARGET[rolled.target]?.name ?? rolled.target} did not pass the browser checks, so the publish was undone. ${rolled.stillOut ? 'An earlier version is still out there.' : 'Nothing is live.'}`);
       detail.hidden = !rolled.reason;
       setText(detail, rolled.reason ?? '');
       next.hidden = true;

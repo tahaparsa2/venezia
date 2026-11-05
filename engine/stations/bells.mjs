@@ -27,7 +27,7 @@ export function createBells({ store, now = Date.now }) {
     } else if (type === 'ship.created') {
       ring(shipId, 'marangona', `${data.name ?? 'A new project'} has started`);
     } else if (type === 'publish.rolledback') {
-      ring(shipId, 'maleficio', `Publishing ${nameOf(shipOf(shipId))} was rolled back${data.reason ? `: ${data.reason}` : ''}`);
+      ring(shipId, 'maleficio', `Publishing ${nameOf(shipOf(shipId))} was rolled back${data.reason ? `: ${data.reason}` : ''}${data.stillOut ? '. The earlier version is still out there.' : ''}`);
     } else if (type === 'ship.state') {
       const ship = shipOf(shipId);
       if (FINISHES.has(data.state)) ring(shipId, 'marangona', finishBriefing(ship, store.state()));
