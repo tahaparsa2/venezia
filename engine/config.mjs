@@ -36,8 +36,6 @@ const DEFAULTS = Object.freeze({
   shipBudgetUsd: 150,
   /** The target a passing static site is offered first. */
   publishTarget: 'github-pages',
-  /** Standing publish policies, by target. Empty: public publishing always asks. */
-  publishStanding: {},
   stopGateRetries: 2,
   rateLimitWait: 0.9,
   killGraceMs: 3000,

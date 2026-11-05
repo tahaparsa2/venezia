@@ -22,7 +22,6 @@ describe('tiers', () => {
     assert.deepEqual([0, 1, 2, 3, 4].map((tier) => tierRule(tier).approval), ['none', 'none', 'once', 'plan', 'always']);
     assert.deepEqual([0, 1, 2, 3, 4].map((tier) => tierRule(tier).holdMs), [0, 0, 0, 2000, 3000]);
     assert.deepEqual([0, 1, 2, 3, 4].map((tier) => tierRule(tier).voiceAllowed), [true, true, true, false, false]);
-    assert.deepEqual([0, 1, 2, 3, 4].map((tier) => tierRule(tier).standingAllowed), [false, false, false, true, false]);
     assert.throws(() => tierRule(5));
   });
 
@@ -749,36 +748,17 @@ describe('preflight', pool, () => {
   });
 });
 
-describe('standing policy', pool, () => {
-  const standing = { 'github-pages': { maxBytes: 1024 * 1024 } };
-
-  test('off by default, and when on it publishes without a person', async (t) => {
-    const github = fakeGitHub(t, { standing });
+describe('public publishing always asks', pool, () => {
+  test('there is no standing policy, even if one is passed in', async (t) => {
+    const github = fakeGitHub(t, { standing: { 'github-pages': { maxBytes: 1024 * 1024 } } });
     const made = await passedYard(t);
     const result = await github.broker.publish({ target: 'github-pages', artifact: await artifactOf(github, made) });
-    assert.equal(result.status, 'live', result.reason);
+    assert.equal(result.status, 'needs_approval', result.reason);
+    assert.equal(result.decision.holdMs, 2000);
+    assert.equal(result.decision.voiceAllowed, false);
   });
 
-  for (const [name, options] of Object.entries({
-    'a new external host': { extra: { externalHosts: ['fonts.example'] } },
-    'a password form': { extra: { sensitive: { password: true, payment: false } } },
-    'a payment form': { extra: { sensitive: { password: false, payment: true } } },
-  })) {
-    test(`does not cover ${name}`, async (t) => {
-      const github = fakeGitHub(t, { standing });
-      const made = await passedYard(t, options);
-      const result = await github.broker.publish({ target: 'github-pages', artifact: await artifactOf(github, made) });
-      assert.equal(result.status, 'needs_approval');
-    });
-  }
-
-  test('does not cover a payload over its limit', async (t) => {
-    const github = fakeGitHub(t, { standing: { 'github-pages': { maxBytes: 10 } } });
-    const made = await passedYard(t);
-    assert.equal((await github.broker.publish({ target: 'github-pages', artifact: await artifactOf(github, made) })).status, 'needs_approval');
-  });
-
-  test('never covers tier 4', async (t) => {
+  test('nor for tier 4', async (t) => {
     const custom = {
       id: 'npm-public',
       payload: 'built',

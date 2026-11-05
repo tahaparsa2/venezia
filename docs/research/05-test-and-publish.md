@@ -345,6 +345,8 @@ Rules:
 | 3 | Public and durable | Pages, public gist, permanent Vercel or Cloudflare | One-tap approval per plan. Standing policy optional |
 | 4 | Irreversible, costly or a change of identity | npm publish, custom domain, source repo going public, paid plan, any deletion, new token scope | Always explicit. Hold-to-confirm. Never a standing policy |
 
+**Superseded: the owner decided public publishing always stays manual, so no standing policy exists (SPEC 9).** The rest of this section is the option as it was researched.
+
 The user asked for publishing "on my behalf directly", so Tier 3 needs a fast path. Offer an opt-in standing policy scoped to one target, for example:
 
 > Auto-publish to `venezia-sites` when the gate passes, the secret scan is clean, there are no new external hosts, no password or payment form is present, and the payload is under 50 MB.
