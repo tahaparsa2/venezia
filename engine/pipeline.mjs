@@ -573,8 +573,11 @@ export function createPipeline({
       }
     },
 
-    async 'dial.set'({ shipId, key, value }) {
+    async 'dial.set'({ shipId, key, value }, { via }) {
       if (shipId !== undefined && !shipOf(shipId)) return notFound();
+      // How much a model may do without you is never a model's to change, and any local caller
+      // that cannot prove it is the CLI counts as MCP.
+      if (key === 'autonomy' && via === 'mcp') return refuse('An agent cannot change autonomy. Only you can, from the deck or the command line.');
       store.append({ type: 'ship.dial', shipId: shipId ?? null, actor: 'human', data: { key, value } });
       if (key === 'model' && shipId && scheduler.worker(shipId)) await scheduler.boost(shipId, value).catch(() => {});
       return { ok: true };
