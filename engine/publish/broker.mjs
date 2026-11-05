@@ -54,6 +54,7 @@ function loadEvidence(evidenceDir) {
  * @param {typeof gateCheckUrl} [options.checkUrl]
  * @param {typeof gateProveHost} [options.proveHost]
  * @param {number} [options.pollMs]
+ * @param {(ms: number) => Promise<void>} [options.sleep]
  * @param {number} [options.pagesBuildTimeoutMs]
  * @param {number} [options.verifyAttempts]
  * @param {() => number} [options.now]
@@ -63,6 +64,7 @@ export function createBroker({
   remoteUrl, siteUrl = (owner, repo, slug) => `https://${owner}.github.io/${repo}/${slug}/`,
   browserLock, checkUrl = gateCheckUrl, proveHost = gateProveHost,
   pollMs = 5000, pagesBuildTimeoutMs = 10 * 60 * 1000, verifyAttempts = 3, now = Date.now,
+  sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); }),
 }) {
   const base = path.join(config.dataDir, 'publish');
   const paths = {
@@ -74,7 +76,6 @@ export function createBroker({
   const tools = createTools({ ghBin, gitBin, env, remoteUrl });
   const key = secret ?? loadApprovalKey(path.join(base, 'approval.key'));
   const byId = Object.fromEntries(adapters.map((adapter) => [adapter.id, adapter]));
-  const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
   const emit = (type, shipId, data) => store?.append({ type, shipId, actor: 'publish', data });
 
   /** One act per target at a time, so two ships never race for the same output branch. */
@@ -93,9 +94,21 @@ export function createBroker({
   };
 
   const stageFor = (target, hash) => path.join(paths.stage, `${target}-${hash.slice(0, 12)}`);
+
+  /**
+   * The contract a payload is held to: the copy locked outside the yard, because a builder can
+   * edit the yard's. With no locked copy to hand, the yard's counts only if it is the one the
+   * gate passed.
+   */
   const contractFor = ({ origin }) => {
-    const { contract, problem } = readContract(origin.yard);
+    if (origin.contract) {
+      const bytes = fs.readFileSync(origin.contract.path);
+      if (sha256(bytes) !== origin.contract.hash) throw new Error('The locked contract is not the one the gate passed');
+      return JSON.parse(bytes);
+    }
+    const { contract, hash, problem } = readContract(origin.yard);
     if (!contract) throw new Error(`Cannot read ${CONTRACT_FILE}: ${problem}`);
+    if (hash !== loadEvidence(origin.evidenceDir)?.evidence.contractHash) throw new Error('The contract was edited after the gate passed');
     return contract;
   };
 
@@ -289,14 +302,15 @@ export function createBroker({
 
     /**
      * Describe what a gate pass produced.
-     * @param {{shipId: string, yard: string, evidenceDir: string, evidenceHash?: string, slug?: string}} options
+     * @param {{shipId: string, yard: string, evidenceDir: string, evidenceHash?: string, slug?: string, contract?: {path: string, hash: string}}} options
+     *   `contract` is the copy locked outside the yard
      */
-    async artifact({ shipId, yard, evidenceDir, evidenceHash, slug }) {
+    async artifact({ shipId, yard, evidenceDir, evidenceHash, slug, contract }) {
       const loaded = loadEvidence(evidenceDir);
       if (!loaded) throw new Error('There is no gate evidence for this project');
       if (evidenceHash && loaded.hash !== evidenceHash) throw new Error('The gate evidence is not the one that was recorded');
       const { evidence, hash } = loaded;
-      const artifact = { shipId, yard, evidenceDir, evidenceHash: hash, evidence, slug: slug ?? evidence.slug, built: null, source: null };
+      const artifact = { shipId, yard, evidenceDir, evidenceHash: hash, evidence, slug: slug ?? evidence.slug, contract: contract ?? null, built: null, source: null };
 
       const { kind, root } = evidence.artifact ?? {};
       if (kind) {
@@ -402,7 +416,9 @@ export function createBroker({
         kind: 'publish',
         tier: plan.tier,
         title: plan.visibility === 'public' ? `Publish ${plan.slug} to the public web?` : `Publish ${plan.slug} to ${plan.target}?`,
-        plain: `This sends ${count} ${count === 1 ? 'file' : 'files'} to ${where}. It costs: ${plan.cost.toLowerCase()}. To undo it: ${plan.rollback}`,
+        plain: journal.receiptFor(plan.hash)
+          ? `This exact version is already published at ${where}, so nothing is sent. Saying yes checks it live again.`
+          : `This sends ${count} ${count === 1 ? 'file' : 'files'} to ${where}. It costs: ${plan.cost.toLowerCase()}. To undo it: ${plan.rollback}`,
         detail: {
           target: plan.target,
           visibility: plan.visibility,
@@ -429,10 +445,11 @@ export function createBroker({
     /**
      * Sign an approval for a plan. Only the control plane calls this, on a human's answer.
      * @param {any} plan
-     * @param {{via?: string, ttlMs?: number}} [options]
+     * @param {{via?: string, ttlMs?: number, at?: number, nonce?: string}} [options]
+     *   `at` is when the human said yes, and `nonce` ties the approval to that one yes
      */
-    approve(plan, { via = 'tap', ttlMs = DEFAULT_APPROVAL_TTL_MS } = {}) {
-      return mintApproval({ secret: key, planHash: plan.hash, tier: plan.tier, via, ttlMs, now: now() });
+    approve(plan, { via = 'tap', ttlMs = DEFAULT_APPROVAL_TTL_MS, at = now(), nonce } = {}) {
+      return mintApproval({ secret: key, planHash: plan.hash, tier: plan.tier, via, ttlMs, now: at, nonce });
     },
 
     /**
@@ -454,11 +471,21 @@ export function createBroker({
         // An intent on file means this plan was already cleared, and a crash stopped it.
         const resuming = journal.interrupted(plan.hash);
         let nonce = null;
-        const gate = await checkGatePass(plan);
-        if (!gate.ok) throw new Error(gate.detail);
-        if (!passedPreflight.has(plan.hash)) {
-          const report = await broker.preflight(plan);
-          if (!report.ok) throw new Error(`Preflight failed at ${report.failed}: ${report.steps.at(-1).detail}`);
+        try {
+          const gate = await checkGatePass(plan);
+          if (!gate.ok) throw new Error(gate.detail);
+          if (!passedPreflight.has(plan.hash)) {
+            const report = await broker.preflight(plan);
+            if (!report.ok) throw new Error(`Preflight failed at ${report.failed}: ${report.steps.at(-1).detail}`);
+          }
+        } catch (error) {
+          // What a crash left may be out there, so this cannot end as if nothing happened.
+          const left = resuming ? journal.preparedFor(plan.hash) : null;
+          if (left) {
+            error.receipt = receiptFrom(plan, left);
+            journal.receipt(plan.hash, error.receipt);
+          }
+          throw error;
         }
         if (!resuming) {
           const need = approvalNeeded(plan);
@@ -472,7 +499,13 @@ export function createBroker({
 
         const stage = await stagePayload(plan);
         if (!resuming) journal.intent(plan, { nonce, plan });
-        const context = contextFor({ stage, resuming, bound: tools.bound(plan.commands) });
+        const context = contextFor({
+          stage,
+          resuming,
+          bound: tools.bound(plan.commands),
+          prepared: resuming ? journal.preparedFor(plan.hash) : null,
+          prepare: (facts) => journal.prepared(plan.hash, facts),
+        });
         let result;
         try {
           result = await adapter.apply(plan, context);
@@ -498,6 +531,7 @@ export function createBroker({
       const adapter = adapterFor(receipt.target);
       const report = await adapter.verify(receipt, contextFor()).catch((error) => ({ ok: false, hostFault: true, problems: [error.message] }));
       if (report.ok) {
+        journal.verified(receipt.planHash);
         emit('publish.verified', receipt.shipId, { target: receipt.target, url: receipt.url, hash: receipt.planHash });
         if ((receipt.visibility === 'public' || receipt.visibility === 'unlisted') && !liveTileStands(receipt.shipId)) {
           store?.append({ type: 'tessera.set', shipId: receipt.shipId, actor: 'publish', data: { kind: 'live', shipId: receipt.shipId } });
@@ -512,9 +546,10 @@ export function createBroker({
       return serial(receipt.target, async () => {
         const adapter = adapterFor(receipt.target);
         const result = await adapter.rollback(receipt, contextFor());
-        const rollback = { ...result, target: receipt.target, slug: receipt.slug, shipId: receipt.shipId, reason };
+        const stillOut = Boolean(result.stillOut);
+        const rollback = { ...result, stillOut, target: receipt.target, slug: receipt.slug, shipId: receipt.shipId, reason };
         journal.rollback(receipt.planHash, rollback);
-        emit('publish.rolledback', receipt.shipId, { target: receipt.target, reason, hash: receipt.planHash });
+        emit('publish.rolledback', receipt.shipId, { target: receipt.target, reason, hash: receipt.planHash, url: receipt.url, stillOut });
         return rollback;
       });
     },
@@ -538,6 +573,10 @@ export function createBroker({
       const report = await broker.verify(receipt);
       if (report.ok) return { status: 'live', receipt, report };
       if (report.hostFault) return { status: 'unverified', receipt, report, reason: report.problems.slice(0, 3).join('; ') };
+      // A replay sent nothing, and what it found was checked live once. That is not ours to undo.
+      if (receipt.replayed && journal.wasVerified(plan.hash)) {
+        return { status: 'failed', receipt, report, reason: `Nothing was sent, because this exact version is already out, and it now fails its live check: ${report.problems.slice(0, 3).join('; ')}. The site was left as it is` };
+      }
       return settleFailure(receipt, `The live check failed: ${report.problems.slice(0, 3).join('; ')}`, report);
     },
 

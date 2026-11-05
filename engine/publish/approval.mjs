@@ -22,15 +22,15 @@ export function loadApprovalKey(file) {
 
 /**
  * Sign an approval. `via` is how the human gave it, and voice cannot approve tier 3 or 4.
- * @param {{secret: Buffer|string, planHash: string, tier: number, via?: string, ttlMs?: number, now?: number}} options
+ * @param {{secret: Buffer|string, planHash: string, tier: number, via?: string, ttlMs?: number, now?: number, nonce?: string}} options
+ *   `now` is when the approval starts to run. `nonce` must hold no dot.
  * @returns {string}
  */
-export function mintApproval({ secret, planHash, tier, via = 'tap', ttlMs = DEFAULT_APPROVAL_TTL_MS, now = Date.now() }) {
+export function mintApproval({ secret, planHash, tier, via = 'tap', ttlMs = DEFAULT_APPROVAL_TTL_MS, now = Date.now(), nonce = randomBytes(9).toString('hex') }) {
   if (via === 'voice' && !tierRule(tier).voiceAllowed) {
     throw new Error('Voice can ask for this, but a tap or a key must approve it');
   }
   const expiresAt = now + ttlMs;
-  const nonce = randomBytes(9).toString('hex');
   return [expiresAt, tier, via, nonce, sign(secret, [planHash, tier, via, expiresAt, nonce])].join('.');
 }
 

@@ -59,6 +59,7 @@ export function planBase(artifact, payload) {
       file: payload.file ?? null,
       skip: payload.skip ?? [],
       commit: payload.commit ?? null,
+      contract: artifact.contract ?? null,
     },
   };
 }
