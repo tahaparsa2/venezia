@@ -117,6 +117,11 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
       return { token: live.token, pin: live.pin, expiresAt: live.expiresAt };
     },
 
+    /** Drop a code nobody has used. */
+    cancel() {
+      live = null;
+    },
+
     /**
      * Swap a token or a PIN for a session.
      * @param {{token?: string, pin?: string, name?: string, ip?: string}} claim
@@ -124,7 +129,7 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
      */
     claim({ token, pin, name, ip = 'unknown' }) {
       if (failedTries(ip) >= IP_TRIES) return { ok: false, status: 429, error: 'Too many wrong tries. Wait ten minutes.' };
-      if (!isLive()) return { ok: false, status: 410, error: 'That pairing code has expired. Run "vz pair" again.' };
+      if (!isLive()) return { ok: false, status: 410, error: 'That pairing code has expired. Press Show a pairing code on your Mac again.' };
       const right = typeof token === 'string'
         ? sameSecret(token, live.token)
         : typeof pin === 'string' && sameSecret(pin, live.pin);
