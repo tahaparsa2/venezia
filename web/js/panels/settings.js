@@ -5,7 +5,10 @@ import { cmd } from '/js/commands.js';
 import { AUTONOMY, DEFAULT_AUTONOMY } from '/shared/vocabulary.mjs';
 import { dayMonth, h, setText, syncList } from '/js/folio/dom.js';
 import { ASKING } from '/js/folio/words.js';
+import { DEMO_PAIRING, NOT_TRIED, SETUP_STEPS } from '/shared/pairing.mjs';
 import { rovingRadios } from '/js/input/util.js';
+
+const PHONE_WATCH_MS = 4000;
 
 function toggle(name, blurb, onChange) {
   const knob = h('button', {
@@ -34,6 +37,10 @@ export function createSettingsPanel(ctx) {
 
   const pairBox = h('div', { class: 'pair' });
   const pairButton = h('button', { type: 'button', class: 'act act-now', text: 'Show a pairing code', onclick: () => startPairing() });
+  const phoneWord = h('p', { class: 'phone-word', role: 'status' });
+  const phoneWhere = h('p', { class: 'pair-url' });
+  const phoneOff = h('button', { type: 'button', class: 'act', text: 'Turn off', hidden: true, onclick: () => turnOff() });
+  const phoneLine = h('div', { class: 'phone-access', hidden: true }, h('div', {}, phoneWord, phoneWhere), phoneOff);
   const devices = h('ul', { class: 'devices' });
   const el = h('section', { class: 'page page-settings', 'aria-label': 'Settings' },
     h('header', { class: 'panel-head' }, h('h2', { class: 'panel-title', text: 'Settings' })),
@@ -44,37 +51,116 @@ export function createSettingsPanel(ctx) {
       h('div', { class: 'levels', role: 'radiogroup', 'aria-label': 'Default autonomy' }, levels),
       h('h3', { class: 'rub', text: 'Pair a phone' }),
       h('p', { class: 'panel-note', text: 'Use the deck or the whole factory from a phone on the same network. The link is encrypted, and each device is paired one at a time.' }),
-      pairButton, pairBox, devices,
+      phoneLine, pairButton, pairBox, devices,
       h('p', { class: 'panel-note settings-deck' }, 'On a phone beside a big screen, open ', h('a', { href: '/deck', text: '/deck' }), ' for the deck alone.')));
+
+  const stepList = (steps) => h('ol', { class: 'pair-steps' }, steps.map((step) => h('li', {}, h('b', { text: `${step.where}. ` }), step.text)));
+
+  /** The first-time steps, iPhone first, and the plain admission that no phone has tried them. */
+  const setupSteps = () => [
+    h('h4', { class: 'pair-head', text: 'First time on this phone: iPhone or iPad' }),
+    stepList(SETUP_STEPS.iphone),
+    h('details', { class: 'pair-more' }, h('summary', { text: 'Android' }), stepList(SETUP_STEPS.android)),
+    h('p', { class: 'pair-note', text: NOT_TRIED }),
+  ];
+
+  /** What pairing a phone looks like: the QR, its PIN, and every step that follows. */
+  function showCode(body) {
+    const seconds = Math.max(0, Math.round((body.expiresAt - Date.now()) / 1000));
+    const qr = h('img', { class: 'pair-qr', alt: `Pairing code for ${body.url}`, src: `data:image/svg+xml,${encodeURIComponent(body.qrSvg)}` });
+    let byIp = false;
+    const swap = h('button', {
+      type: 'button', class: 'link', text: 'Use the QR code for this address',
+      onclick: () => {
+        byIp = !byIp;
+        qr.src = `data:image/svg+xml,${encodeURIComponent(byIp ? body.ipQrSvg : body.qrSvg)}`;
+        qr.alt = `Pairing code for ${byIp ? body.ipUrl : body.url}`;
+        swap.textContent = byIp ? 'Use the QR code for venezia.local' : 'Use the QR code for this address';
+      },
+    });
+    pairBox.append(
+      ...(body.warning ? [h('p', { class: 'pair-warning', text: body.warning })] : []),
+      qr,
+      h('p', { class: 'pair-pin' }, 'PIN ', h('b', { text: body.pin })),
+      h('p', { class: 'pair-note', text: `Scan with the phone's camera. This code works once and stops working in ${Math.ceil(seconds / 60)} minutes.` }),
+      h('p', { class: 'pair-url', text: body.address }),
+      ...(body.ipAddress ? [
+        h('p', { class: 'pair-note', text: 'If the phone cannot find venezia.local, open this address instead and enter the PIN:' }),
+        h('p', { class: 'pair-url pair-ip', text: body.ipAddress }),
+        swap,
+      ] : []),
+      ...setupSteps(),
+      h('p', { class: 'pair-note', text: 'The certificate fingerprint, to compare with the phone:' }),
+      h('p', { class: 'pair-url', text: body.fingerprint }),
+    );
+  }
 
   async function startPairing() {
     pairBox.replaceChildren();
     if (store.demo) {
-      pairBox.append(h('p', { class: 'pair-note', text: 'Pairing needs the real factory. In the scripted demo there is nothing to pair with.' }));
+      pairBox.append(h('p', { class: 'pair-note', text: DEMO_PAIRING }));
       return;
     }
     pairButton.disabled = true;
+    pairBox.append(h('p', { class: 'pair-note', text: 'Waiting for your yes in the box on this Mac.' }));
     try {
       const response = await fetch('/api/pair/start', { method: 'POST', credentials: 'same-origin' });
       const body = await response.json().catch(() => ({}));
+      pairBox.replaceChildren();
       if (!response.ok) {
-        const elsewhere = response.status === 405 || response.status === 404 || response.status === 403;
+        const elsewhere = response.status === 405 || response.status === 404;
         pairBox.append(h('p', { class: 'pair-note', text: elsewhere ? 'A pairing code can only be started on the Mac itself.' : body.error ?? 'Could not start pairing.' }));
         return;
       }
-      const seconds = Math.max(0, Math.round((body.expiresAt - Date.now()) / 1000));
-      pairBox.append(
-        h('img', { class: 'pair-qr', alt: `Pairing code for ${body.url}`, src: `data:image/svg+xml,${encodeURIComponent(body.qrSvg)}` }),
-        h('p', { class: 'pair-pin' }, 'PIN ', h('b', { text: body.pin })),
-        h('p', { class: 'pair-note', text: `Scan with the phone's camera, then enter the PIN. This code stops working in ${Math.ceil(seconds / 60)} minutes.` }),
-        h('p', { class: 'pair-url', text: body.ipUrl ?? body.url }),
-      );
-      loadDevices();
+      showCode(body);
+      await refreshPhone();
     } catch {
-      pairBox.append(h('p', { class: 'pair-note', text: 'Could not reach the factory to start pairing.' }));
+      pairBox.replaceChildren(h('p', { class: 'pair-note', text: 'Could not reach the factory to start pairing.' }));
     } finally {
       pairButton.disabled = false;
     }
+  }
+
+  async function turnOff() {
+    phoneOff.disabled = true;
+    try {
+      const response = await fetch('/api/phone-access/off', { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) store.notify('Phone access could not be turned off from here.', { title: 'Not changed' });
+      await refreshPhone();
+    } catch {
+      store.notify('Could not reach the factory.', { title: 'Not changed' });
+    } finally {
+      phoneOff.disabled = false;
+    }
+  }
+
+  let phoneOn = false;
+  let deviceCount = null;
+
+  /** Ask the server, because the command line can turn this on or off with this page open. */
+  async function refreshPhone() {
+    if (store.demo) return;
+    let phone;
+    try {
+      const response = await fetch('/api/phone-access', { credentials: 'same-origin', cache: 'no-store' });
+      // A phone cannot see this route, and has no business with the switch, so it stops asking.
+      if (response.status === 404) clearInterval(watch);
+      if (!response.ok) return;
+      phone = await response.json();
+    } catch {
+      return;
+    }
+    phoneLine.hidden = false;
+    setText(phoneWord, phone.on ? 'Phone access is on' : 'Phone access is off');
+    setText(phoneWhere, phone.on ? phone.ipUrl ?? phone.url : 'Only this Mac can reach Venezia. Paired devices stay paired.');
+    phoneOff.hidden = !phone.on;
+    phoneLine.classList.toggle('is-on', phone.on);
+    const paired = deviceCount !== null && phone.devices > deviceCount;
+    if (phoneOn && !phone.on) pairBox.replaceChildren();
+    if (paired && pairBox.firstChild) pairBox.replaceChildren(h('p', { class: 'pair-note', text: 'Paired. That device can now reach Venezia.' }));
+    if (phone.devices !== deviceCount) loadDevices();
+    phoneOn = phone.on;
+    deviceCount = phone.devices;
   }
 
   async function loadDevices() {
@@ -114,8 +200,14 @@ export function createSettingsPanel(ctx) {
     if (!loaded) {
       loaded = true;
       loadDevices();
+      refreshPhone();
     }
   }
+
+  const watch = setInterval(() => {
+    if (document.visibilityState === 'visible' && el.offsetParent !== null) refreshPhone();
+  }, PHONE_WATCH_MS);
+  watch.unref?.();
 
   return { el, update };
 }
