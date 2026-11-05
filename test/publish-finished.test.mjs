@@ -513,6 +513,126 @@ describe('after a crash', () => {
   });
 });
 
+describe('the receipt on the way out', { concurrency: 4 }, () => {
+  /** A commit lands in the yard, past every check that came before it. */
+  const landCommit = (yard, id) => {
+    fs.appendFileSync(path.join(yard(id), 'src', 'main.js'), '// Landed after the gate.\n');
+    gitIn(yard(id), 'add', '-A');
+    gitIn(yard(id), 'commit', '-qm', 'Landed after the gate');
+  };
+
+  test('a commit that lands during preflight stops a publish with no card', async (t) => {
+    if (noChrome(t)) return;
+    const { engine, yard } = factory(t, { browser });
+    const id = await finished(engine);
+    const start = lastSeq(engine, id);
+    const { preflight } = engine.broker;
+    engine.broker.preflight = async (plan) => {
+      const report = await preflight(plan);
+      landCommit(yard, id);
+      return report;
+    };
+    await send(engine, { type: 'publish.request', shipId: id, target: 'github-private' });
+    await until(() => eventsOf(engine, id, 'receipt.voided').length === 1 && !engine.pipeline.ctx.publishPreparing.has(id), { timeoutMs: 60000, what: 'the receipt to go' });
+    assert.equal(eventsOf(engine, id, 'publish.applied').length, 0);
+    assert.deepEqual(movesAfter(engine, id, start), []);
+    assert.equal(fs.existsSync(planFile(engine, id)), false);
+    assert.ok(eventsOf(engine, id, 'bell.rung').some((event) => /was not published/.test(event.data.reason)));
+  });
+
+  /** A yes on the log and the move to publishing, and the host died before anything else. */
+  async function crashedAfterYes(t, { before = () => {}, broker } = {}) {
+    const dir = testDir(t);
+    const first = factory(t, { browser, dir });
+    const id = await finished(first.engine);
+    await send(first.engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
+    const decision = await card(first.engine, id, 'publish');
+    const start = lastSeq(first.engine, id);
+    await first.engine.close();
+    const log = createStore({ path: first.config.dbPath });
+    log.append({ type: 'decision.resolved', shipId: id, actor: 'human', data: { id: decision.id, optionId: 'approve', via: 'web' } });
+    log.append({ type: 'ship.state', shipId: id, actor: 'host', data: { state: 'publishing' } });
+    log.close();
+    before(first.yard, id);
+    const { engine } = factory(t, { browser, dir, broker });
+    await engine.start();
+    return { engine, id, start };
+  }
+
+  test('a restart in publishing checks the receipt before anything leaves', async (t) => {
+    if (noChrome(t)) return;
+    const { engine, id } = await crashedAfterYes(t, { before: landCommit });
+    await until(() => shipOf(engine, id).state === 'done', { timeoutMs: 60000, what: 'the ship to go home' });
+    assert.equal(eventsOf(engine, id, 'receipt.voided').length, 1);
+    assert.equal(eventsOf(engine, id, 'publish.applied').length, 0);
+    assert.deepEqual(tiles(engine, id), ['gate', 'receipt']);
+    assert.ok(eventsOf(engine, id, 'bell.rung').some((event) => /was not published/.test(event.data.reason)));
+    assert.equal(fs.existsSync(planFile(engine, id)), false);
+  });
+
+  test('a yes that has run out of time is asked for again, and sends nothing', async (t) => {
+    if (noChrome(t)) return;
+    const weekLater = () => Date.now() + 7 * 24 * 3600 * 1000;
+    const { engine, id } = await crashedAfterYes(t, { broker: { now: weekLater } });
+    await until(() => shipOf(engine, id).state === 'done', { timeoutMs: 60000, what: 'the ship to go home' });
+    assert.equal(eventsOf(engine, id, 'publish.applied').length, 0);
+    assert.ok(eventsOf(engine, id, 'bell.rung').some((event) => /approval has expired/.test(event.data.reason)));
+    assert.equal(engine.broker.journal.entries().some((entry) => entry.kind === 'intent' && entry.planHash), false);
+  });
+
+  test('the host\'s own recheck looks at a ship that is publishing', async (t) => {
+    if (noChrome(t)) return;
+    const gate = liveGate();
+    const { engine, yard } = factory(t, { browser, broker: { checkUrl: gate.checkUrl }, config: { receiptRecheckMs: 0 } });
+    const id = await finished(engine);
+    await send(engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
+    await holdAndApprove(engine, await card(engine, id, 'publish'));
+    await until(() => gate.reached, { timeoutMs: 60000, what: 'the live check' });
+    landCommit(yard, id);
+    await until(() => eventsOf(engine, id, 'receipt.voided').length === 1, { timeoutMs: 60000, what: 'the recheck' });
+    assert.equal(shipOf(engine, id).state, 'publishing');
+    gate.open();
+    await until(() => shipOf(engine, id).state === 'done', { timeoutMs: 60000, what: 'the publish to finish' });
+    assert.equal(eventsOf(engine, id, 'publish.verified').length, 1, 'what left was the receipted payload');
+  });
+
+  test('a contract edited after the yes does not weaken the live check', async (t) => {
+    if (noChrome(t)) return;
+    const seen = [];
+    const { engine, yard } = factory(t, { browser, broker: { checkUrl: async ({ contract }) => { seen.push(contract); return { ok: true, problems: [] }; } } });
+    const id = await finished(engine);
+    await send(engine, { type: 'publish.request', shipId: id, target: 'github-pages' });
+    const decision = await card(engine, id, 'publish');
+    const { finish } = engine.broker;
+    engine.broker.finish = (plan, token) => {
+      const file = path.join(yard(id), 'venezia.contract.json');
+      fs.writeFileSync(file, JSON.stringify({ ...JSON.parse(fs.readFileSync(file, 'utf8')), smoke: [], acceptance: [] }));
+      return finish(plan, token);
+    };
+    await holdAndApprove(engine, decision);
+    await until(() => seen.length > 0, { timeoutMs: 60000, what: 'the live check' });
+    assert.ok(seen[0].smoke.length > 0, 'the locked contract, not the one in the yard');
+    assert.ok(seen[0].acceptance.length > 0);
+  });
+
+  test('a tarball is not a launch, in any word that says so', async (t) => {
+    if (noChrome(t)) return;
+    const { engine, yard } = factory(t, { browser });
+    const id = await finished(engine);
+    const start = lastSeq(engine, id);
+    await send(engine, { type: 'publish.request', shipId: id, target: 'tarball' });
+    await until(() => eventsOf(engine, id, 'publish.verified').length === 1 && shipOf(engine, id).state === 'done', { timeoutMs: 60000, what: 'the tarball' });
+    const bells = engine.store.events({ shipId: id, since: start, types: ['bell.rung'] }).map((event) => event.data.reason);
+    assert.ok(bells.length > 0);
+    assert.equal(bells.some((reason) => /is live/.test(reason)), false, bells.join(' | '));
+    assert.equal(shipOf(engine, id).publishes.tarball.live, false);
+    const chronicle = fs.readFileSync(path.join(yard(id), 'CHRONICLE.md'), 'utf8');
+    assert.doesNotMatch(chronicle, /It is live at/);
+    assert.match(chronicle, /A copy is saved on this machine/);
+    assert.match(atlas(engine), /1 project, 0 launched/);
+  });
+});
+
 describe('from the command line', () => {
   test('vz publish works on a finished project', async (t) => {
     if (noChrome(t)) return;

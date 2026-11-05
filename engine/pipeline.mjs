@@ -36,6 +36,7 @@ const BUILT = new Set(['ready', 'publishing', 'launched', 'learning']);
 const AFTER_GATE = new Set(['repairing', 'reviewing', 'ready', 'publishing', 'launched', 'learning']);
 const WORK_RECHECK_MS = 60_000;
 const RECEIPT_RECHECK_MS = 60_000;
+const RECEIPT_WATCHED = [...RECEIPT_RESTS, 'publishing'];
 
 /** A block with a card waits for that card: yes returns the ship, no ends it. */
 function blocked(ctx, ship) {
@@ -347,7 +348,7 @@ export function createPipeline({
     if (now() - lastReceiptCheck < (config.receiptRecheckMs ?? RECEIPT_RECHECK_MS)) return;
     lastReceiptCheck = now();
     for (const ship of Object.values(store.state().ships)) {
-      if (!RECEIPT_RESTS.includes(ship.state) || !ship.receipt || ship.receipt.voided) continue;
+      if (!RECEIPT_WATCHED.includes(ship.state) || !ship.receipt || ship.receipt.voided) continue;
       if (!checkReceipt(ctx, ship) && PUBLISHABLE.includes(ship.state)) poke(ship.id);
     }
   }
