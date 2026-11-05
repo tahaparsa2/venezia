@@ -15,7 +15,6 @@ import { DOC_FILES, changedSince, hostFolderHash, yardPath } from './yard.mjs';
 import { block, clip, go, halt, latestCard, nameOf, onVisit, wait } from './shared.mjs';
 
 const REFUSED = new Set(['reject', 'keep']);
-const VISIBLE = new Set(['public', 'unlisted']);
 const SOURCE_SKIP = ['node_modules', '.git', '.venezia'];
 
 const planFile = (ctx, shipId) => path.join(ctx.config.dataDir, 'publish', 'plans', `${shipId}.json`);
@@ -284,7 +283,7 @@ export async function publishing(ctx, ship) {
 
   if (outcome.status === 'live') {
     ctx.publishFailures.delete(ship.id);
-    if (VISIBLE.has(plan.visibility)) {
+    if (outcome.report.earned) {
       ctx.store.append({ type: 'renown.changed', shipId: ship.id, actor: 'publish', data: { delta: RENOWN_AWARDS.launch, reason: 'Launched and checked live' } });
     }
     return go('launched');

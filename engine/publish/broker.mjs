@@ -41,7 +41,7 @@ function loadEvidence(evidenceDir) {
 /**
  * @param {object} options
  * @param {object} options.config              from `loadConfig`
- * @param {{append: (event: object) => any}} [options.store]
+ * @param {{append: (event: object) => any, events: (query: object) => any[]}} [options.store]
  * @param {Buffer|string} [options.secret]     approval key; by default kept in `data/publish`
  * @param {object} [options.previews]          from `createPreviewManager`
  * @param {object[]} [options.adapters]
@@ -251,6 +251,16 @@ export function createBroker({
     if (rule.approval === 'none') return { required: false, reason: 'Automatic at this tier' };
     if (rule.approval === 'once' && journal.hasGrant(plan.target)) return { required: false, reason: 'Already approved for this target' };
     return { required: true, reason: `Tier ${plan.tier} needs your approval` };
+  }
+
+  /**
+   * One gold tile per verified result. A finished ship can be published again, and checking the
+   * same result live a second time proves nothing new. A refit is a new result.
+   */
+  function liveTileStands(shipId) {
+    const events = store?.events({ shipId, types: ['ship.refit', 'tessera.set'] }) ?? [];
+    const fresh = events.slice(events.findLastIndex((event) => event.type === 'ship.refit') + 1);
+    return fresh.some((event) => event.type === 'tessera.set' && event.data.kind === 'live');
   }
 
   const passedPreflight = new Set();
@@ -483,14 +493,15 @@ export function createBroker({
       });
     },
 
-    /** Check the published thing where it now lives. */
+    /** Check the published thing where it now lives. `earned` says this result set a gold tile. */
     async verify(receipt) {
       const adapter = adapterFor(receipt.target);
       const report = await adapter.verify(receipt, contextFor()).catch((error) => ({ ok: false, hostFault: true, problems: [error.message] }));
       if (report.ok) {
         emit('publish.verified', receipt.shipId, { target: receipt.target, url: receipt.url, hash: receipt.planHash });
-        if (receipt.visibility === 'public' || receipt.visibility === 'unlisted') {
+        if ((receipt.visibility === 'public' || receipt.visibility === 'unlisted') && !liveTileStands(receipt.shipId)) {
           store?.append({ type: 'tessera.set', shipId: receipt.shipId, actor: 'publish', data: { kind: 'live', shipId: receipt.shipId } });
+          return { ...report, earned: true };
         }
       }
       return report;
