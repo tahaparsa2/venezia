@@ -54,7 +54,6 @@ export function createEngine(config = {}, options = {}) {
     store,
     previews,
     browserLock: ({ signal } = {}) => scheduler.acquireBrowser('publish', { signal }),
-    standing: resolved.publishStanding,
     ...brokerOptions,
   });
   const pipeline = createPipeline({

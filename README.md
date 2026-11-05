@@ -107,8 +107,9 @@ daily streak and a chime, and it was the first on the current models:
 - A full 25 minutes ran in real Chrome: the chime played once and the streak survived a reload. The
   chime came about 12 seconds late with nobody at the tab. The likely cause is timer throttling, which
   was not proven.
-- It still stopped on five tool cards at the highest autonomy. Workers now have doctrine against the
-  three causes, but that has not been tried on a real run.
+- It still stopped on five tool cards at the highest autonomy. Tool cards now follow the autonomy
+  setting, so confined work no longer stops at that level, and each such call goes on the log with
+  the reason. A full real run of that has not finished: see below.
 
 Marea, a tip calculator that splits a bill, came first:
 
@@ -121,6 +122,13 @@ Marea, a tip calculator that splits a bill, came first:
 - That run found five real problems, now fixed or handled: heredocs and `rm -rf` stopped workers,
   git died on `~/.gitconfig`, `listen` was refused, a hardcoded port slipped through, and deny
   rules blocked finished work.
+
+The first real run of the autonomy policy did not finish. A coin flip started at the highest
+autonomy from the command line, and intake ran on real Claude with no tool card and one logged
+automatic allow. Then the rate limit guard held it at the start of the contract, because the
+seven-day limit was over the guard's threshold, and the guard was left alone. The hook and the
+prompt it forces were checked on real Claude, but writes, commands and the gate at this level
+have only run on the fake Claude.
 
 Not proven:
 

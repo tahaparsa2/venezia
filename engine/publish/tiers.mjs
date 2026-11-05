@@ -6,8 +6,11 @@ import { TIERS } from '../../shared/vocabulary.mjs';
 /**
  * - `none`: automatic once preflight passes
  * - `once`: one approval per target, then automatic
- * - `plan`: one approval per plan, unless a standing policy covers the target
- * - `always`: one approval per plan, and no standing policy can ever cover it
+ * - `plan`: one approval per plan
+ * - `always`: one approval per plan, with the longer hold
+ *
+ * The last two need a person every time. There is no standing policy, and autonomy does not
+ * apply here (SPEC 9).
  */
 const APPROVAL = ['none', 'none', 'once', 'plan', 'always'];
 
@@ -18,13 +21,11 @@ const PREFLIGHT = [
   ['gate-pass', 'secret-scan', 'payload-clean', 'host-sim', 'dry-run', 'show-plan'],
 ];
 
-export const DEFAULT_STANDING_MAX_BYTES = 50 * 1024 * 1024;
-
 /** @param {number} tier */
 export function tierRule(tier) {
   const rule = TIERS[tier];
   if (!rule) throw new Error(`There is no publish tier ${tier}`);
-  return { ...rule, approval: APPROVAL[tier], standingAllowed: tier === 3 };
+  return { ...rule, approval: APPROVAL[tier] };
 }
 
 export const preflightSteps = (tier) => PREFLIGHT[Math.min(tier, 2)];

@@ -21,7 +21,7 @@ import { local } from './adapters/local.mjs';
 import { tarball } from './adapters/tarball.mjs';
 import { DEFAULT_APPROVAL_TTL_MS, checkApproval, loadApprovalKey, mintApproval } from './approval.mjs';
 import { createJournal } from './journal.mjs';
-import { DEFAULT_STANDING_MAX_BYTES, preflightSteps, tierRule } from './tiers.mjs';
+import { preflightSteps, tierRule } from './tiers.mjs';
 import { createTools } from './tools.mjs';
 
 export const ADAPTERS = Object.freeze([local, tarball, githubPrivate, githubPages, gistSecret, vercel, cloudflare]);
@@ -50,7 +50,6 @@ function loadEvidence(evidenceDir) {
  * @param {NodeJS.ProcessEnv} [options.env]
  * @param {(owner: string, repo: string) => string} [options.remoteUrl]
  * @param {(owner: string, repo: string, slug: string) => string} [options.siteUrl]
- * @param {Record<string, {maxBytes?: number}>} [options.standing] opt-in standing policies, by target
  * @param {any} [options.browserLock]
  * @param {typeof gateCheckUrl} [options.checkUrl]
  * @param {typeof gateProveHost} [options.proveHost]
@@ -62,7 +61,7 @@ function loadEvidence(evidenceDir) {
 export function createBroker({
   config, store, secret, previews, adapters = ADAPTERS, ghBin = 'gh', gitBin = 'git', env = process.env,
   remoteUrl, siteUrl = (owner, repo, slug) => `https://${owner}.github.io/${repo}/${slug}/`,
-  standing = {}, browserLock, checkUrl = gateCheckUrl, proveHost = gateProveHost,
+  browserLock, checkUrl = gateCheckUrl, proveHost = gateProveHost,
   pollMs = 5000, pagesBuildTimeoutMs = 10 * 60 * 1000, verifyAttempts = 3, now = Date.now,
 }) {
   const base = path.join(config.dataDir, 'publish');
@@ -251,22 +250,7 @@ export function createBroker({
     const rule = tierRule(plan.tier);
     if (rule.approval === 'none') return { required: false, reason: 'Automatic at this tier' };
     if (rule.approval === 'once' && journal.hasGrant(plan.target)) return { required: false, reason: 'Already approved for this target' };
-    if (rule.approval === 'plan' && standingCovers(plan)) return { required: false, reason: 'A standing policy covers this' };
     return { required: true, reason: `Tier ${plan.tier} needs your approval` };
-  }
-
-  /** A standing policy holds only for a payload with nothing new to judge (research 05, 8). */
-  function standingCovers(plan) {
-    const policy = standing[plan.target];
-    if (!policy) return false;
-    const { evidence } = loadEvidence(plan.origin.evidenceDir) ?? {};
-    if (!evidence) return false;
-    const known = journal.lastPublish(plan.target, plan.slug)?.externalHosts ?? [];
-    const newHosts = (evidence.externalHosts ?? []).filter((host) => !known.includes(host));
-    return newHosts.length === 0
-      && !evidence.sensitive?.password
-      && !evidence.sensitive?.payment
-      && sum(plan.manifest) < (policy.maxBytes ?? DEFAULT_STANDING_MAX_BYTES);
   }
 
   const passedPreflight = new Set();

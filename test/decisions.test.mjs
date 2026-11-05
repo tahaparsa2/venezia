@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { createDecisions, isAllowedHost, routePermission, writesOutsideYard } from '../engine/decisions.mjs';
+import { createDecisions, isAllowedHost, writesOutsideYard } from '../engine/decisions.mjs';
+import { decideTool } from '../engine/tool-policy.mjs';
 import { loadConfig } from '../engine/config.mjs';
 import { createStore } from '../engine/store.mjs';
 import { spawnWorker } from '../engine/worker.mjs';
@@ -217,7 +218,7 @@ describe('silence never approves', () => {
 describe('the policy table', () => {
   const cwd = '/Users/x/yards/a';
   const allowedDomains = ['registry.npmjs.org', '*.example.org'];
-  const route = (request) => routePermission(request, { cwd, allowedDomains });
+  const route = (request) => decideTool(request, { cwd, allowedDomains, autonomy: 1 }).verdict;
 
   test('allowlisted network is automatic', () => {
     assert.equal(route({ toolName: 'SandboxNetworkAccess', input: { host: 'registry.npmjs.org' } }), 'allow');
@@ -244,10 +245,10 @@ describe('the policy table', () => {
   });
 
   test('anything else is a tool decision', () => {
-    assert.equal(route({ toolName: 'Bash', input: { command: 'rm -rf build' } }), 'tool');
-    assert.equal(route({ toolName: 'Read', input: { file_path: '/etc/hosts' } }), 'tool');
-    assert.equal(route({ toolName: 'Write', input: { file_path: `${cwd}/.git/hooks/pre-commit` } }), 'tool');
-    assert.equal(route({ toolName: 'SomethingNew', input: {} }), 'tool');
+    assert.equal(route({ toolName: 'Bash', input: { command: 'rm -rf build' } }), 'ask');
+    assert.equal(route({ toolName: 'Read', input: { file_path: '/etc/hosts' } }), 'ask');
+    assert.equal(route({ toolName: 'Write', input: { file_path: `${cwd}/.git/hooks/pre-commit` } }), 'ask');
+    assert.equal(route({ toolName: 'SomethingNew', input: {} }), 'ask');
   });
 
   test('a symlink in the yard does not hide a write outside it', (t) => {

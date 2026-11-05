@@ -164,7 +164,9 @@ export function createScheduler({ store, config, decisions, spawn = spawnWorker,
       const sessionId = spec.sessionId ?? randomUUID();
       const { shipId, cwd, role } = spec;
       const onPermission = spec.onPermission ?? decisions?.forWorker({ shipId, cwd, role });
-      const full = { ...spec, runId, sessionId, onPermission };
+      // A run with its own route, such as the voice classifier, keeps to that route alone.
+      const onPreTool = spec.onPreTool ?? onPermission?.preTool;
+      const full = { ...spec, runId, sessionId, onPermission, onPreTool };
       validateWorkerSpec({ store, config, ...full });
       if (writers.has(sessionId)) {
         const error = new Error(`Session ${sessionId} already has a writer, run ${writers.get(sessionId)}`);

@@ -33,9 +33,9 @@ export const TIER_ASK = Object.freeze([
 
 /** The three levels of asking, in plain words, since picking one is a choice. */
 export const ASKING = Object.freeze([
-  'You approve each contract and each tool.',
-  'You approve contracts for normal and larger projects, and publishing.',
-  'Only publishing needs you.',
+  'You approve each contract and each tool, including edits and commands.',
+  'You approve contracts for normal and larger projects, publishing and anything risky. Routine work runs.',
+  'Publishing needs you, and anything that would leave the project. Work inside it runs without asking.',
 ]);
 
 /** Gate steps, as a person would name them. `fail` says what it means when one breaks. */

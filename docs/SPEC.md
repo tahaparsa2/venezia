@@ -85,6 +85,7 @@ engine/
   scheduler.mjs         worker slots, browser lock, session single-writer lock
   pipeline.mjs          deterministic ship state machine
   decisions.mjs         decision inbox, tiers, approval tokens
+  tool-policy.mjs       what a tool call may do at each autonomy level
   mcp.mjs               `vz mcp`, a thin surface over a running server
   sim-engine.mjs        the scripted fleet behind the real server
   stations/             intake, contract, build, prove, review, launch, learn, plus yard, bells
@@ -211,7 +212,7 @@ Public shape:
 
 ```js
 const w = spawnWorker({ shipId, role, cwd, prompt, schema?, model, effort, tools, doctrinePath,
-  maxTurns, maxBudgetUsd, sessionId?, resumeSessionAt?, forkFrom?, onPermission, onStopGate? })
+  maxTurns, maxBudgetUsd, sessionId?, resumeSessionAt?, forkFrom?, onPermission, onPreTool?, onStopGate? })
 w.steer(text, {priority})   // undefined | 'later' | 'now'; returns uuid, lifecycle becomes events
 w.interrupt({cancelQueued})
 w.setModel(alias)
@@ -235,9 +236,31 @@ Rules from the spike:
 - A heredoc or `node -e` with braces and quotes, `rm -r` or `rm -rf`, and `$?` in a command raise a `tool` card, because Claude Code's safety check fires inside a sandbox too. Doctrine forbids them, and scratch work goes in a git-ignored `.scratch/` in the yard.
 - A standing deny rule that refused a call does not stop a worker that still reached its report. Nobody decided anything, so the station's own checks and the report's gap say what happens (`workedRound`). A refusal from a person or the permission route always blocks with `permission_denied`.
 
-Permission routing: `can_use_tool` goes to `decisions.mjs`. Policy table, in order: sandbox-network to allowlisted hosts auto-allow; `SandboxNetworkAccess` to other hosts raises a `network` decision; writes outside the yard deny and raise a `gap`; anything else raises a `tool` decision, held with no timeout. "Always" is offered through `updatedPermissions` with `destination:"session"` only.
+Permission routing: `decideTool` in `engine/tool-policy.mjs` is the one policy. Every tool call reaches it twice at most. First a `PreToolUse` hook callback, registered in `initialize` with matcher `*`, asks it before Claude Code's own rules run. `allow` passes, and Claude Code's rules still apply. Anything else answers `ask`, which sends the call to `can_use_tool`, whatever `acceptEdits` and `autoAllowBashIfSandboxed` would have done. Then `can_use_tool` asks it again, and that is the one place that opens a card or refuses. A standing deny rule beats a hook's `ask`, so `gh` never gets that far. If the hook fails, the call goes to `can_use_tool`, and if that fails the call is denied.
 
-These cards come from Claude Code's own prompts and are the same at every autonomy level. A dial never widens what a confined worker may do, so Wind can still stop on a tool card, and Tiller does not prompt for edits inside the yard, which `acceptEdits` allows.
+The policy, in order. The first four rows hold at every level, and autonomy is only read in the last rows:
+
+| Request | Result |
+|---|---|
+| Network to this machine, spelled any way | Denied, no card |
+| Network to an allowlisted host | Runs, logged |
+| Network to any other host | `network` card, held. Never automatic |
+| A write tool, or a shell redirect, `tee`, `touch`, `mkdir`, `rm`, `cp`, `mv` or `ln`, landing outside the yard | Denied, and raises a `gap`. The folders the OS sandbox opens for temp files are not outside, and a path in a variable cannot be read, so the sandbox has the last word |
+| A credential path, in `sandbox.denyRead` or `data/publish` and `data/net` | Denied, no card |
+| `gh`, `git push`, `curl`, the publishing verbs of npm, pnpm, yarn and bun, and every other program in `BARRED_PROGRAMS`, through wrappers, `sh -c`, `eval`, substitutions and heredocs given to a shell. Also `vz` | Denied, no card. It is matched after `DENY_RULES`, which is built from the same list |
+| Not confined: a request to leave the sandbox, a read outside the yard, a write in `.git`, `.claude` or `.venezia`, a file Claude Code marks with `safetyCheck`, a tool the host does not know | `tool` card, held, at every level |
+| A worker's report (`StructuredOutput`) | Runs at every level |
+| Confined work at Tiller (0) | `tool` card, held, reads included |
+| Confined work at Sail (1) | Runs, logged. A `tool` card if it is risky or Claude Code flagged it |
+| Confined work at Wind (2) | Runs, logged, even if risky or flagged, because the sandbox is the boundary |
+
+Risky means a recursive delete, `git reset --hard`, `git clean`, a `git config` that changes how git runs, `chmod`, `kill`, `sudo` and the like, a string given to a shell, or a program hidden in a variable. It is a second look, not a boundary. So is all of the command reading: a command written to hide what it does gets past `decideTool`, and is then stopped by the OS sandbox, the network allowlist and a worker holding no credentials.
+
+Each call reads the ship's `autonomy` from state, so a change applies to a running ship from its next tool call, up or down. A card already held stays held until you answer it. The factory default only affects new ships. Below Tiller, "Always" is offered through `updatedPermissions` with `destination:"session"` only. Tiller offers no "Always". Held cards have no timeout.
+
+Every automatic allow is a `tool.auto` event with the tool, what it did, why no one was asked, and the level. A call the hook passed is logged when its result comes back, because Claude Code may still stop to ask. The chronicle lists them under "Ran without asking".
+
+A worker cannot move its own dial. It has no command path: loopback is closed to it, `vz` is refused, and it cannot read the CLI key, so any local caller that gets through counts as `mcp`, and `dial.set` refuses `autonomy` from `mcp`. Yard code runs in a jail with no loopback but its own port, and a prototype is a separate origin, which the server refuses. The policy takes no lesson, law or doctrine as input (section 10).
 
 ## 7. Decisions
 
@@ -288,8 +311,10 @@ Voice in the web surfaces is transcribe-only: the socket opens as `/ws/voice?mod
 | 0 | This machine: preview, tarball | Automatic after gate pass |
 | 1 | Remote and private: private repo | Automatic after gate and secret scan, then notify |
 | 2 | Unlisted or expiring: secret gist | Approve once per target |
-| 3 | Public and durable: GitHub Pages via `venezia-sites` | One approval per plan, hold 2 s, tap or key required, voice can request but not approve |
+| 3 | Public and durable: GitHub Pages via `venezia-sites` | One approval per plan, hold 2 s, tap or key required, voice can request but not approve, never standing |
 | 4 | Irreversible | Always explicit, hold 3 s, never standing |
+
+Tiers 3 and 4 always need a person. No autonomy level, config or standing policy changes that, and `decisions.resolve` refuses a yes from the host itself. Research 05 offered a standing policy for tier 3. The owner decided against it.
 
 Default public path: source in a private repo, built output only in one public `<user>/venezia-sites` repo on `gh-pages`. Adapters in v1: `local`, `tarball`, `github-private`, `github-pages`, `gist-secret`. `vercel` and `cloudflare` exist as probes that report what setup is needed.
 
@@ -355,6 +380,7 @@ work.started work.finished {itemId, status}
 worker.started worker.stopped {runId, role, model, outcome, costUsd}   stopped adds ranModels: what Claude reports running, since `model` is only the alias asked for
 worker.activity          {runId, kind, tool?, summary}   compact feed
 worker.text              {runId, text}                   sampled, not every delta
+tool.auto                {runId, role?, tool, summary, why, autonomy}   a tool call that ran with no card
 worker.context           {runId, used, max}
 steer.sent steer.state   {uuid, verb, text, state}    verb is a steering verb, or `host`
 decision.opened decision.resolved                    resolved carries {id, optionId, note?, answers?, via?}
@@ -407,7 +433,7 @@ lamp.assign {slot, shipId}             ship.read {shipId}
 preview.open {shipId}
 ```
 
-`autonomy` is 0 Tiller (approve each contract, sketches included), 1 Sail (default: contracts for galleys and larger, publishing), 2 Wind (only publishing needs you, so questions take their recommended answers, on the log with the actor `host`). Tool cards are the same at every level, as section 6 says. Public publishing always asks unless a standing policy exists for that target.
+`autonomy` is 0 Tiller (approve each contract, sketches included, and each tool call, edits, commands and reads included), 1 Sail (default: contracts for galleys and larger, publishing and anything risky, and routine confined work runs), 2 Wind (only publishing needs you, so questions take their recommended answers, on the log with the actor `host`, and work confined to the yard and the OS sandbox runs). No level lets a worker leave the yard, so a new network host or a read outside the yard still asks at Wind, as section 6 says. Public publishing always asks. `dial.set` refuses `autonomy` from `mcp`.
 
 ## 12. Surfaces
 

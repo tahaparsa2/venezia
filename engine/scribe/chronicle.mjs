@@ -11,7 +11,7 @@ export const DEPTHS = Object.freeze(['simple', 'technical', 'commentary']);
 export const CHRONICLE_FILE = 'CHRONICLE.md';
 
 /** Too frequent to be history. Runs and tool counts summarise them. */
-const QUIET = new Set(['worker.text', 'worker.context', 'worker.activity', 'lesson.used', 'steer.state', 'ship.read']);
+const QUIET = new Set(['worker.text', 'worker.context', 'worker.activity', 'tool.auto', 'lesson.used', 'steer.state', 'ship.read']);
 
 const usd = (value) => `$${value.toFixed(2)}`;
 const stateWords = (ship) => (ship.state === 'blocked' && ship.blockReason ? `blocked: ${ship.blockReason}` : ship.state);
@@ -37,7 +37,7 @@ export function chronicleFacts(events) {
   const facts = {
     created: null, stages: [], runs: new Map(), gates: [], steers: [], decisions: 0, artifacts: new Map(),
     items: { planned: 0, finished: 0 }, review: null, publish: [], live: null, preview: null, rating: null,
-    receipts: 0, voided: 0, refits: 0, spent: 0, hints: { used: 0, wins: 0, losses: 0 }, last: events.at(-1) ?? null,
+    receipts: 0, voided: 0, refits: 0, spent: 0, hints: { used: 0, wins: 0, losses: 0 }, last: events.at(-1) ?? null, automatic: [],
   };
   let gate = null;
   for (const event of events) {
@@ -62,6 +62,7 @@ export function chronicleFacts(events) {
         facts.spent += data.costUsd;
         break;
       }
+      case 'tool.auto': facts.automatic.push({ ts: event.ts, ...data }); break;
       case 'steer.sent': facts.steers.push({ seq: event.seq, verb: data.verb, text: data.text }); break;
       case 'decision.opened': facts.decisions += 1; break;
       case 'gate.started': gate = { failed: [], ok: null, ms: null }; facts.gates.push(gate); break;
@@ -140,6 +141,7 @@ function simple(ship, facts) {
   const lines = [];
   if (facts.created) lines.push(`${name} started on ${isoMinute(facts.created.ts)} from this idea: "${oneLine(facts.created.data.idea, 300)}".`);
   if (facts.items.planned) lines.push(`The plan had ${plural(facts.items.planned, 'work item')}, and ${facts.items.finished} finished.`);
+  if (facts.automatic.length > 0) lines.push(`${plural(facts.automatic.length, 'tool call')} ran without asking. The technical record lists each one and why.`);
 
   const { gates } = facts;
   const finishedGates = gates.filter((gate) => gate.ok !== null);
@@ -182,6 +184,11 @@ function technical(ship, events, facts) {
     tableCell(artifact.kind), tableCell(artifact.path), `\`${tableCell(artifact.hash).slice(0, 16)}\``,
   ]));
   if (artifacts) parts.push(`### Artifacts\n\n${artifacts}`);
+
+  const automatic = table(['Time (UTC)', 'Who', 'Tool', 'What', 'Why'], facts.automatic.map((entry) => [
+    isoMinute(entry.ts), tableCell(entry.role ?? ''), tableCell(entry.tool), tableCell(entry.summary), tableCell(entry.why),
+  ]));
+  if (automatic) parts.push(`### Ran without asking\n\n${automatic}`);
 
   const timeline = table(['Time (UTC)', 'Seq', 'Who', 'What'], events.filter((event) => !QUIET.has(event.type)).map((event) => [
     isoMinute(event.ts), event.seq, tableCell(event.actor), tableCell(describe(event)),

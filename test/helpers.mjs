@@ -199,6 +199,7 @@ export function lifecycleEvents(shipId = 'ship-1') {
     e('work.started', { itemId: 'one' }),
     e('worker.started', { ...run, effort: 'medium', sessionId: 'sess-1' }),
     e('worker.activity', { runId: 'run-1', kind: 'tool', tool: 'Write', summary: 'Wrote index.html' }),
+    e('tool.auto', { runId: 'run-1', role: 'marangone', tool: 'Write', summary: 'Write: index.html', why: 'Routine work confined to the project.', autonomy: 1 }),
     e('worker.activity', { runId: 'run-1', kind: 'checkpoint', uuid: 'assistant-1' }),
     e('worker.text', { runId: 'run-1', text: 'Working on it' }),
     e('worker.context', { runId: 'run-1', used: 12000, max: 1000000 }),

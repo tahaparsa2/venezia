@@ -133,9 +133,9 @@ export const BLOCK_REASONS = Object.freeze([
 export const SIZES = Object.freeze(['gondola', 'galley', 'galleass']);
 
 export const AUTONOMY = freezeAll([
-  { id: 0, fiction: 'Tiller', plain: 'Ask me often', blurb: 'Approve each contract and tool.' },
-  { id: 1, fiction: 'Sail', plain: 'Ask me for the big things', blurb: 'Contracts for galleys and larger, and publishing.' },
-  { id: 2, fiction: 'Wind', plain: 'Ask me to publish', blurb: 'Only publishing needs you.' },
+  { id: 0, fiction: 'Tiller', plain: 'Ask me often', blurb: 'Approve each contract and each tool, including edits and commands.' },
+  { id: 1, fiction: 'Sail', plain: 'Ask me for the big things', blurb: 'Contracts for galleys and larger, publishing and anything risky. Routine work runs.' },
+  { id: 2, fiction: 'Wind', plain: 'Ask me to publish', blurb: 'Publishing needs you, and anything that would leave the project. Work inside it runs.' },
 ]);
 export const DEFAULT_AUTONOMY = 1;
 

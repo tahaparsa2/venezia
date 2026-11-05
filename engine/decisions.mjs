@@ -2,14 +2,14 @@
 // approves: no timer in this file resolves anything, and a held worker uses no tokens.
 
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { TERM, TIERS } from '../shared/vocabulary.mjs';
 import { sessionPermissionUpdates } from './doctrine/worker-settings.mjs';
+import { decideTool, needsPerson } from './tool-policy.mjs';
 
-const WRITE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
-const NETWORK_TOOL = 'SandboxNetworkAccess';
+export { isAllowedHost, isLoopback, writesOutsideYard } from './tool-policy.mjs';
+
 /** Saying no never needs a token. Any other option is treated as a yes. */
 const REFUSALS = new Set(['deny', 'reject', 'cancel']);
 /** A missing surface counts as a browser, the strictest case that can approve. */
@@ -27,81 +27,10 @@ const HOLD_SLACK_MS = 250;
 const DETAIL_TEXT_MAX = 4000;
 const PLAIN_TEXT_MAX = 300;
 
-/** Every spelling of this machine. An approval sits behind loopback, so no card can open it. */
-const LOOPBACK = /^(localhost|ip6-localhost|ip6-loopback|127(\.\d+){0,3}|0\.0\.0\.0|0|::1?|0:0:0:0:0:0:0:1|::ffff:127\.\d+\.\d+\.\d+|\d+|0x[0-9a-f]+|.*\.localhost)$/i;
-
 const ok = (fields = {}) => ({ ok: true, ...fields });
 const refused = (error) => ({ ok: false, error });
 
-/* ------------------------------------------------------------------------------ policy */
-
-/**
- * Whether a host is on the network allowlist. Exact names, or `*.example.com` for subdomains.
- * @param {unknown} host
- * @param {string[]} domains
- */
-export function isAllowedHost(host, domains) {
-  const name = String(host ?? '').trim().toLowerCase().replace(/:\d+$/, '');
-  if (name === '') return false;
-  return domains.some((domain) => {
-    const allowed = domain.toLowerCase();
-    return allowed.startsWith('*.') ? name.endsWith(allowed.slice(1)) && name.length > allowed.length - 1 : name === allowed;
-  });
-}
-
-/** Whether a host is this machine, spelled any way. */
-export function isLoopback(host) {
-  const name = String(host ?? '').trim().replace(/^\[(.*)\](:\d+)?$/, '$1').replace(/^([^:]+):\d+$/, '$1');
-  return LOOPBACK.test(name);
-}
-
-/** Resolve symlinks as far down a path as it exists, so a link in the yard cannot point out of it. */
-function realDeepest(target) {
-  let current = target;
-  const missing = [];
-  for (;;) {
-    try {
-      return path.join(fs.realpathSync(current), ...missing);
-    } catch (error) {
-      const parent = path.dirname(current);
-      if (parent === current || error.code !== 'ENOENT') return target;
-      missing.unshift(path.basename(current));
-      current = parent;
-    }
-  }
-}
-
-function isInside(child, parent) {
-  const relative = path.relative(parent, child);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-}
-
-/**
- * Whether a permission request is a write that lands outside the yard. A write tool whose
- * target cannot be worked out counts, since it cannot be shown to be inside.
- * @param {{toolName: string, input?: any, blockedPath?: string|null, decisionReasonType?: string|null}} request
- * @param {string} cwd the yard
- */
-export function writesOutsideYard(request, cwd) {
-  if (!WRITE_TOOLS.has(request.toolName)) return false;
-  if (request.decisionReasonType === 'workingDir') return true;
-  const file = request.blockedPath ?? request.input?.file_path ?? request.input?.notebook_path;
-  if (typeof file !== 'string' || file === '') return true;
-  return !isInside(realDeepest(path.resolve(cwd, file)), realDeepest(path.resolve(cwd)));
-}
-
-/**
- * SPEC 6's policy table, in order. Pure, so the order is easy to read and to test.
- * @returns {'allow'|'refuse'|'network'|'gap'|'tool'}
- */
-export function routePermission(request, { cwd, allowedDomains }) {
-  if (request.toolName === NETWORK_TOOL) {
-    if (isLoopback(request.input?.host)) return 'refuse';
-    return isAllowedHost(request.input?.host, allowedDomains) ? 'allow' : 'network';
-  }
-  if (writesOutsideYard(request, cwd)) return 'gap';
-  return 'tool';
-}
+/* ------------------------------------------------------------------------------- cards */
 
 const clip = (text, limit) => {
   const value = String(text ?? '');
@@ -152,8 +81,8 @@ function toolCard(request, role) {
   };
 }
 
-function gapCard(request, role) {
-  const target = request.blockedPath ?? request.input?.file_path ?? request.input?.notebook_path ?? 'an unknown path';
+function gapCard(request, role, written) {
+  const target = written ?? request.blockedPath ?? request.input?.file_path ?? request.input?.notebook_path ?? 'an unknown path';
   return {
     kind: 'gap',
     tier: 0,
@@ -270,6 +199,7 @@ export function createDecisions({ store, config, secret = randomBytes(32), now =
     if (decision.resolvedAt !== null) return refused('That decision has already been made.');
     if (!decision.options.some((option) => option.id === optionId)) return refused('That is not one of the options.');
     const saysNo = REFUSALS.has(optionId);
+    if (needsPerson(decision) && actor === 'host' && !saysNo) return refused('The host cannot say yes to this. It needs a person.');
     if (!decision.voiceAllowed && !saysNo && CANNOT_APPROVE[via]) return refused(CANNOT_APPROVE[via]);
     // SPEC 10: law is only made by you, and that goes for the card as well as the command.
     if (decision.kind === 'lesson' && optionId === 'law' && via === 'mcp') return refused('An agent cannot make a lesson law.');
@@ -344,28 +274,47 @@ export function createDecisions({ store, config, secret = randomBytes(32), now =
   }
 
   /**
-   * The `onPermission` route for one worker.
+   * The `onPermission` route for one worker, with `preTool` on it for the call before Claude
+   * Code's own rules run. The ship's autonomy is read on every call, so a change applies from
+   * the next tool. A held card stays held, since only a person closes it.
    * @param {{shipId: string, cwd: string, role?: string}} worker
    */
   function forWorker({ shipId, cwd, role }) {
     const gaps = new Set();
-    return async function onPermission(request, { signal } = {}) {
-      const allowedDomains = config.sandbox.allowedDomains;
-      const route = routePermission(request, { cwd, allowedDomains });
-      if (route === 'allow') return { behavior: 'allow' };
-      if (route === 'refuse') return { behavior: 'deny', message: 'This machine\'s own addresses are closed to workers.' };
-      if (route === 'gap') {
-        const card = gapCard(request, role);
+    const autonomyNow = () => store.state().ships[shipId]?.autonomy;
+    const decide = (request, flagged) => decideTool(request, {
+      autonomy: autonomyNow(),
+      cwd,
+      allowedDomains: config.sandbox.allowedDomains,
+      denyPaths: [...config.sandbox.denyRead, path.join(config.dataDir, 'publish'), path.join(config.dataDir, 'net')],
+      flagged,
+    });
+
+    async function onPermission(request, { signal } = {}) {
+      // Claude Code only gets here when it wants an answer, so its own checks count as a flag.
+      const { verdict, why, target } = decide(request, true);
+      if (verdict === 'allow') return { behavior: 'allow', auto: { why, autonomy: autonomyNow() ?? null } };
+      if (verdict === 'refuse') return { behavior: 'deny', message: why };
+      if (verdict === 'gap') {
+        const card = gapCard(request, role, target);
         if (!gaps.has(card.detail.path)) {
           gaps.add(card.detail.path);
           open({ ...card, shipId });
         }
         return { behavior: 'deny', message: 'This write is outside the project folder, so the host refused it.' };
       }
-      const always = sessionPermissionUpdates(request.suggestions);
-      const card = route === 'network' ? networkCard(request, role) : toolCard(request, role);
+      // At Tiller every call is yours, so nothing is offered for the rest of the run.
+      const always = autonomyNow() === 0 ? [] : sessionPermissionUpdates(request.suggestions);
+      const card = verdict === 'network' ? networkCard(request, role) : toolCard(request, role);
       return holdWorker({ card, shipId, always, signal });
+    }
+
+    /** Anything but `allow` goes on to `onPermission`, which is the one place that refuses or asks. */
+    onPermission.preTool = (request) => {
+      const { verdict, why } = decide(request, false);
+      return { pass: verdict === 'allow', why, autonomy: autonomyNow() ?? null };
     };
+    return onPermission;
   }
 
   return {
