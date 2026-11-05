@@ -335,7 +335,7 @@ export async function publishing(ctx, ship) {
 
   if (outcome.status === 'live') {
     ctx.publishFailures.delete(ship.id);
-    if (outcome.report.earned) {
+    if (outcome.report?.earned) {
       ctx.store.append({ type: 'renown.changed', shipId: ship.id, actor: 'publish', data: { delta: RENOWN_AWARDS.launch, reason: 'Launched and checked live' } });
     }
     return go('launched');
