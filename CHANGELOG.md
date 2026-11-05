@@ -17,7 +17,13 @@ The first version, not yet published.
 - Publishing through a broker: local, tarball, private repo, secret gist and GitHub Pages. Public targets need a held approval.
 - Local prototypes kept for as long as a project's receipt holds.
 - Memory in `portolano/`: lessons, the Atlas and the Mariegola rulebook.
+- Tool approval cards follow the autonomy setting: Tiller approves each tool, Sail approves what is risky, and Wind runs confined work without a card. Every automatic allow is an event, listed in the chronicle. One policy in `engine/tool-policy.mjs` decides, and no level widens a write outside the project, a credential path, a publishing command or a new network host.
 - Preparation for publication: `.gitignore` for local state, secrets and large output, `SECURITY.md`, `docs/PUBLISHING.md`, and personal data removed from docs and tests.
+
+### Changed
+
+- Public publishing always needs a person. The opt-in standing policy for tier 3 is gone.
+- An agent over MCP can no longer change autonomy.
 
 ### Known limits
 

@@ -437,6 +437,19 @@ Stdin to the hook (verbatim, trimmed):
 | Stop: `{"decision":"block","reason":"..."}` | **Forced continuation.** Reason delivered as a synthetic user message `Stop hook feedback:\n...`. Model continued, `result:"MANGO"`. | Verified |
 | Deny under `--dangerously-skip-permissions` | | Not tested. The session's permission classifier blocked that launch. I dropped it rather than work around it. The task did not ask for it. |
 
+**A `PreToolUse` callback can force a prompt. Verified on 2.1.318 with a sandboxed worker under `acceptEdits`, on real haiku:**
+
+| Hook answer | Call | What happened |
+|---|---|---|
+| `permissionDecision:"ask"` | Write, Read and Bash in the yard, `rm -rf`, a heredoc | `can_use_tool` with `decision_reason_type:"hook"`, the hook's reason as `decision_reason`, and no `permission_suggestions` |
+| `ask` | `gh --version` | No prompt. The deny rule wins: `Permission to use Bash with command gh --version has been denied.` |
+| `{}` | Write, Read and Bash in the yard, `rm -rf`, a heredoc | Ran with no prompt |
+| `{}` | Write to `.git/hooks/post-commit` in the yard | `can_use_tool` with `decision_reason_type:"safetyCheck"`, and if allowed, it is written. So `.git` is the host's to guard |
+| `{}` | Read or Write outside the yard | `can_use_tool` with `decision_reason_type:"workingDir"` |
+| either | `echo x > ../outside.txt` in Bash, allowed | Refused by the OS sandbox: `operation not permitted`. With `{}` no prompt is raised, so the host must read the command to raise a gap |
+
+The hook sees `tool_name`, `tool_input` and `tool_use_id`, and that id matches the later `can_use_tool` and `tool_result`.
+
 **Stop has no built-in loop cap.** An always-blocking hook ran until `--max-turns 8` ended it, with `safety_stops:0`. The hook must honour `stop_hook_active:true` or count its own attempts. A blocked stop also emits a misleading `system/notification` `stop-hook-error`. Filter that from the UI.
 
 `--include-hook-events` adds `hook_started`/`hook_response` for all events. Without it only `SessionStart` shows up. Note `hook_response.output` and `.stderr` then reach the stream, which is good for audit.

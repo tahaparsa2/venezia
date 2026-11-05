@@ -12,6 +12,7 @@ Venezia is a local tool for one person on one Mac. It has not had an outside sec
 ## How generated code is contained
 
 - Workers run in Claude Code's sandbox with an explicit tool list, deny rules for publishing commands, and no reads of the usual credential folders (`~/.ssh`, `~/.aws`, `~/.config/gh` and others). Network access is limited to an allowlist, which is `registry.npmjs.org` by default. Anything else asks you first.
+- The autonomy setting decides when a tool call stops for you, and only inside those limits. At the highest level, work confined to the project and the sandbox runs without asking, and each such call is on the log with the reason. No level opens a write outside the project, a credential path, a publishing command or a new network host, and a worker cannot change the setting itself.
 - Yard code runs in a macOS Seatbelt jail: writes only to its own folders, no reads of the host, the other yards or any credential, and loopback only on its own port. There is no fallback. If the jail cannot start, no yard code runs.
 - Both layers depend on macOS. Do not expect the same protection on another platform.
 - A sandbox reduces the damage a mistake can do. It is not a promise against a determined attacker, so do not build things you would not run on this Mac.
@@ -34,7 +35,7 @@ LAN access is off until you run `vz serve --lan`, which listens on port 8443 by 
 
 ## Publishing
 
-Only the host can publish, and only an artifact that passed the gate, matched by hash. Public publishing needs a hold on a button or `vz approve --confirm`. Voice and MCP can ask for it but cannot approve it. No model decides that something is safe to publish.
+Only the host can publish, and only an artifact that passed the gate, matched by hash. Public publishing needs a hold on a button or `vz approve --confirm`, every time, at every autonomy level. Voice and MCP can ask for it but cannot approve it. No model decides that something is safe to publish.
 
 The gate's secret scan matches known secret shapes. It will not catch everything.
 
