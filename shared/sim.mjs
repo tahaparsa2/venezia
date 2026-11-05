@@ -704,6 +704,9 @@ export function createSim({
     if (!v.runId) return;
     v.runLines++;
     emit('worker.activity', v.id, { runId: v.runId, kind, tool, summary });
+    if (kind === 'tool' && hull(v).autonomy === 2) {
+      emit('tool.auto', v.id, { runId: v.runId, tool, summary, why: 'Confined to the project and the sandbox, at the highest autonomy.', autonomy: 2 });
+    }
     if (tool === 'Write' || tool === 'Edit') {
       emit('worker.activity', v.id, { runId: v.runId, kind: 'checkpoint', uuid: nextId('checkpoint') });
     }

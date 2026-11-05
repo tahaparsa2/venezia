@@ -7,7 +7,7 @@ import {
 import { RANKS, TIERS } from '../shared/vocabulary.mjs';
 import { deepFreeze, evt, lifecycleEvents, numbered } from './helpers.mjs';
 
-const SPEC_EVENTS = `ship.created ship.state ship.named ship.dial ship.refit ship.forked ship.artifact work.planned
+const SPEC_EVENTS = `tool.auto ship.created ship.state ship.named ship.dial ship.refit ship.forked ship.artifact work.planned
   work.started work.finished worker.started worker.stopped worker.activity worker.text worker.context steer.sent steer.state
   decision.opened decision.resolved gate.started gate.step gate.finished receipt.issued receipt.voided review.finished
   preview.up preview.down publish.planned publish.applied publish.verified publish.rolledback lesson.drafted lesson.used

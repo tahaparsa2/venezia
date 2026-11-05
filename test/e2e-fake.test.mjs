@@ -173,8 +173,14 @@ describe('idea to launch', { concurrency: 4 }, () => {
     await send(engine, { type: 'ship.stop', shipId: wind });
 
     const tiller = (await send(engine, { type: 'ship.create', idea: 'Tiller', autonomy: 0, size: 'gondola' })).id;
-    await card(engine, tiller, 'contract');
+    // Tiller approves each tool as well, so the planner's writes come first.
+    await until(() => {
+      const open = engine.state().inbox.map((entry) => engine.state().decisions[entry]).filter((decision) => decision.shipId === tiller);
+      for (const held of open.filter((decision) => decision.kind === 'tool')) engine.command({ type: 'decision.resolve', id: held.id, optionId: 'allow' });
+      return open.some((decision) => decision.kind === 'contract');
+    }, { timeoutMs: WAIT_MS, what: 'a contract card' });
     assert.equal(shipOf(engine, tiller).state, 'awaiting_contract');
+    assert.ok(Object.values(engine.state().decisions).some((decision) => decision.shipId === tiller && decision.kind === 'tool'));
   });
 });
 
