@@ -119,7 +119,7 @@ test('with no server running, tools say so plainly', async () => {
     jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'factory_status', arguments: {} },
   });
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /vz serve/);
+  assert.match(result.content[0].text, /npm start/);
 });
 
 test('the stream server answers in order, keeps stdout clean, and finishes on EOF', async () => {

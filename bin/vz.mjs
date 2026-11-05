@@ -7,6 +7,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { COMMAND_TYPES, COMMANDS } from '../shared/commands.mjs';
+import { NOT_TRIED, SETUP_STEPS } from '../shared/pairing.mjs';
 import { initialState, reduce } from '../shared/reducer.mjs';
 import { PUBLISH_TARGETS, SIZES } from '../shared/vocabulary.mjs';
 import { REPO_ROOT, loadConfig } from '../engine/config.mjs';
@@ -15,28 +16,30 @@ import {
 } from '../engine/net/client.mjs';
 import { runDoctor } from '../engine/net/doctor.mjs';
 
-const HELP = `vz: the Venezia command line
+const HELP = `vz: the Venezia command line. In this folder run ./vz, or from anywhere use its full path.
+The same thing with npm: npm run vz -- status
 
-  vz serve [--sim] [--lan] [--port n] [--lan-port n]     Start the server
+  ./vz serve [--sim] [--lan] [--port n] [--lan-port n]     Start the server
            [--speed n] [--fast-forward seconds] [--seed n] [--autopilot]    Demo options, with --sim
-  vz new "idea" [--size gondola|galley|galleass] [--autonomy 0|1|2]         Start a project
-  vz status [project]                                    See the fleet, or one project
-  vz watch [project] [--since n] [--count n]             Follow events as they happen
-  vz steer project "message" [--next | --now]            Send a message to a running project
-  vz stop project                                        Interrupt the worker and pause
-  vz approve [decision or project] [--option id] [--note text] [--confirm]  Say yes
-  vz reject [decision or project] [--option id] [--note text]               Say no
-  vz publish project [--target ${PUBLISH_TARGETS[4]}]                 Ask to publish
-  vz open project                                        Open a prototype that passed the gate, and print its address
-  vz lessons [--status s] [--search words] [--promote id] [--burn id]       Read or judge lessons
-  vz pair [--list] [--revoke id]                         Link a phone. Needs serve --lan
-  vz doctor                                              Check this machine
-  vz mcp                                                 Serve MCP on stdio
-  vz do type [--field value ...]                         Send any command, such as ship.pause
-  vz do '{"type": "ship.pause", "shipId": "Aurora"}'     The same, as JSON
+  ./vz new "idea" [--size gondola|galley|galleass] [--autonomy 0|1|2]         Start a project
+  ./vz status [project]                                    See the fleet, or one project
+  ./vz watch [project] [--since n] [--count n]             Follow events as they happen
+  ./vz steer project "message" [--next | --now]            Send a message to a running project
+  ./vz stop project                                        Interrupt the worker and pause
+  ./vz approve [decision or project] [--option id] [--note text] [--confirm]  Say yes
+  ./vz reject [decision or project] [--option id] [--note text]               Say no
+  ./vz publish project [--target ${PUBLISH_TARGETS[4]}]                 Ask to publish
+  ./vz open project                                        Open a prototype that passed the gate, and print its address
+  ./vz lessons [--status s] [--search words] [--promote id] [--burn id]       Read or judge lessons
+  ./vz pair                                                Turn on phone access and link a phone
+  ./vz pair --status | --off | --list | --revoke id        See it, turn it off, list or remove devices
+  ./vz doctor                                              Check this machine
+  ./vz mcp                                                 Serve MCP on stdio
+  ./vz do type [--field value ...]                         Send any command, such as ship.pause
+  ./vz do '{"type": "ship.pause", "shipId": "Aurora"}'     The same, as JSON
 
 Every command takes --json, and --url to pick a server.
-A project is its id or its name. "vz do" with no type lists every command.`;
+A project is its id or its name. "./vz do" with no type lists every command.`;
 
 const COMMON = { json: { type: 'boolean' }, url: { type: 'string' } };
 
@@ -107,20 +110,27 @@ async function serve(args) {
       ({ createEngine } = await import('../engine/index.mjs'));
     } catch (error) {
       if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
-      throw new ClientError('The engine is not built yet. Try the demo instead: vz serve --sim');
+      throw new ClientError('The engine is not built yet. Try the demo instead: ./vz serve --sim');
     }
     engine = await createEngine(config);
     await engine.start?.();
   }
 
-  const server = await startServer({
-    engine,
-    config: engine.config ?? config,
-    ...(port === undefined ? {} : { port }),
-    ...(lanPort === undefined ? {} : { lanPort }),
-    lan: Boolean(flags.lan),
-    log,
-  });
+  let server;
+  try {
+    server = await startServer({
+      engine,
+      config: engine.config ?? config,
+      ...(port === undefined ? {} : { port }),
+      ...(lanPort === undefined ? {} : { lanPort }),
+      lan: Boolean(flags.lan),
+      log,
+    });
+  } catch (error) {
+    await engine.close?.();
+    if (error.plain) throw new ClientError(error.message);
+    throw error;
+  }
   const address = serverFile(config);
   fs.mkdirSync(path.dirname(address), { recursive: true });
   fs.writeFileSync(address, JSON.stringify({ url: server.url, pid: process.pid }));
@@ -153,14 +163,14 @@ async function serve(args) {
 
   print(flags, { ok: true, url: server.url, lanUrl: server.lanUrl, sim: Boolean(flags.sim), pid: process.pid },
     `Venezia is running at ${server.url}${flags.sim ? ' (demo, nothing here is real)' : ''}`
-    + `${server.lanUrl ? `\nOn your network at ${server.lanUrl}. Run "vz pair" to link a phone.` : ''}`);
+    + `${server.lanUrl ? `\nOn your network at ${server.lanUrl}. Run "./vz pair" to link a phone.` : ''}`);
   await new Promise(() => {});
 }
 
 async function newShip(args) {
   const { flags, words } = parse(args, { size: { type: 'string' }, autonomy: { type: 'string' } });
   const idea = words.join(' ').trim();
-  if (!idea) throw new UsageError('Give the idea: vz new "A tide table for the lagoon"');
+  if (!idea) throw new UsageError('Give the idea: ./vz new "A tide table for the lagoon"');
   if (flags.size && !SIZES.includes(flags.size)) throw new UsageError(`--size must be one of: ${SIZES.join(', ')}`);
   const autonomy = numberFlag(flags.autonomy, 'autonomy');
   await send(flags, clientFor(flags), {
@@ -198,7 +208,7 @@ async function status(args) {
     treasury: state.treasury,
     renown: state.renown,
   }, [
-    ...(ships.length ? ships.map(shipLine) : ['No projects yet. Start one with: vz new "your idea"']),
+    ...(ships.length ? ships.map(shipLine) : ['No projects yet. Start one with: ./vz new "your idea"']),
     '',
     `Rate limit: ${Math.round(fiveHour * 100)}% of 5 hours, ${Math.round(sevenDay * 100)}% of 7 days (${weather})`,
     waiting.length ? `Waiting for you:\n${waiting.join('\n')}` : 'Nothing is waiting for you',
@@ -243,7 +253,7 @@ async function watch(args) {
 async function steer(args) {
   const { flags, words } = parse(args, { next: { type: 'boolean' }, now: { type: 'boolean' } });
   const [reference, ...text] = words;
-  if (!reference || text.length === 0) throw new UsageError('Say which project and what to tell it: vz steer Aurora "Make it dark"');
+  if (!reference || text.length === 0) throw new UsageError('Say which project and what to tell it: ./vz steer Aurora "Make it dark"');
   if (flags.next && flags.now) throw new UsageError('Choose --next or --now, not both');
   const client = clientFor(flags);
   const ship = findShip(await client.state(), reference);
@@ -253,10 +263,10 @@ async function steer(args) {
 
 async function stop(args) {
   const { flags, words } = parse(args, {});
-  if (words.length === 0) throw new UsageError('Say which project: vz stop Aurora');
+  if (words.length === 0) throw new UsageError('Say which project: ./vz stop Aurora');
   const client = clientFor(flags);
   const ship = findShip(await client.state(), words.join(' '));
-  await send(flags, client, { type: 'ship.stop', shipId: ship.id }, () => `Stopped ${ship.name ?? ship.id}. Resume with: vz do ship.resume --shipId ${ship.id}`);
+  await send(flags, client, { type: 'ship.stop', shipId: ship.id }, () => `Stopped ${ship.name ?? ship.id}. Resume with: ./vz do ship.resume --shipId ${ship.id}`);
 }
 
 async function decide(args, intent) {
@@ -291,7 +301,7 @@ async function decide(args, intent) {
 
 async function publish(args) {
   const { flags, words } = parse(args, { target: { type: 'string', default: 'github-pages' } });
-  if (words.length === 0) throw new UsageError('Say which project: vz publish Aurora');
+  if (words.length === 0) throw new UsageError('Say which project: ./vz publish Aurora');
   if (!PUBLISH_TARGETS.includes(flags.target)) throw new UsageError(`--target must be one of: ${PUBLISH_TARGETS.join(', ')}`);
   const client = clientFor(flags);
   const ship = findShip(await client.state(), words.join(' '));
@@ -300,7 +310,7 @@ async function publish(args) {
 
 async function open(args) {
   const { flags, words } = parse(args, {});
-  if (words.length === 0) throw new UsageError('Say which project: vz open Aurora');
+  if (words.length === 0) throw new UsageError('Say which project: ./vz open Aurora');
   const client = clientFor(flags);
   const ship = findShip(await client.state(), words.join(' '));
   await send(flags, client, { type: 'preview.open', shipId: ship.id }, (result) => `${ship.name ?? ship.id} is open at ${result.url}`);
@@ -324,8 +334,12 @@ async function lessons(args) {
   print(flags, found, lines.length ? lines.join('\n') : 'No lessons yet');
 }
 
+const stepLines = (steps) => steps.map((step, index) => `  ${index + 1}. ${step.where}: ${step.text}`);
+
 async function pair(args) {
-  const { flags } = parse(args, { list: { type: 'boolean' }, revoke: { type: 'string' } });
+  const { flags } = parse(args, {
+    list: { type: 'boolean' }, revoke: { type: 'string' }, off: { type: 'boolean' }, status: { type: 'boolean' },
+  });
   const client = clientFor(flags);
   if (flags.list) {
     const devices = await client.devices();
@@ -339,6 +353,18 @@ async function pair(args) {
     print(flags, result, 'That device can no longer connect');
     return;
   }
+  if (flags.status) {
+    const phone = await client.phoneAccess();
+    print(flags, phone, phone.on ? `Phone access is on at ${phone.ipUrl ?? phone.url}` : 'Phone access is off. Only this Mac can reach Venezia.');
+    return;
+  }
+  if (flags.off) {
+    const result = await client.phoneOff();
+    if (result.ok === false) throw new ClientError(result.error);
+    print(flags, result, 'Phone access is off. Paired devices stay paired, and reconnect when it is on again.');
+    return;
+  }
+  if (!flags.json) console.error('Say yes in the box on your Mac.');
   const result = await client.pairStart();
   if (result.ok === false) throw new ClientError(result.error);
   const { qrText, ...details } = result;
@@ -346,11 +372,21 @@ async function pair(args) {
   print(flags, details, [
     qrText,
     '',
+    ...(result.warning ? [result.warning, ''] : []),
+    'Phone access is on. Turn it off with: ./vz pair --off',
     'Scan this with your phone, or open the address and type the code.',
     `Address: ${result.url}`,
-    ...(result.ipUrl ? [`If that does not open: ${result.ipUrl}`] : []),
+    ...(result.ipAddress ? [`If the phone cannot find venezia.local: ${result.ipAddress}`] : []),
     `Code: ${result.pin}, works once, until ${expires}`,
     `Certificate fingerprint: ${result.fingerprint}`,
+    '',
+    'First time on an iPhone or iPad:',
+    ...stepLines(SETUP_STEPS.iphone),
+    '',
+    'First time on Android:',
+    ...stepLines(SETUP_STEPS.android),
+    '',
+    NOT_TRIED,
   ].join('\n'));
 }
 
