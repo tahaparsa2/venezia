@@ -406,6 +406,8 @@ export function spawnWorker(spec) {
   const toolsRunning = new Set();
   /** Calls the host passed, by tool use id. Claude Code may still ask, so they are logged once they finish. @type {Map<string, object>} */
   const passed = new Map();
+  /** Where the worker's shell is, as the last hook reported it. A `cd` lasts between calls. */
+  let shellCwd = null;
   const outbox = [];
   const promptUuid = randomUUID();
   messages.set(promptUuid, { steer: false, state: 'sent', absorbed: false });
@@ -582,7 +584,8 @@ export function spawnWorker(spec) {
     const toolName = input?.tool_name;
     let answer = null;
     try {
-      answer = onPreTool({ toolName, input: input?.tool_input ?? {}, toolUseId: input?.tool_use_id ?? null });
+      shellCwd = input?.cwd ?? shellCwd;
+      answer = onPreTool({ toolName, input: input?.tool_input ?? {}, toolUseId: input?.tool_use_id ?? null, shellCwd });
     } catch (error) {
       console.error(`Worker ${runId}: the tool policy failed, so the call goes to the permission route: ${error.message}`);
     }
@@ -626,6 +629,7 @@ export function spawnWorker(spec) {
           blockedPath: request.blocked_path ?? null,
           decisionReason: request.decision_reason ?? null,
           decisionReasonType: request.decision_reason_type ?? null,
+          shellCwd,
         }, { signal: controller.signal, runId });
       } catch (error) {
         console.error(`Worker ${runId}: the permission route failed, so the tool is denied: ${error.message}`);

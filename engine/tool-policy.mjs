@@ -370,11 +370,14 @@ export function writesOutsideYard(request, cwd) {
   return !isInside(realDeepest(path.resolve(cwd, expandHome(file, os.homedir()))), realDeepest(path.resolve(cwd)));
 }
 
-/** The first thing a command writes outside the yard, following `cd` as far as it can be followed. */
-function bashWriteOutside(commands, cwd, home) {
+/**
+ * The first thing a command writes outside the yard, following `cd` as far as it can be
+ * followed. `shellCwd` is where the worker's shell already is, since a `cd` lasts between calls.
+ */
+function bashWriteOutside(commands, cwd, shellCwd, home) {
   const yard = realDeepest(path.resolve(cwd));
   const temp = tempRoots();
-  let dir = yard;
+  let dir = shellCwd ? realDeepest(path.resolve(shellCwd)) : yard;
   for (const command of commands) {
     if (command.program === 'cd') {
       const next = firstPlain(command.args);
@@ -442,7 +445,7 @@ function namesCredential(text, spellings) {
  * - `network`: a `network` card, held until you answer
  * - `gap`: denied, and a `gap` card tells you
  * - `refuse`: denied, with no card
- * @param {{toolName: string, input?: any, blockedPath?: string|null, decisionReasonType?: string|null}} request
+ * @param {{toolName: string, input?: any, blockedPath?: string|null, decisionReasonType?: string|null, shellCwd?: string|null}} request
  * @param {ToolContext} context
  * @returns {{verdict: 'allow'|'ask'|'network'|'gap'|'refuse', why: string, target?: string}} `target` is what a gap wrote to, when it is not the request's own path
  */
@@ -470,9 +473,10 @@ export function decideTool(request, {
       const reason = barred(command);
       if (reason) return { verdict: 'refuse', why: `${reason}.` };
     }
-    const outside = bashWriteOutside(commands, cwd, home);
+    const outside = bashWriteOutside(commands, cwd, request.shellCwd, home);
     if (outside) return { verdict: 'gap', why: 'This command writes outside the project folder.', target: outside };
     if (input?.dangerouslyDisableSandbox === true) return { verdict: 'ask', why: 'It asks to run outside the sandbox.' };
+    if (request.decisionReasonType === 'workingDir') return { verdict: 'ask', why: 'It reaches outside the project folder.' };
     risk = commands.map(risky).find(Boolean) ?? null;
   } else if (READ_TOOLS.has(toolName)) {
     const targets = readTargets(request).filter((target) => typeof target === 'string' && target !== '').map((target) => expandHome(target, home));

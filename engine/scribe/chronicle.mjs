@@ -141,6 +141,7 @@ function simple(ship, facts) {
   const lines = [];
   if (facts.created) lines.push(`${name} started on ${isoMinute(facts.created.ts)} from this idea: "${oneLine(facts.created.data.idea, 300)}".`);
   if (facts.items.planned) lines.push(`The plan had ${plural(facts.items.planned, 'work item')}, and ${facts.items.finished} finished.`);
+  if (facts.automatic.length > 0) lines.push(`${plural(facts.automatic.length, 'tool call')} ran without asking. The technical record lists each one and why.`);
 
   const { gates } = facts;
   const finishedGates = gates.filter((gate) => gate.ok !== null);

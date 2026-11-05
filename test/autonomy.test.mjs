@@ -83,6 +83,12 @@ describe('what each level asks', () => {
     }
   });
 
+  test('a relative path is read from where the shell is, not from the yard root', () => {
+    const inside = { ...bash('echo x > ../a.txt'), shellCwd: `${yard}/src` };
+    assert.deepEqual(LEVELS.map((level) => decide(inside, level)), ROUTINE);
+    assert.equal(decide({ ...bash('echo x > ../a.txt'), shellCwd: yard }, 2), 'gap');
+  });
+
   test('every allow says why', () => {
     for (const [name, request] of TABLE) {
       for (const level of LEVELS) assert.ok(decideTool(request, { ...context, autonomy: level }).why, `${name} at ${level}`);
@@ -205,6 +211,7 @@ describe('never widened, at any level', () => {
     const attempts = [
       bash('npm test', { dangerouslyDisableSandbox: true }),
       read('/etc/hosts'), read('../sibling/secret.txt'),
+      { ...bash('cat /etc/hosts'), decisionReasonType: 'workingDir' },
       { toolName: 'Glob', input: { pattern: '../**' } },
       { toolName: 'Grep', input: { pattern: 'x', path: '/etc' } },
       write('.git/hooks/post-commit'), write('.git/config'), write('sub/.git/hooks/pre-push'), write('.claude/settings.json'), write('.venezia/brief.json'),
@@ -422,6 +429,7 @@ describe('a live worker', () => {
     const text = renderChronicle({ ship, events, depth: 'technical' });
     assert.match(text, /### Ran without asking/);
     assert.match(text, /Write: .*a\.txt.*Confined to the project and the sandbox/);
+    assert.match(renderChronicle({ ship, events, depth: 'simple' }), /1 tool call ran without asking/);
   });
 });
 
