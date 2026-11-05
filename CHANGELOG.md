@@ -28,6 +28,7 @@ The first version, not yet published.
 ### Known limits
 
 - Two small projects have run on real Claude from start to finish. Larger ones have not.
+- The autonomy policy has not finished a real project. Its one real run reached the contract, where the rate limit guard held it.
 - Nothing has been published to the internet from a real run.
 - Pairing has not been tried on a physical phone.
 - See `docs/ROADMAP.md` for the rest.
