@@ -10,7 +10,8 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { loadConfig } from '../engine/config.mjs';
-import { createDecisions, isLoopback, routePermission } from '../engine/decisions.mjs';
+import { createDecisions, isLoopback } from '../engine/decisions.mjs';
+import { decideTool } from '../engine/tool-policy.mjs';
 import { DENY_RULES, workerEnv, workerSettings } from '../engine/doctrine/worker-settings.mjs';
 import { readContract, validateContract } from '../engine/gate/contract.mjs';
 import { readSurfaceKey, SURFACE_KEY_HEADER, surfaceKeyFile } from '../engine/net/client.mjs';
@@ -133,9 +134,9 @@ test('the key goes when the server does', async (t) => {
 test('no card can open this machine to a worker', () => {
   for (const host of ['127.0.0.1', 'localhost', 'localhost:4800', '127.1.2.3', '127.1', '0.0.0.0', '::1', '[::1]', '[::1]:4800', '::ffff:127.0.0.1', '2130706433', '0x7f000001', 'x.localhost']) {
     assert.equal(isLoopback(host), true, host);
-    assert.equal(routePermission({ toolName: 'SandboxNetworkAccess', input: { host } }, { cwd: '/y', allowedDomains: [] }), 'refuse', host);
+    assert.equal(decideTool({ toolName: 'SandboxNetworkAccess', input: { host } }, { cwd: '/y', allowedDomains: [] }).verdict, 'refuse', host);
   }
-  assert.equal(routePermission({ toolName: 'SandboxNetworkAccess', input: { host: 'example.com' } }, { cwd: '/y', allowedDomains: [] }), 'network');
+  assert.equal(decideTool({ toolName: 'SandboxNetworkAccess', input: { host: 'example.com' } }, { cwd: '/y', allowedDomains: [] }).verdict, 'network');
 });
 
 test('an approval token works once, on one card, from one surface', (t) => {

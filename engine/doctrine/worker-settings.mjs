@@ -6,20 +6,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { BARRED_PROGRAMS, PUBLISH_VERBS } from '../tool-policy.mjs';
+
 /**
  * Deny rules, the second layer behind the OS sandbox. SPEC 6 names `curl` to anything off the
  * allowlist, but a deny rule cannot carry an exception, so every curl and wget is denied here.
  * Allowlisted hosts stay reachable through npm and node, which the sandbox lets through.
  */
 export const DENY_RULES = Object.freeze([
-  'Bash(gh)', 'Bash(gh *)',
+  ...BARRED_PROGRAMS.flatMap((program) => [`Bash(${program})`, `Bash(${program} *)`, `Bash(npx ${program} *)`]),
   'Bash(git push)', 'Bash(git push *)',
-  'Bash(vercel)', 'Bash(vercel *)', 'Bash(npx vercel *)',
-  'Bash(wrangler)', 'Bash(wrangler *)', 'Bash(npx wrangler *)',
-  'Bash(curl)', 'Bash(curl *)',
-  'Bash(wget)', 'Bash(wget *)',
-  // The registry is on the allowlist for installs, and it takes writes as well as reads.
-  ...['publish', 'unpublish', 'deprecate', 'token', 'adduser', 'login', 'owner', 'dist-tag', 'access'].flatMap((verb) => [
+  ...PUBLISH_VERBS.flatMap((verb) => [
     `Bash(npm ${verb})`, `Bash(npm ${verb} *)`, `Bash(npx npm ${verb} *)`,
     `Bash(pnpm ${verb})`, `Bash(pnpm ${verb} *)`,
     `Bash(yarn ${verb})`, `Bash(yarn ${verb} *)`, `Bash(yarn npm ${verb} *)`,
