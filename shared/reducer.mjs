@@ -120,6 +120,17 @@ export const EVENTS = Object.freeze({
       sessionId: optional(field.str('Session id')),
     },
   },
+  'tool.auto': {
+    ship: true,
+    fields: {
+      ...run,
+      role: optional(field.str('Role')),
+      tool: field.str('Tool'),
+      summary: { type: 'string', plain: 'What it did' },
+      why: field.str('Why no one was asked'),
+      autonomy: { ...optional(field.int(0, 2, 'Autonomy')), nullable: true },
+    },
+  },
   'worker.activity': {
     ship: true,
     fields: {
@@ -841,6 +852,7 @@ const FEED_TEXT = {
   'worker.started': (d) => `${role(d.role)} started on ${d.model}`,
   'worker.stopped': (d) => `${role(d.role)} stopped: ${stateWord(d.outcome)}`,
   'worker.activity': (d) => d.summary || d.tool || d.kind,
+  'tool.auto': (d) => `Ran without asking: ${d.summary}`,
   'steer.sent': (d) => `You said: ${d.text}`,
   'steer.state': (d) => `Your message is ${d.state}`,
   'decision.opened': (d) => d.title,

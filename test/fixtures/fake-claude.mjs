@@ -682,7 +682,7 @@ function ruleAllows(name, input) {
   });
 }
 
-function promptDetails(name, input, step, toolUseId) {
+function promptDetails(name, input, step, toolUseId, hookReason) {
   const outside = FILE_TOOLS.has(name) && input.file_path !== undefined && isOutsideCwd(input.file_path);
   const request = {
     subtype: 'can_use_tool',
@@ -698,7 +698,25 @@ function promptDetails(name, input, step, toolUseId) {
     request.decision_reason = `Path is outside the allowed working directory: ${request.blocked_path}`;
     request.decision_reason_type = 'workingDir';
   }
-  return { needed: Boolean(step.ask) || outside || name === 'SandboxNetworkAccess', request };
+  // As the real CLI does: a hook's `ask` brings no suggestions, and a reason of type `hook`.
+  if (hookReason !== null && !outside) {
+    delete request.permission_suggestions;
+    request.decision_reason = hookReason;
+    request.decision_reason_type = 'hook';
+  }
+  return { needed: Boolean(step.ask) || outside || name === 'SandboxNetworkAccess' || hookReason !== null, request };
+}
+
+/** The file's standing deny rules, as `Bash(gh)` for one command and `Bash(gh *)` for a prefix. */
+function deniedByRule(name, input) {
+  if (name !== 'Bash' || !flags.settings || !fs.existsSync(flags.settings)) return false;
+  const rules = JSON.parse(fs.readFileSync(flags.settings, 'utf8')).permissions?.deny ?? [];
+  const command = String(input.command ?? '');
+  return rules.some((rule) => {
+    const body = /^Bash\((.*)\)$/.exec(rule)?.[1];
+    if (body === undefined) return false;
+    return body.endsWith(' *') ? command.startsWith(body.slice(0, -1)) : command === body;
+  });
 }
 
 function recordDenial(name, input, toolUseId, message, reason, reasonType) {
@@ -718,6 +736,7 @@ function recordDenial(name, input, toolUseId, message, reason, reasonType) {
 /** Work out whether a tool call may run. Returns {input, decision} or {deny, decision}. */
 async function permissionFor(name, givenInput, step, toolUseId) {
   let input = givenInput;
+  let hookReason = null;
   const hooks = await fireHooks('PreToolUse', name, { tool_name: name, tool_input: input, tool_use_id: toolUseId });
   for (const answer of hooks) {
     const output = answer.hookSpecificOutput;
@@ -727,10 +746,18 @@ async function permissionFor(name, givenInput, step, toolUseId) {
       recordDenial(name, input, toolUseId, message, reason, 'hook');
       return { deny: message, decision: { decision: 'reject', source: 'hook', reason_type: 'hook', non_execution_kind: 'permission-rule' } };
     }
+    if (output?.permissionDecision === 'ask') hookReason = output.permissionDecisionReason ?? '';
     if (output?.updatedInput) input = output.updatedInput;
   }
 
-  const { needed, request } = promptDetails(name, input, step, toolUseId);
+  // A deny rule beats a hook's `ask`, as research 03 records.
+  if (deniedByRule(name, input)) {
+    const message = `Permission to use ${name} with command ${input.command} has been denied.`;
+    recordDenial(name, input, toolUseId, message, 'denied by rule', 'rule');
+    return { deny: message, decision: { decision: 'reject', source: 'config', reason_type: 'rule', non_execution_kind: 'permission-rule' } };
+  }
+
+  const { needed, request } = promptDetails(name, input, step, toolUseId, hookReason);
   if (!needed || ruleAllows(name, input)) return { input, decision: ALLOWED };
 
   if (!session.stdioPrompts) {

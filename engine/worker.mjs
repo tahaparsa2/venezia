@@ -27,8 +27,11 @@ const TIMING = Object.freeze({
 });
 
 const STOP_CALLBACK = 'venezia-stop-gate';
+const PRE_TOOL_CALLBACK = 'venezia-pre-tool';
 const STOP_NOTIFICATION = 'stop-hook-error';
 const DEFAULT_DENY = 'The host did not allow this.';
+/** What a tool result says when a standing deny rule refused the call. */
+const DENIED_BY_RULE = /^Permission to use /;
 
 const TEXT_TAIL = 2000;
 const SUMMARY_MAX = 160;
@@ -307,6 +310,10 @@ function toolSummary(name, input) {
   return (target === '' ? String(name) : `${name}: ${target}`).slice(0, SUMMARY_MAX);
 }
 
+const toolResultText = (block) => (Array.isArray(block.content)
+  ? block.content.map((part) => part?.text ?? '').join('')
+  : String(block.content ?? ''));
+
 /**
  * Turn a route's answer into the wire form. Only an explicit `allow` allows.
  * @param {any} answer
@@ -361,6 +368,10 @@ function permissionResponse(answer, request) {
  *   Left out, every prompt is denied. Return `{behavior:'allow'}` to allow, with optional
  *   `updatedInput` and `updatedPermissions`. Anything else denies, and `followUp` sends the
  *   model a user message after a denial, since a deny message cannot instruct it.
+ *   An `auto` of `{why, autonomy}` on an allow says no person was asked, and goes on the log.
+ * @param {(request: object) => {pass: boolean, why?: string, autonomy?: number|null}} [spec.onPreTool]
+ *   Called before Claude Code's own rules, for every tool call. `pass` lets those rules decide,
+ *   and anything else sends the call to `onPermission`. It answers at once, and never holds.
  * @param {(check: {attempt: number, lastMessage: string, input: object}) => any} [spec.onStopGate]
  *   Return `{ok: true}` to let the model stop, or `{ok: false, reason}` to send it back.
  * @param {NodeJS.ProcessEnv} [spec.env] the base environment, before stripping
@@ -370,7 +381,7 @@ export function spawnWorker(spec) {
   validateWorkerSpec(spec);
   const {
     shipId, role, cwd, prompt, schema, model, effort, tools, doctrinePath, maxTurns, maxBudgetUsd,
-    resume = false, resumeSessionAt, forkFrom, onPermission, onStopGate,
+    resume = false, resumeSessionAt, forkFrom, onPermission, onPreTool, onStopGate,
     store, config = loadConfig(), runId = randomUUID(), env = process.env, baselineCostUsd,
   } = spec;
   const timing = { ...TIMING, killGraceMs: config.killGraceMs, ...spec.timing };
@@ -393,6 +404,8 @@ export function spawnWorker(spec) {
   const denials = new Map();
   const checkpoints = [];
   const toolsRunning = new Set();
+  /** Calls the host passed, by tool use id. Claude Code may still ask, so they are logged once they finish. @type {Map<string, object>} */
+  const passed = new Map();
   const outbox = [];
   const promptUuid = randomUUID();
   messages.set(promptUuid, { steer: false, state: 'sent', absorbed: false });
@@ -560,10 +573,43 @@ export function spawnWorker(spec) {
     for (const requestId of [...held.keys()]) releaseHeld(requestId);
   }
 
+  /** A tool call that nobody was asked about, with why, so the chronicle can say so. */
+  function logAutomatic(tool, input, { why, autonomy }) {
+    emit('tool.auto', { runId, role, tool, summary: toolSummary(tool, input), why, autonomy: autonomy ?? null });
+  }
+
+  function handlePreTool(requestId, input) {
+    const toolName = input?.tool_name;
+    let answer = null;
+    try {
+      answer = onPreTool({ toolName, input: input?.tool_input ?? {}, toolUseId: input?.tool_use_id ?? null });
+    } catch (error) {
+      console.error(`Worker ${runId}: the tool policy failed, so the call goes to the permission route: ${error.message}`);
+    }
+    if (answer?.pass === true) {
+      if (input?.tool_use_id) passed.set(input.tool_use_id, { tool: toolName, input: input.tool_input, why: answer.why, autonomy: answer.autonomy });
+      answerControl(requestId, {});
+    } else {
+      answerControl(requestId, {
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: answer?.why ?? DEFAULT_DENY },
+      });
+    }
+  }
+
+  /** The call is over. One a standing deny rule stopped did not run, so it is not on the log. */
+  function settlePassed(toolUseId, { refused = false } = {}) {
+    const entry = passed.get(toolUseId);
+    if (!entry) return;
+    passed.delete(toolUseId);
+    if (!refused) logAutomatic(entry.tool, entry.input, entry);
+  }
+
   async function handlePermission(requestId, request) {
     const controller = new AbortController();
     held.set(requestId, { controller });
     const toolName = request.tool_name;
+    // Claude Code stopped to ask after all, so whatever happens next is logged from here.
+    passed.delete(request.tool_use_id);
     activity('permission', { tool: toolName, summary: `Asking to use ${toolSummary(toolName, request.input)}`.slice(0, SUMMARY_MAX) });
 
     let answer = null;
@@ -590,6 +636,7 @@ export function spawnWorker(spec) {
     if (!held.delete(requestId)) return;
 
     const response = permissionResponse(answer, request);
+    if (response.behavior === 'allow' && answer.auto) logAutomatic(toolName, request.input, answer.auto);
     answerControl(requestId, response);
     if (response.behavior === 'allow') {
       if (JSON.stringify(response.updatedInput) !== JSON.stringify(request.input ?? {})) {
@@ -644,6 +691,8 @@ export function spawnWorker(spec) {
       handlePermission(requestId, request);
     } else if (request?.subtype === 'hook_callback' && request.callback_id === STOP_CALLBACK) {
       handleStopGate(requestId, request.input);
+    } else if (request?.subtype === 'hook_callback' && request.callback_id === PRE_TOOL_CALLBACK && typeof onPreTool === 'function') {
+      handlePreTool(requestId, request.input);
     } else if (request?.subtype === 'hook_callback') {
       answerControl(requestId, {});
     } else {
@@ -703,6 +752,7 @@ export function spawnWorker(spec) {
     for (const block of content) {
       if (block?.type !== 'tool_result') continue;
       toolsRunning.delete(block.tool_use_id);
+      settlePassed(block.tool_use_id, { refused: block.is_error === true && DENIED_BY_RULE.test(toolResultText(block)) });
       // A tool can leave something running and return in a moment, between two samples.
       tree.sample();
     }
@@ -855,6 +905,8 @@ export function spawnWorker(spec) {
     clearInterval(watchdog);
     if (stdoutBuffer.trim() !== '') handleLine(stdoutBuffer);
     stdoutBuffer = '';
+    // Allowed and never reported back, because the process went first. It may well have run.
+    for (const toolUseId of [...passed.keys()]) settlePassed(toolUseId);
 
     const unfinished = unfinishedCount() > 0;
     const denialList = [...denials.values()];
@@ -987,7 +1039,11 @@ export function spawnWorker(spec) {
     if (!child.pid) return;
     initTimer = setTimeout(() => failStart(new Error('The CLI did not answer initialize in time')), timing.initTimeoutMs);
     try {
-      await control('initialize', typeof onStopGate === 'function' ? { hooks: { Stop: [{ hookCallbackIds: [STOP_CALLBACK] }] } } : {});
+      const hooks = {
+        ...(typeof onStopGate === 'function' ? { Stop: [{ hookCallbackIds: [STOP_CALLBACK] }] } : {}),
+        ...(typeof onPreTool === 'function' ? { PreToolUse: [{ matcher: '*', hookCallbackIds: [PRE_TOOL_CALLBACK] }] } : {}),
+      };
+      await control('initialize', Object.keys(hooks).length > 0 ? { hooks } : {});
       clearTimeout(initTimer);
       if ((resume || forkFrom) && baselineCostUsd === undefined) {
         // `total_cost_usd` carries over on a resume or a fork, and this run must only pay for itself.
