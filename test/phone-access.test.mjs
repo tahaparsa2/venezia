@@ -13,6 +13,7 @@ import { test } from 'node:test';
 import { chromium } from 'playwright-core';
 
 import { startServer } from '../engine/net/http.mjs';
+import { SURFACE_HEADER, SURFACE_KEY_HEADER, surfaceKeyFile } from '../engine/net/client.mjs';
 import { LAN_NAME } from '../engine/net/mdns.mjs';
 import { qrSvg } from '../engine/net/qr.mjs';
 import { DEMO_PAIRING, SETUP_STEPS } from '../shared/pairing.mjs';
@@ -40,6 +41,13 @@ function fakeMdns() {
     return child;
   };
   return { spawn, spawned };
+}
+
+/** What a person does on the phone: wait for the page to ask, and type the code from the Mac. */
+async function typePin(page, pin) {
+  await page.waitForSelector('#pin', { state: 'visible' });
+  await page.fill('#pin', pin);
+  await page.click('#pin-form button');
 }
 
 async function freePort() {
@@ -85,8 +93,12 @@ async function factory(t, { engine, dir = testDir(t), answer = { ok: true }, add
   const started = await serve(t, {
     engine: running, webDir: WEB, addresses, mdns: { spawn: mdns.spawn }, lanPort, ...options,
   });
-  const onMac = (route, method = 'GET') => raw({ port: started.port, path: route, method, headers: { origin: started.url } });
-  return { ...started, asked, lanPort, onMac, spawned: mdns.spawned };
+  const key = fs.readFileSync(surfaceKeyFile(running.config), 'utf8').trim();
+  // The command line, which holds the key. What a page has to do is shown on the page.
+  const onMac = (route, method = 'GET') => raw({ port: started.port, path: route, method, headers: { [SURFACE_HEADER]: 'cli', [SURFACE_KEY_HEADER]: key } });
+  /** Anything on this machine can send what a browser sends. */
+  const claimsBrowser = (route, method = 'GET', headers = {}) => raw({ port: started.port, path: route, method, headers: { origin: started.url, ...headers } });
+  return { ...started, asked, lanPort, onMac, claimsBrowser, spawned: mdns.spawned };
 }
 
 test('a plain server has no listener off this machine until a person says yes', async (t) => {
@@ -129,13 +141,12 @@ test('only this Mac can see or switch phone access, and no stray process can', a
   assert.equal(server.phoneAccess().on, true);
 });
 
-test('the QR holds the venezia.local link with the token in its fragment, and the IP has its own', async (t) => {
+test('the QR holds only the address, so nothing that answers it can take a secret from the link', async (t) => {
   const { onMac, lanPort, port } = await factory(t);
   const { json } = await onMac('/api/pair/start', 'POST');
-  assert.match(json.url, new RegExp(`^https://${LAN_NAME.replace('.', '\\.')}:${lanPort}/pair#t=[\\w-]{22}$`));
-  assert.equal(json.ipUrl, `https://127.0.0.1:${lanPort}/pair#t=${json.url.split('#t=')[1]}`);
-  assert.equal(json.address, `https://${LAN_NAME}:${lanPort}/pair`);
-  assert.equal(json.ipAddress, `https://127.0.0.1:${lanPort}/pair`);
+  assert.equal(json.url, `https://${LAN_NAME}:${lanPort}/pair`);
+  assert.equal(json.ipUrl, `https://127.0.0.1:${lanPort}/pair`);
+  assert.equal(json.token, undefined);
   assert.equal(json.qrSvg, qrSvg(json.url));
   assert.equal(json.ipQrSvg, qrSvg(json.ipUrl));
   assert.equal(json.warning, null);
@@ -169,6 +180,7 @@ test('a phone scans the QR, pairs, reaches the app, and the page is told the tru
   const violations = [];
   page.on('console', (message) => { if (/Content Security Policy/i.test(message.text())) violations.push(message.text()); });
   await page.goto(json.url);
+  await typePin(page, json.pin);
   await page.waitForURL(`${new URL(json.url).origin}/`);
   await page.waitForSelector('html[data-booted]');
   assert.deepEqual(violations, []);
@@ -198,10 +210,9 @@ test('the IP address works when the name does not, with the PIN', async (t) => {
   const { json } = await onMac('/api/pair/start', 'POST');
   const context = await browser.newContext({ ignoreHTTPSErrors: true, userAgent: ANDROID });
   const page = await context.newPage();
-  await page.goto(json.ipAddress);
+  await page.goto(json.ipUrl);
   await page.waitForFunction(() => /Enter the code/.test(document.getElementById('status').textContent));
-  await page.fill('#pin', json.pin);
-  await page.click('#pin-form button');
+  await typePin(page, json.pin);
   await page.waitForSelector('html[data-booted]');
   assert.deepEqual(server.pairing.list().map((device) => device.name), ['Android']);
   assert.equal(new URL(page.url()).hostname, '127.0.0.1');
@@ -216,6 +227,7 @@ test('turning it off closes the listeners and drops live devices, who stay paire
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   await page.goto(json.url);
+  await typePin(page, json.pin);
   await page.waitForSelector('html[data-booted]');
   await page.evaluate(() => {
     window.held = new WebSocket(`wss://${location.host}/ws`);
@@ -259,10 +271,11 @@ test('a restart leaves phone access off and every device paired, and --lan still
   t.after(() => first.close());
   await first.openToPhones();
   const ca = first.lanCa;
-  const { url } = first.startPairing();
+  const { url, pin } = first.startPairing();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   await page.goto(url);
+  await typePin(page, pin);
   await page.waitForSelector('html[data-booted]');
   await first.close();
 
@@ -395,6 +408,9 @@ test('an untrusted certificate is detected for real: steps first, and the code s
   const trusting = await chrome(t, [`--ignore-certificate-errors-spki-list=${leaf},${probe}`]);
   const page2 = await (await trusting.newContext({ userAgent: IPHONE })).newPage();
   await page2.goto(json.url);
+  await page2.waitForFunction(() => /This phone trusts your Mac/.test(document.getElementById('status').textContent));
+  assert.deepEqual(server.pairing.list(), [], 'trust alone does not pair it');
+  await typePin(page2, json.pin);
   await page2.waitForSelector('html[data-booted]');
   assert.deepEqual(server.pairing.list().map((device) => device.name), ['iPhone']);
 });
@@ -416,6 +432,8 @@ test('Android gets its own steps, and Pair anyway is a deliberate choice that sa
   assert.match(await page.textContent('#setup'), /only on your own Wi-Fi/);
   assert.deepEqual(server.pairing.list(), []);
   await page.click('#pair-anyway');
+  assert.deepEqual(server.pairing.list(), [], 'even then it takes the code from the Mac');
+  await typePin(page, json.pin);
   await page.waitForSelector('html[data-booted]');
   assert.deepEqual(server.pairing.list().map((device) => device.name), ['Android']);
 });
@@ -427,6 +445,7 @@ test('a paired device on /pair is not paired twice', async (t) => {
   const { json } = await onMac('/api/pair/start', 'POST');
   const page = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage();
   await page.goto(json.url);
+  await typePin(page, json.pin);
   await page.waitForSelector('html[data-booted]');
   const fresh = await onMac('/api/pair/start', 'POST');
   await page.goto('about:blank');
@@ -436,6 +455,14 @@ test('a paired device on /pair is not paired twice', async (t) => {
 });
 
 /* --------------------------------------------------------------------------- the panel on the Mac */
+
+/** What a person does: read the code in the box on the Mac, and type it into the page. */
+async function typeProof(page, asked) {
+  await page.waitForSelector('.proof-code');
+  const card = asked.findLast((entry) => /type it into that page/.test(entry.plain));
+  await page.fill('.proof-code', card.plain.match(/\d{6}/)[0]);
+  await page.click('.proof button[type=submit]');
+}
 
 async function settings(page, url, engine) {
   // A hull, because the Bocca has the empty lagoon's whole screen.
@@ -458,8 +485,9 @@ test('on the Mac: the button, the steps, the fallback, the state and Turn off', 
   assert.equal(await page.isVisible('.phone-access button'), false, 'nothing to turn off');
 
   await page.click('.page-settings .act-now');
+  await typeProof(page, asked);
   await page.waitForSelector('.pair-qr');
-  assert.equal(asked.length, 1);
+  assert.equal(asked.length, 2, 'the code, then the yes to link a device');
   await page.waitForFunction(() => document.querySelector('.phone-word').textContent === 'Phone access is on');
   assert.match(await page.textContent('.pair-pin b'), /^\d{6}$/);
   assert.equal(await page.textContent('.pair-ip'), `https://127.0.0.1:${lanPort}/pair`);
@@ -488,10 +516,11 @@ test('on the Mac: a port in use is said plainly', async (t) => {
   const blocker = net.createServer();
   await new Promise((resolve) => { blocker.listen(lanPort, '0.0.0.0', resolve); });
   t.after(() => blocker.close());
-  const { url, engine } = await factory(t, { lanPort });
+  const { url, engine, asked } = await factory(t, { lanPort });
   const page = await browser.newPage();
   await settings(page, url, engine);
   await page.click('.page-settings .act-now');
+  await typeProof(page, asked);
   await page.waitForFunction(() => /already using port/.test(document.querySelector('.pair').textContent));
   assert.equal(await page.textContent('.phone-word'), 'Phone access is off');
 });
@@ -509,10 +538,11 @@ test('on the Mac: a no in the dialog is reported as a no', async (t) => {
 test('on the Mac: the panel notices the command line, and a device pairing', async (t) => {
   const browser = await chrome(t);
   if (!browser) return;
-  const { url, server, onMac, engine } = await factory(t);
+  const { url, server, onMac, engine, asked } = await factory(t);
   const page = await browser.newPage();
   await settings(page, url, engine);
   await page.click('.page-settings .act-now');
+  await typeProof(page, asked);
   await page.waitForSelector('.pair-qr');
   const { json } = await onMac('/api/pair/start', 'POST');
   server.pairing.claim({ pin: json.pin, name: 'Pixel', ip: 'x' });
@@ -520,4 +550,186 @@ test('on the Mac: the panel notices the command line, and a device pairing', asy
   await page.waitForFunction(() => /Pixel/.test(document.querySelector('.devices').textContent));
   await server.closeToPhones();
   await page.waitForFunction(() => document.querySelector('.phone-word').textContent === 'Phone access is off', null, { timeout: 8000 });
+});
+
+test('on the Mac: the page keeps its proof, removes a device, and asks a new page again', async (t) => {
+  const browser = await chrome(t);
+  if (!browser) return;
+  const { url, server, onMac, engine, asked } = await factory(t);
+  const { json } = await onMac('/api/pair/start', 'POST');
+  server.pairing.claim({ pin: json.pin, name: 'Pixel', ip: 'x' });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await settings(page, url, engine);
+  await page.waitForSelector('.page-settings button.link:not([hidden])');
+  assert.doesNotMatch(await page.textContent('.devices'), /Pixel/, 'a page with no proof sees no list');
+  const questions = asked.length;
+  await page.waitForTimeout(200);
+  assert.equal(asked.length, questions, 'looking at the page raises no box');
+
+  await page.click('text=Show paired devices');
+  await typeProof(page, asked);
+  await page.waitForFunction(() => /Pixel/.test(document.querySelector('.devices').textContent));
+
+  await page.reload();
+  await page.waitForSelector('html[data-booted]');
+  await page.evaluate(() => window.venezia.store.view.set({ panel: 'settings' }));
+  await page.waitForFunction(() => /Pixel/.test(document.querySelector('.devices')?.textContent ?? ''));
+  await page.click('.devices button');
+  await page.waitForFunction(() => !/Pixel/.test(document.querySelector('.devices').textContent));
+  assert.deepEqual(server.pairing.list(), []);
+});
+
+/* ------------------------------------------------------------ what a page cannot prove by itself */
+
+test('an impostor at the address gets nothing from the QR, and a stale link does nothing', async (t) => {
+  const browser = await chrome(t);
+  if (!browser) return;
+  const { onMac, server } = await factory(t);
+  const { json } = await onMac('/api/pair/start', 'POST');
+  assert.ok(!JSON.stringify([json.url, json.ipUrl]).includes(json.pin));
+
+  // The phone tapped through the warning, and what answered this address is not the Mac.
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const page = await context.newPage();
+  await page.route('**/pair', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Fake</title><script>window.link = location.href</script>' }));
+  await page.goto(json.url);
+  assert.equal(await page.evaluate(() => window.link), json.url, 'there is nothing in the link to take');
+  await page.unroute('**/pair');
+
+  // The real page, on a link of the old shape: it waits for a person to type.
+  const claims = [];
+  const real = await context.newPage();
+  real.on('request', (request) => { if (request.url().endsWith('/api/pair/claim')) claims.push(request.postData()); });
+  await real.goto(`${json.url}#t=old-token`);
+  await real.waitForSelector('#pin', { state: 'visible' });
+  assert.deepEqual(claims, []);
+  assert.deepEqual(server.pairing.list(), []);
+  await typePin(real, json.pin);
+  await real.waitForSelector('html[data-booted]');
+  assert.deepEqual(server.pairing.list().map((device) => device.name), ['Browser']);
+});
+
+test('an Origin proves nothing: a local caller cannot list, revoke, turn off or be given a code', async (t) => {
+  const { onMac, claimsBrowser, server, asked } = await factory(t);
+  const { json } = await onMac('/api/pair/start', 'POST');
+  const { device } = server.pairing.claim({ pin: json.pin, name: 'Pixel', ip: 'x' });
+  const questions = asked.length;
+  const forged = (route, method, headers) => claimsBrowser(route, method, { 'sec-fetch-site': 'same-origin', ...headers });
+
+  const list = await forged('/api/devices');
+  assert.equal(list.status, 403);
+  assert.equal(list.json.needsProof, true);
+  assert.equal(list.json.name, undefined);
+  assert.equal((await forged('/api/phone-access/off', 'POST')).status, 403);
+  assert.equal(server.phoneAccess().on, true);
+  const start = await forged('/api/pair/start', 'POST');
+  assert.equal(start.status, 403);
+  assert.equal(start.json.pin, undefined);
+  const revoke = await raw({
+    port: server.port, path: '/api/devices/revoke', method: 'POST', headers: { origin: server.url, 'content-type': 'application/json' }, body: JSON.stringify({ id: device.id }),
+  });
+  assert.equal(revoke.status, 403);
+  assert.equal(server.pairing.list().length, 1);
+  assert.equal(asked.length, questions, 'and none of that put a box on the screen');
+  assert.equal((await forged('/api/devices', 'GET', { 'x-venezia-proof': 'made-up' })).status, 403);
+});
+
+test('the only way in for a page is a code a local caller never sees', async (t) => {
+  const { claimsBrowser, server, asked } = await factory(t);
+  const ask = () => claimsBrowser('/api/mac-proof/start', 'POST');
+  const claim = (code) => raw({
+    port: server.port, path: '/api/mac-proof/claim', method: 'POST', headers: { origin: server.url, 'content-type': 'application/json' }, body: JSON.stringify({ code }),
+  });
+
+  const yes = await ask();
+  assert.equal(yes.status, 200, 'someone pressed OK');
+  assert.deepEqual(Object.keys(yes.json), ['ok'], 'and the caller learned nothing from it');
+  const shown = asked.at(-1).plain.match(/\d{6}/)[0];
+  assert.equal((await claim('000000' === shown ? '111111' : '000000')).status, 403);
+  const right = await claim(shown);
+  assert.equal(right.status, 200);
+  assert.equal((await claim(shown)).status, 410, 'the code works once');
+  const proved = await claimsBrowser('/api/devices', 'GET', { 'x-venezia-proof': right.json.proof });
+  assert.equal(proved.status, 200);
+  assert.deepEqual(proved.json, []);
+});
+
+test('three wrong codes burn it, and a bare process cannot raise a box at all', async (t) => {
+  const { claimsBrowser, server, asked } = await factory(t);
+  const claim = (code) => raw({
+    port: server.port, path: '/api/mac-proof/claim', method: 'POST', headers: { origin: server.url, 'content-type': 'application/json' }, body: JSON.stringify({ code }),
+  });
+  assert.equal((await raw({ port: server.port, path: '/api/mac-proof/start', method: 'POST' })).status, 403);
+  assert.equal(asked.length, 0);
+
+  await claimsBrowser('/api/mac-proof/start', 'POST');
+  const shown = asked.at(-1).plain.match(/\d{6}/)[0];
+  const wrong = shown === '000000' ? '111111' : '000000';
+  await claim(wrong);
+  await claim(wrong);
+  await claim(wrong);
+  assert.equal((await claim(shown)).status, 410);
+});
+
+test('boxes on the Mac are capped: one at a time, three in a row, then a wait', async (t) => {
+  let clock = 1_000_000;
+  const releases = [];
+  const asked = [];
+  const engine = stubEngine(t, {
+    confirmHuman: (card) => new Promise((resolve) => {
+      asked.push(card);
+      releases.push(() => resolve({ ok: false, error: 'You said no on this Mac.' }));
+    }),
+  });
+  const { server, url } = await serve(t, { engine, lanPort: 0, now: () => clock });
+  const raise = () => raw({ port: server.port, path: '/api/mac-proof/start', method: 'POST', headers: { origin: url } });
+
+  const first = raise();
+  await new Promise((resolve) => { const wait = setInterval(() => { if (asked.length) { clearInterval(wait); resolve(); } }, 5); });
+  const rest = await Promise.all(Array.from({ length: 24 }, raise));
+  assert.ok(rest.every((response) => response.status === 429), 'the other 24 raise nothing');
+  assert.equal(asked.length, 1);
+  releases.shift()();
+  assert.equal((await first).status, 403);
+
+  for (let turn = 0; turn < 2; turn++) {
+    const next = raise();
+    await new Promise((resolve) => { const wait = setInterval(() => { if (releases.length) { clearInterval(wait); resolve(); } }, 5); });
+    releases.shift()();
+    await next;
+  }
+  const capped = await raise();
+  assert.equal(capped.status, 429);
+  assert.match(capped.json.error, /ten minutes/);
+  assert.equal(asked.length, 3);
+
+  clock += 10 * 60_000 + 1;
+  const later = raise();
+  await new Promise((resolve) => { const wait = setInterval(() => { if (releases.length) { clearInterval(wait); resolve(); } }, 5); });
+  releases.shift()();
+  assert.equal((await later).status, 403, 'it can be asked again after the wait');
+  assert.equal(asked.length, 4);
+});
+
+test('Turn off wins over a yes that was still waiting', async (t) => {
+  let answer;
+  const asked = [];
+  const engine = stubEngine(t, {
+    confirmHuman: (card) => new Promise((resolve) => {
+      asked.push(card);
+      answer = resolve;
+    }),
+  });
+  const { onMac, server, lanPort } = await factory(t, { engine, lanPort: await freePort() });
+  const pending = onMac('/api/pair/start', 'POST');
+  for (let i = 0; i < 200 && !answer; i++) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal((await onMac('/api/phone-access/off', 'POST')).status, 200);
+  answer({ ok: true });
+  const result = await pending;
+  assert.equal(result.status, 409);
+  assert.match(result.json.error, /turned off while that was waiting/);
+  assert.equal(result.json.pin, undefined);
+  assert.equal(server.lanUrl, null);
+  assert.equal(await refused(lanPort), true);
 });

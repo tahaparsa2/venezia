@@ -178,7 +178,7 @@ test('pair prints a QR, a code and a fingerprint, and lists devices', async (t) 
   assert.equal(code, 0);
   assert.match(stdout, /█/);
   assert.match(stdout, /Code: \d{6}/);
-  assert.match(stdout, /https:\/\/venezia\.local:\d+\/pair#t=/);
+  assert.match(stdout, /https:\/\/venezia\.local:\d+\/pair\n/);
   assert.match(stdout, /Certificate fingerprint/);
   const details = await json('pair');
   assert.match(details.pin, /^\d{6}$/);

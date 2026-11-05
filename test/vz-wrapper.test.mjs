@@ -106,7 +106,7 @@ test('./vz pair turns phone access on against a server that was started without 
   assert.equal(code, 0, stderr);
   assert.match(stderr, /Say yes in the box on your Mac/);
   assert.match(stdout, /█/);
-  assert.match(stdout, new RegExp(`https://${LAN_NAME.replace('.', '\\.')}:\\d+/pair#t=`));
+  assert.match(stdout, new RegExp(`https://${LAN_NAME.replace('.', '\\.')}:\\d+/pair\\n`));
   assert.match(stdout, /If the phone cannot find venezia\.local: https:\/\/192\.168\.1\.20:\d+\/pair/);
   assert.match(stdout, /Code: \d{6}/);
   for (const words of ['accept incoming network connections', 'Profile Downloaded', 'Certificate Trust Settings', 'CA certificate', 'Not yet tried on a real iPhone']) {

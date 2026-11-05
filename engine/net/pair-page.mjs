@@ -26,8 +26,8 @@ function stepList(steps) {
 }
 
 /**
- * The page looks for itself before it spends the one-time token. A token sent before the
- * certificate is trusted crosses a link nobody has verified, so that takes a deliberate tap.
+ * The page looks for itself before it asks for the code. A code typed before the certificate
+ * is trusted crosses a link nobody has verified, so that takes a deliberate tap.
  * @param {{fingerprint: string, nonce: string, probePort?: number|null, fallback?: string|null, paired?: boolean}} options
  *   `probePort` is the listener behind the certificate check, and `fallback` the address by IP
  */
@@ -74,7 +74,6 @@ const say = (text) => { status.textContent = text; };
 const agent = navigator.userAgent;
 const iPadAsMac = /Macintosh/.test(agent) && navigator.maxTouchPoints > 1;
 const device = /iPhone/.test(agent) ? 'iPhone' : /iPad/.test(agent) || iPadAsMac ? 'iPad' : /Android/.test(agent) ? 'Android' : 'Browser';
-const token = new URLSearchParams(location.hash.slice(1)).get('t');
 let paired = main.dataset.paired === 'true';
 let checking = false;
 let misses = 0;
@@ -125,7 +124,6 @@ async function claim(body) {
     });
     const result = await response.json();
     if (result.ok) {
-      history.replaceState(null, '', '/pair');
       paired = true;
       await finish();
     } else {
@@ -140,12 +138,12 @@ async function claim(body) {
 
 function pairNow() {
   show('setup', false);
-  if (paired) finish();
-  else if (token) claim({ token });
-  else {
-    show('pin-form', true);
-    say('This phone trusts your Mac. Enter the code to finish.');
+  if (paired) {
+    finish();
+    return;
   }
+  show('pin-form', true);
+  say('This phone trusts your Mac. Enter the code to finish.');
 }
 
 async function check() {
@@ -173,7 +171,6 @@ document.getElementById('check-again').addEventListener('click', check);
 document.getElementById('pair-anyway').addEventListener('click', () => {
   show('setup', false);
   if (paired) finish();
-  else if (token) claim({ token });
   else show('pin-form', true);
 });
 document.getElementById('pin-form').addEventListener('submit', (event) => {

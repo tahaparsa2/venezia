@@ -60,12 +60,14 @@ export function readCookie(header, name) {
 }
 
 /**
- * Pairing and paired devices. One pairing is live at a time. Its token and PIN work once,
- * expire in minutes, and five wrong PINs burn it. Only hashes of session secrets are stored.
- * @param {{file: string, now?: () => number, ttlMs?: number}} options
- *   `file` is the JSON list of paired devices.
+ * Pairing and paired devices. One pairing is live at a time. Its PIN works once, expires in
+ * minutes, and five wrong tries burn it. It is never in a QR code: a first scan has to tap past a
+ * certificate warning, so whatever answers that address could read a code out of the link. Only
+ * hashes of session secrets are stored.
+ * @param {{file: string, now?: () => number, ttlMs?: number, onForget?: (id: string) => void}} options
+ *   `file` is the JSON list of paired devices, and `onForget` hears each device that goes.
  */
-export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) {
+export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS, onForget = () => {} }) {
   let live = null;
   let lastSeenWrite = 0;
   const failures = new Map();
@@ -102,19 +104,27 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
 
   const isLive = () => live !== null && now() <= live.expiresAt;
 
+  function forget(id) {
+    const index = devices.findIndex((entry) => entry.id === id);
+    if (index < 0) return false;
+    devices.splice(index, 1);
+    save();
+    onForget(id);
+    return true;
+  }
+
   return {
     /**
      * Start a pairing, replacing any before it.
-     * @returns {{token: string, pin: string, expiresAt: number}}
+     * @returns {{pin: string, expiresAt: number}}
      */
     start() {
       live = {
-        token: randomBytes(16).toString('base64url'),
         pin: String(randomInt(0, 1_000_000)).padStart(6, '0'),
         expiresAt: now() + ttlMs,
         pinTries: 0,
       };
-      return { token: live.token, pin: live.pin, expiresAt: live.expiresAt };
+      return { pin: live.pin, expiresAt: live.expiresAt };
     },
 
     /** Drop a code nobody has used. */
@@ -123,19 +133,16 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
     },
 
     /**
-     * Swap a token or a PIN for a session.
-     * @param {{token?: string, pin?: string, name?: string, ip?: string}} claim
+     * Swap the PIN for a session.
+     * @param {{pin?: string, name?: string, ip?: string}} claim
      * @returns {{ok: true, secret: string, device: object}|{ok: false, status: number, error: string}}
      */
-    claim({ token, pin, name, ip = 'unknown' }) {
+    claim({ pin, name, ip = 'unknown' }) {
       if (failedTries(ip) >= IP_TRIES) return { ok: false, status: 429, error: 'Too many wrong tries. Wait ten minutes.' };
       if (!isLive()) return { ok: false, status: 410, error: 'That pairing code has expired. Press Show a pairing code on your Mac again.' };
-      const right = typeof token === 'string'
-        ? sameSecret(token, live.token)
-        : typeof pin === 'string' && sameSecret(pin, live.pin);
-      if (!right) {
+      if (typeof pin !== 'string' || !sameSecret(pin, live.pin)) {
         noteFailure(ip);
-        if (typeof token !== 'string') live.pinTries++;
+        live.pinTries++;
         if (live.pinTries >= PIN_TRIES) live = null;
         return { ok: false, status: 403, error: 'That code is not right' };
       }
@@ -154,7 +161,8 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
     },
 
     /**
-     * Find the paired device behind a session secret.
+     * Find the paired device behind a session secret. A session lasts as long as its cookie
+     * says, and a device past that has to pair again.
      * @param {string|null} secret
      */
     verify(secret) {
@@ -162,6 +170,10 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
       const hash = sha256(secret).toString('hex');
       const device = devices.find((entry) => timingSafeEqual(Buffer.from(entry.hash), Buffer.from(hash)));
       if (!device) return null;
+      if (now() - device.createdAt > SESSION_MAX_AGE_S * 1000) {
+        forget(device.id);
+        return null;
+      }
       device.lastSeen = now();
       if (now() - lastSeenWrite > SEEN_WRITE_MS) {
         lastSeenWrite = now();
@@ -175,14 +187,8 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS }) 
       return devices.map(({ id, name, createdAt, lastSeen }) => ({ id, name, createdAt, lastSeen }));
     },
 
-    /** Forget a device. Its session stops working on the next request. */
-    revoke(id) {
-      const index = devices.findIndex((entry) => entry.id === id);
-      if (index < 0) return false;
-      devices.splice(index, 1);
-      save();
-      return true;
-    },
+    /** Forget a device. Its session stops working, and `onForget` ends what it has open. */
+    revoke: forget,
 
     /** The `Set-Cookie` value for a session. */
     cookie(secret) {

@@ -109,7 +109,7 @@ test('a web page on another port cannot command the factory or read it', async (
   assert.equal(engine.store.seq(), seq, 'nothing got through');
 });
 
-test('scanning the QR pairs the phone, under the strict CSP, and clears the token', async (t) => {
+test('scanning the QR and typing the code pairs the phone, under the strict CSP', async (t) => {
   const browser = await chrome(t);
   if (!browser) return;
   const { server } = await serve(t, {
@@ -125,13 +125,15 @@ test('scanning the QR pairs the phone, under the strict CSP, and clears the toke
   const seen = [];
   page.on('request', (request) => seen.push(request.url()));
 
-  const { url } = server.startPairing();
-  const token = url.split('#t=')[1];
-  await page.goto(`https://localhost:${server.lanPort}/pair#t=${token}`);
+  const { pin } = server.startPairing();
+  await page.goto(`https://localhost:${server.lanPort}/pair`);
+  await page.waitForSelector('#pin', { state: 'visible' });
+  await page.fill('#pin', pin);
+  await page.click('#pin-form button');
   await page.waitForURL(`https://localhost:${server.lanPort}/`);
   assert.equal(await page.title(), 'home');
   assert.deepEqual(violations, []);
-  assert.ok(seen.every((address) => !address.includes(token) || address.includes('#')), 'the token stays in the fragment');
+  assert.ok(seen.every((address) => !address.includes(pin)), 'the code travels in the body of the claim, never in an address');
 
   const cookies = await context.cookies();
   const session = cookies.find((cookie) => cookie.name === 'vz_session');

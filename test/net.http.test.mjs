@@ -313,7 +313,7 @@ test('it listens on loopback only', async (t) => {
 test('a no on this Mac leaves phone access off', async (t) => {
   const engine = stubEngine(t, { confirmHuman: async () => ({ ok: false, error: 'You said no on this Mac.' }) });
   const { port, url, server } = await serve(t, { engine, lanPort: 0 });
-  const response = await raw({ port, path: '/api/pair/start', method: 'POST', headers: { origin: url } });
+  const response = await raw({ port, path: '/api/mac-proof/start', method: 'POST', headers: { origin: url } });
   assert.equal(response.status, 403);
   assert.match(response.json.error, /said no/);
   assert.equal(server.lanUrl, null);
