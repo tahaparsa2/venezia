@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { RENOWN_AWARDS, whyNoPrototype } from '../../shared/vocabulary.mjs';
+import { PUBLISHABLE, RENOWN_AWARDS, whyNoPrototype } from '../../shared/vocabulary.mjs';
 import { folderHash } from '../gate/artifact.mjs';
 import { EVIDENCE_FILE, SITE_FOLDER, TREE_FOLDER } from '../gate/index.mjs';
 import { sha256 } from '../gate/util.mjs';
@@ -35,6 +35,26 @@ function loadPlan(ctx, shipId) {
 
 /** Forget the plan on hand. A plan that was refused or replaced must not be applied. */
 export const dropPlan = (ctx, shipId) => fs.rmSync(planFile(ctx, shipId), { force: true });
+
+/**
+ * Where a publish goes back to: the state it set out from. It comes from the log, because a
+ * block or a restart can come between setting out and getting back.
+ * @returns {'ready'|'done'}
+ */
+export function publishHome(ctx, shipId) {
+  const moves = ctx.store.events({ shipId, types: ['ship.state'] });
+  return moves.findLast((event) => PUBLISHABLE.includes(event.data.state))?.data.state ?? 'ready';
+}
+
+/** While this runs a second request could only race it, so `publish.request` says no. */
+async function preparing(ctx, ship, work) {
+  ctx.publishPreparing.add(ship.id);
+  try {
+    return await work();
+  } finally {
+    ctx.publishPreparing.delete(ship.id);
+  }
+}
 
 /**
  * Why a receipt no longer holds, or null. The scribe's own files never count.
@@ -149,7 +169,7 @@ function openKeepCard(ctx, ship, why, title = `${nameOf(ship)} cannot be publish
     tier: 0,
     title,
     plain: clip(why),
-    options: [{ id: 'keep', label: 'Keep it local and finish', recommended: true }],
+    options: [{ id: 'keep', label: ship.state === 'done' ? 'Leave it as it is' : 'Keep it local and finish', recommended: true }],
   });
   return wait();
 }
@@ -198,8 +218,8 @@ async function planPublish(ctx, ship, target, { again = false, asked = false } =
   if (!preflight.ok) {
     return openKeepCard(ctx, ship, `Publishing was refused at ${preflight.failed}: ${preflight.steps.at(-1).detail}`);
   }
-  savePlan(ctx, plan);
   if (!ctx.broker.approvalNeeded(plan).required) {
+    savePlan(ctx, plan);
     const earlier = ctx.publishFailures.get(ship.id);
     ctx.publishFailures.delete(ship.id);
     if (!earlier || asked) return go('publishing');
@@ -216,6 +236,8 @@ async function planPublish(ctx, ship, target, { again = false, asked = false } =
     plain: again ? `The last attempt did not stay live, so nothing is published. ${card.plain}` : card.plain,
     options: card.options.map((option) => (option.id === 'reject' ? { ...option, label: 'Keep it local' } : option)),
   });
+  // Only now: a plan on disk with no card of its own would match an approval already used.
+  savePlan(ctx, plan);
   return wait();
 }
 
@@ -238,6 +260,7 @@ function noteUnheard(ctx, ship) {
 /** The `ready` state. */
 export async function ready(ctx, ship) {
   if (!checkReceipt(ctx, ship)) {
+    ctx.publishTargets.delete(ship.id);
     const card = latestCard(ctx, ship.id, 'publish');
     if (card?.resolvedAt === null && !card.payloadHash) return wait();
     if (card?.resolution?.optionId === 'keep') return go('learning');
@@ -260,14 +283,43 @@ export async function ready(ctx, ship) {
 
   const asked = ctx.publishTargets.get(ship.id);
   ctx.publishTargets.delete(ship.id);
-  if (!asked && !lockedContract(ctx, ship)?.contract.static) return offerLocal(ctx, ship);
-  return planPublish(ctx, ship, asked ?? ctx.defaultTarget, { again: relevant?.resolution.optionId === 'approve', asked: Boolean(asked) });
+  if (!asked && !lockedContract(ctx, ship)?.contract.static) return preparing(ctx, ship, () => offerLocal(ctx, ship));
+  return preparing(ctx, ship, () => planPublish(ctx, ship, asked ?? ctx.defaultTarget, { again: relevant?.resolution.optionId === 'approve', asked: Boolean(asked) }));
+}
+
+/**
+ * The `done` state, which only ever does anything for a publish. A finished ship stays finished
+ * while its card waits, and nothing here may throw, since a finished ship cannot be blocked.
+ */
+export async function done(ctx, ship) {
+  const asked = ctx.publishTargets.get(ship.id);
+  ctx.publishTargets.delete(ship.id);
+  try {
+    const plan = loadPlan(ctx, ship.id);
+    const card = latestCard(ctx, ship.id, 'publish');
+    const open = card?.resolvedAt === null;
+    if (!asked && !plan && !open) return wait();
+    if (!checkReceipt(ctx, ship)) {
+      if (open) ctx.decisions.withdraw(card.id, 'The receipt no longer holds.');
+      dropPlan(ctx, ship.id);
+      ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'host', data: { bell: 'pregadi', reason: `${nameOf(ship)} was not published: the code changed after the gate passed, so the receipt was voided. Use refit to prove it again.` } });
+      return wait();
+    }
+    if (open) return wait();
+    if (card?.resolution?.optionId === 'approve' && plan?.hash === card.payloadHash) return go('publishing');
+    dropPlan(ctx, ship.id);
+    return asked ? await preparing(ctx, ship, () => planPublish(ctx, ship, asked, { asked: true })) : wait();
+  } catch (error) {
+    ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'host', data: { bell: 'pregadi', reason: `${nameOf(ship)} was not published: ${clip(error.message, 200)}` } });
+    return wait();
+  }
 }
 
 /** The `publishing` state. No model is involved. */
 export async function publishing(ctx, ship) {
+  const home = publishHome(ctx, ship.id);
   const plan = loadPlan(ctx, ship.id);
-  if (!plan) return go('ready');
+  if (!plan) return go(home);
 
   const card = latestCard(ctx, ship.id, 'publish');
   const approved = card?.payloadHash === plan.hash && card.resolution?.optionId === 'approve';
@@ -288,12 +340,13 @@ export async function publishing(ctx, ship) {
     }
     return go('launched');
   }
-  ctx.publishFailures.set(ship.id, outcome.reason ?? 'The last attempt to publish did not stay live.');
+  // The `ready` state reads this to decide whether to try again. `done` only waits to be asked.
+  if (home === 'ready') ctx.publishFailures.set(ship.id, outcome.reason ?? 'The last attempt to publish did not stay live.');
   if (outcome.status === 'failed') {
     ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'publish', data: { bell: 'maleficio', reason: `Publishing ${nameOf(ship)} failed: ${clip(outcome.reason, 200)}` } });
   }
-  return go('ready');
+  return go(home);
 }
 
-/** The `launched` state. */
-export const launched = () => go('learning');
+/** The `launched` state. A finished ship has already learned, so it needs no second write-up. */
+export const launched = (ctx, ship) => go(publishHome(ctx, ship.id) === 'done' ? 'done' : 'learning');

@@ -61,6 +61,14 @@ test('a hold returns only to where the ship was, and any live state can stop', (
   assert.ok(!canTransition('paused', 'ready', { resumeState: 'building' }));
   assert.ok(canTransition('blocked', 'proving', { resumeState: 'proving' }));
   assert.ok(canTransition('blocked', 'failed'));
+  // A finished ship can go out, and a publish comes back to where it set out from.
+  for (const [from, to] of [['done', 'publishing'], ['publishing', 'done'], ['publishing', 'ready'], ['launched', 'done'], ['blocked', 'done']]) {
+    assert.ok(canTransition(from, to), `${from} to ${to}`);
+  }
+  assert.ok(!canTransition('done', 'ready'));
+  assert.ok(!canTransition('done', 'launched'));
+  assert.ok(!canTransition('failed', 'publishing'));
+  assert.ok(!canTransition('scuttled', 'publishing'));
   assert.ok(canTransition('failed', 'building', { resumeState: 'building' }));
   assert.ok(!canTransition('failed', 'building'));
   assert.ok(!canTransition('scuttled', 'paused'));

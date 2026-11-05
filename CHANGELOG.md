@@ -20,6 +20,10 @@ The first version, not yet published.
 - Tool approval cards follow the autonomy setting: Tiller approves each tool, Sail approves what is risky, and Wind runs confined work without a card. Every automatic allow is an event, listed in the chronicle. One policy in `engine/tool-policy.mjs` decides, and no level widens a write outside the project, a credential path, a publishing command or a new network host.
 - Preparation for publication: `.gitignore` for local state, secrets and large output, `SECURITY.md`, `docs/PUBLISHING.md`, and personal data removed from docs and tests.
 
+### Fixed
+
+- A finished project can be published. It used to need the `ready` state, so a project finished without publishing could never go live. Every publish rule still applies, it returns to done afterwards, and a failed publish rolls back to done.
+
 ### Changed
 
 - Public publishing always needs a person. The opt-in standing policy for tier 3 is gone.

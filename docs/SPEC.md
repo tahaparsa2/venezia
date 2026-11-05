@@ -120,18 +120,20 @@ yards/  data/           runtime, gitignored
 | `repairing` | collaudo | Calafato | `proving`, or `blocked` after `maxRepairs` |
 | `reviewing` | collaudo | Provveditore | `ready` or `repairing`, or `proving` if the tree moved after the gate, or `blocked` on a gap or after `maxRepairs` |
 | `ready` | varo | Local preview is live, receipt issued | `publishing`, `learning` |
-| `publishing` | varo | Broker, no model | `launched`, `ready` on failure |
-| `launched` | varo | Live check passed | `learning` |
+| `publishing` | varo | Broker, no model | `launched`, or back to where it set out from on failure: `ready` or `done` |
+| `launched` | varo | Live check passed | `learning`, or `done` if it set out from `done` |
 | `learning` | portolano | Scrivano | `done` |
-| `done` | portolano | Terminal, keeps its prototype while the receipt holds, can be refit | `contracting` via refit |
+| `done` | portolano | Terminal, keeps its prototype while the receipt holds, can be refit or published | `contracting` via refit, `publishing` via `publish.request` with a valid receipt |
 | `paused` | same | You | previous state |
-| `blocked` | same | You | previous state or `failed` |
+| `blocked` | same | You | previous state or `failed`, or `done` when a finished ship's publish is stopped |
 | `failed` | same | Terminal, can retry or fork | `learning` then stays `failed` |
 | `scuttled` | same | Terminal | |
 
 `blocked` always carries `blockReason`: `human_needed`, `rate_limited`, `budget`, `gap`, `repair_exhausted`, `worker_crashed`, `permission_denied`.
 
 Sizing asks one question first: is the intent well defined? Well defined and tiny is a gondola. Anything else asks up to three questions, each with options and a recommended default, and never guesses at a gap. A size you chose stands. Otherwise the planner's size goes on the log as `ship.sized`. Questions get two rounds: a planner that still has questions after your answers blocks with `gap`.
+
+A finished ship can still go live, and every publish rule holds as it does from `ready`: `publish.request` rechecks the receipt against the tree and a voided one is refused, the payload is what the gate kept for the receipted commit, the gate's artifact hash must match, the whole preflight runs, an approval binds to the plan hash, and tier 3 needs the person. The ship stays `done` while its card waits, and refusing the card leaves it there. Live and checked, it goes `publishing`, `launched`, `done` with no second write-up, because it has already learned. The chronicle and the Atlas still record the publish, since they are written from the log. A failed publish or live check rolls back and returns to `done`, with `publish.rolledback` on the log and a bell, and no new card: asking again is yours. If the host cannot check the live page the ship blocks as any publish does, and stopping there leaves it `done`, published and unchecked. A publish needs no worker, so the rate limit never holds it.
 
 `failed` keeps the state it failed from in `resumeState`, and `ship.retry` returns there. A ship that failed out of `repairing` therefore gets one more repair and then the whole gate, never a bare rerun of the gate on unchanged code. `blocked` carries a card with `retry` and `stop`, except `rate_limited`, which clears by itself. After `maxRepairs`, each "try again" allows exactly one more repair.
 
@@ -318,7 +320,7 @@ Tiers 3 and 4 always need a person. No autonomy level, config or standing policy
 
 Default public path: source in a private repo, built output only in one public `<user>/venezia-sites` repo on `gh-pages`. Adapters in v1: `local`, `tarball`, `github-private`, `github-pages`, `gist-secret`. `vercel` and `cloudflare` exist as probes that report what setup is needed.
 
-`apply` refuses without a pass for that exact artifact hash. Approval is an HMAC over `plan.hash` with expiry. Post-publish `verify` runs the browser checks live. A failed verify rolls back automatically. Preview servers run on a separate port per ship (a separate origin) and the UI frames them with a sandboxed iframe.
+`apply` refuses without a pass for that exact artifact hash. Approval is an HMAC over `plan.hash` with expiry. Post-publish `verify` runs the browser checks live. A failed verify rolls back automatically. A publish request while one is being planned or is on its way out is refused, and asking again for the target an open card already shows changes nothing. One verified result earns one `live` tile and its renown: publishing the same ship again is checked live and earns no more, and a refit is a new result. Preview servers run on a separate port per ship (a separate origin) and the UI frames them with a sandboxed iframe.
 
 Prototypes. A ship in `ready`, `launched` or `done` with a valid receipt has a prototype you can open, and `preview.open` starts it or finds it running. Reaching `done` stops nothing.
 
