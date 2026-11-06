@@ -4,8 +4,9 @@
 import { cmd } from '/js/commands.js';
 import { h, dayMonth, pageHead, setText, syncList } from '/js/folio/dom.js';
 
-const KIND_WORD = { hazard: 'Hazard', shoal: 'Shoal', technique: 'Technique', preference: 'Preference' };
-const KIND_PLAIN = { hazard: 'Danger', shoal: 'Trap', technique: 'Technique', preference: 'Your taste' };
+/** The kind of a lesson says how much it matters, so the word comes with what it means. */
+const KIND_WORD = { hazard: 'Hazard: a danger to avoid', shoal: 'Shoal: a trap that wastes time', technique: 'Technique: a way that worked', preference: 'Preference: your taste' };
+const KIND_PLAIN = { hazard: 'A danger to avoid', shoal: 'A trap that wastes time', technique: 'A way that worked', preference: 'Your taste' };
 
 function rate(lesson) {
   const scored = lesson.wins + lesson.losses;
@@ -109,7 +110,7 @@ export function createMariegolaPanel(ctx) {
       meter.setAttribute('aria-label', value === null ? 'No record yet' : `${Math.round(value * 100)}% win rate`);
       setText(words, value === null
         ? `Used ${lesson.uses} ${lesson.uses === 1 ? 'time' : 'times'}, no result yet`
-        : `${Math.round(value * 100)}% win rate. ${lesson.wins} of ${scored}, ${lesson.uses} ${lesson.uses === 1 ? 'use' : 'uses'}`);
+        : `Won ${lesson.wins} of ${scored}, used ${lesson.uses} ${lesson.uses === 1 ? 'time' : 'times'}`);
     });
 
     burned.hidden = burnedLessons.length === 0;

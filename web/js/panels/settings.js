@@ -58,7 +58,7 @@ export function createSettingsPanel(ctx) {
       h('div', { class: 'levels', role: 'radiogroup', 'aria-label': 'Default autonomy' }, levels),
       h('h3', { class: 'rub', text: 'Your phone' }),
       pairIntro, onPhone, phoneLine, pairButton, pairBox, devices,
-      h('p', { class: 'panel-note settings-deck' }, 'On a phone beside a big screen, open ', h('a', { href: '/deck', text: '/deck' }), ' for the deck alone.')));
+      h('p', { class: 'panel-note settings-deck' }, 'On a phone beside a big screen, open ', h('a', { href: '/deck', text: '/deck' }), ' to show only the controls.')));
 
   /** Something went wrong, or finished: one plain line, and nothing left over that looks live. */
   const sayInBox = (text, tone = 'pair-note') => pairBox.replaceChildren(h('p', { class: tone, role: 'status', text }));

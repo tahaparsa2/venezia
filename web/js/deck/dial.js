@@ -70,7 +70,7 @@ export function createDial(store, audio) {
     'aria-valuemin': 0, 'aria-valuemax': STOPS.length - 1, 'aria-orientation': 'horizontal',
   }, svg, knob);
   const name = h('span', { class: 'dial__target' });
-  const caption = h('span', { class: 'dial__caption' }, h('span', { text: 'Effort' }), name);
+  const caption = h('span', { class: 'dial__caption' }, h('span', { text: 'Effort:' }), name);
   const root = h('div', { class: 'dial-seat' }, dial, caption);
 
   let index = 1;
@@ -125,7 +125,7 @@ export function createDial(store, audio) {
   /** Follow the factory, unless a hand is on the dial. */
   function draw() {
     const ship = explicitShip();
-    name.textContent = ship ? ship.name ?? 'This project' : 'All projects';
+    name.textContent = ship ? ship.name ?? 'This project' : 'all projects';
     if (drag || previewing) return;
     const wanted = STOPS.findIndex((stop) => stop.id === (holding ?? authoritative()));
     if (wanted < 0) return;

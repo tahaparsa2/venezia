@@ -131,7 +131,7 @@ export function createFairPanel(ctx) {
     });
     const best = busiest(rows);
     yardstick.hidden = best === 0;
-    setText(yardstick, `In the 1430s Pero Tafur watched ten galleys fitted out in about six hours on the Arsenale's moving line. Your best six hours: ${best}.`);
+    setText(yardstick, `In the 1430s Pero Tafur watched ten galleys fitted out in about six hours on the Arsenale's moving line. Your best six hours: ${best} ${best === 1 ? 'launch' : 'launches'}.`);
   }
 
   return { el, update };
