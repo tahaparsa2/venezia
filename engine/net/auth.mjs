@@ -61,9 +61,9 @@ export function readCookie(header, name) {
 
 /**
  * Pairing and paired devices. One pairing is live at a time. Its PIN works once, expires in
- * minutes, and five wrong tries burn it. It is never in a QR code: a first scan has to tap past a
- * certificate warning, so whatever answers that address could read a code out of the link. Only
- * hashes of session secrets are stored.
+ * minutes, and five wrong tries burn it. It is never in a QR code, and never in an HTTP response
+ * from this server: it only appears in a box on the Mac, so a person has to carry it to the
+ * device. Only hashes of session secrets are stored.
  * @param {{file: string, now?: () => number, ttlMs?: number, onForget?: (id: string) => void}} options
  *   `file` is the JSON list of paired devices, and `onForget` hears each device that goes.
  */
@@ -127,10 +127,13 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS, on
       return { pin: live.pin, expiresAt: live.expiresAt };
     },
 
-    /** Drop a code nobody has used. */
+    /** Drop a PIN nobody has used. */
     cancel() {
       live = null;
     },
+
+    /** Whether a PIN can still be used. */
+    waiting: isLive,
 
     /**
      * Swap the PIN for a session.
@@ -139,12 +142,12 @@ export function createPairing({ file, now = Date.now, ttlMs = PAIRING_TTL_MS, on
      */
     claim({ pin, name, ip = 'unknown' }) {
       if (failedTries(ip) >= IP_TRIES) return { ok: false, status: 429, error: 'Too many wrong tries. Wait ten minutes.' };
-      if (!isLive()) return { ok: false, status: 410, error: 'That pairing code has expired. Press Show a pairing code on your Mac again.' };
+      if (!isLive()) return { ok: false, status: 410, error: 'That PIN has run out. On your Mac, press Link a phone again for a new one.' };
       if (typeof pin !== 'string' || !sameSecret(pin, live.pin)) {
         noteFailure(ip);
         live.pinTries++;
         if (live.pinTries >= PIN_TRIES) live = null;
-        return { ok: false, status: 403, error: 'That code is not right' };
+        return { ok: false, status: 403, error: live ? 'That PIN is not right. Check the box on your Mac and try again.' : 'That was too many wrong tries, so the PIN has stopped working. On your Mac, press Link a phone again.' };
       }
       live = null;
       const secret = randomBytes(32).toString('base64url');

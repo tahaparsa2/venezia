@@ -5,6 +5,7 @@ import { installA11y } from '/js/a11y.js';
 import { createLayout } from '/js/layout.js';
 import { createStore } from '/js/store.js';
 import { createDemoTransport, createTransport } from '/js/transport.js';
+import { PROFILE_LINE } from '/shared/pairing.mjs';
 
 const params = new URLSearchParams(location.search);
 const demo = params.has('demo') && params.get('demo') !== '0';
@@ -58,7 +59,10 @@ function installRibbon(store) {
   const title = ribbon.querySelector('b');
   const detail = ribbon.querySelector('span');
   const action = ribbon.querySelector('button');
-  action.addEventListener('click', () => store.retry());
+  action.addEventListener('click', () => {
+    if (notice?.href) location.assign(notice.href);
+    else store.retry();
+  });
   let notice = null;
   let noticeTimer = 0;
   let tick = 0;
@@ -73,7 +77,8 @@ function installRibbon(store) {
       ribbon.dataset.tone = 'notice';
       title.textContent = notice.title;
       detail.textContent = notice.detail;
-      action.hidden = true;
+      action.textContent = notice.href ? 'Install' : 'Try now';
+      action.hidden = !notice.href;
       return;
     }
     if (alarm) {
@@ -108,7 +113,7 @@ function installRibbon(store) {
   /**
    * A short message for anything with no other place to be said.
    * @param {string} text
-   * @param {{title?: string, ms?: number}} [options]
+   * @param {{title?: string, ms?: number, href?: string|null}} [options] `href` adds Install
    */
   /**
    * What the host says is wrong with it. When it cannot write its log no event can say so,
@@ -140,8 +145,8 @@ function installRibbon(store) {
   });
   checkHealth();
 
-  store.notify = (text, { title: heading = 'Note', ms = 5000 } = {}) => {
-    notice = { title: heading, detail: text };
+  store.notify = (text, { title: heading = 'Note', ms = 5000, href = null } = {}) => {
+    notice = { title: heading, detail: text, href };
     store.announce?.(`${heading}. ${text}`);
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => {
@@ -242,6 +247,12 @@ async function boot() {
   registerWorker();
   if (store.demoMode === 'fleet' && !params.has('ff')) {
     store.notify('Made-up ships. Press anything: nothing is really built or published.', { title: 'A scripted demo', ms: 9000 });
+  }
+
+  // Just linked from the phone page. The optional extra gets one line, once, and never blocks.
+  if (params.has('linked')) {
+    history.replaceState(null, '', location.pathname);
+    store.notify(PROFILE_LINE, { title: 'Linked', ms: 15_000, href: '/pair' });
   }
 
   // A handle for tests and for poking around in the console.

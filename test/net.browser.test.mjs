@@ -130,7 +130,7 @@ test('scanning the QR and typing the code pairs the phone, under the strict CSP'
   await page.waitForSelector('#pin', { state: 'visible' });
   await page.fill('#pin', pin);
   await page.click('#pin-form button');
-  await page.waitForURL(`https://localhost:${server.lanPort}/`);
+  await page.waitForURL(`https://localhost:${server.lanPort}/?linked=1`);
   assert.equal(await page.title(), 'home');
   assert.deepEqual(violations, []);
   assert.ok(seen.every((address) => !address.includes(pin)), 'the code travels in the body of the claim, never in an address');
@@ -169,6 +169,6 @@ test('typing the PIN pairs too, and a wrong PIN says so', async (t) => {
 
   await page.fill('#pin', pin);
   await page.click('button');
-  await page.waitForURL(`https://localhost:${server.lanPort}/`);
+  await page.waitForURL(`https://localhost:${server.lanPort}/?linked=1`);
   assert.equal(await page.title(), 'home');
 });

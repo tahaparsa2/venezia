@@ -11,6 +11,32 @@ import { startServer } from '../engine/net/http.mjs';
 import { createStore } from '../engine/store.mjs';
 import { testDir } from './helpers.mjs';
 
+/** The box on the Mac, with no Mac: it records what it showed, and a test ends it as a person would. */
+export function fakeBox() {
+  const boxes = [];
+  const showOnMac = (card) => {
+    let end;
+    const closed = new Promise((resolve) => { end = resolve; });
+    const box = {
+      ...card,
+      open: true,
+      closed,
+      pin: card.text.match(/PIN: (\d{6})/)?.[1],
+      close() {
+        box.open = false;
+        end('closed');
+      },
+      finish(how) {
+        box.open = false;
+        end(how);
+      },
+    };
+    boxes.push(box);
+    return box;
+  };
+  return { boxes, showOnMac };
+}
+
 /** An engine that records commands. `reply` decides what each one returns. */
 export function stubEngine(t, { reply = () => ({ ok: true, id: 'stub-1' }), dir = testDir(t), ...extra } = {}) {
   const store = createStore({ path: ':memory:', bus: createBus() });
@@ -25,6 +51,7 @@ export function stubEngine(t, { reply = () => ({ ok: true, id: 'stub-1' }), dir 
       return reply(command);
     },
     confirmHuman: async () => ({ ok: true }),
+    ...fakeBox(),
     ...extra,
   };
 }

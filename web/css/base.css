@@ -168,6 +168,7 @@ canvas,svg,img{display:block}
   text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 #link button:focus-visible{outline-color:var(--ink);outline-offset:-6px}
 #link[data-tone=notice] b{color:var(--ink)}
+#link[data-tone=notice] span{white-space:normal}
 #link{max-width:min(calc(100vw - 24px),640px)}
 /* The ribbon hangs inside the world and never crosses into the folio or the deck column. */
 :root[data-layout=landscape] #link{left:calc((100vw - var(--deck-col))/2);max-width:calc(100vw - var(--deck-col) - 16px)}

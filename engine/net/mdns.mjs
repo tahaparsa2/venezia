@@ -20,9 +20,11 @@ wait "$pid"
 `;
 
 const PRIVATE_RANGES = [/^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./];
+/** A tunnel, whose address means nothing to a phone on the Wi-Fi. */
+const VPN_INTERFACE = /^(utun|ipsec|ppp|tun|tap|wg)\d/;
 
 /**
- * Private IPv4 addresses of this machine, most likely Wi-Fi first.
+ * Private IPv4 addresses a phone could reach on this machine, most likely Wi-Fi first.
  * @param {ReturnType<typeof os.networkInterfaces>} [interfaces]
  * @returns {string[]}
  */
@@ -30,13 +32,22 @@ export function lanAddresses(interfaces = os.networkInterfaces()) {
   const found = [];
   for (const [name, addresses] of Object.entries(interfaces)) {
     for (const address of addresses ?? []) {
-      if (address.family === 'IPv4' && !address.internal && PRIVATE_RANGES.some((range) => range.test(address.address))) {
+      if (address.family === 'IPv4' && !address.internal && !VPN_INTERFACE.test(name) && PRIVATE_RANGES.some((range) => range.test(address.address))) {
         found.push({ name, ip: address.address });
       }
     }
   }
   const rank = (entry) => (entry.name === 'en0' ? 0 : entry.name.startsWith('en') ? 1 : 2);
   return found.sort((a, b) => rank(a) - rank(b) || (a.name < b.name ? -1 : 1)).map((entry) => entry.ip);
+}
+
+/**
+ * Whether a VPN looks to be on: macOS keeps idle tunnels around, but only a live one has IPv4.
+ * @param {ReturnType<typeof os.networkInterfaces>} [interfaces]
+ */
+export function vpnActive(interfaces = os.networkInterfaces()) {
+  return Object.entries(interfaces).some(([name, addresses]) => VPN_INTERFACE.test(name)
+    && (addresses ?? []).some((address) => address.family === 'IPv4' && !address.internal));
 }
 
 /**

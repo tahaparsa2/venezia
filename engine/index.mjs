@@ -8,7 +8,7 @@ import { validateCommand } from '../shared/commands.mjs';
 import { loadConfig } from './config.mjs';
 import { createDecisions } from './decisions.mjs';
 import { createPreviewManager } from './gate/preview.mjs';
-import { askOnThisMac } from './net/confirm.mjs';
+import { askOnThisMac, showOnThisMac } from './net/confirm.mjs';
 import { createPipeline } from './pipeline.mjs';
 import { createPortolano } from './portolano/index.mjs';
 import { createBroker } from './publish/index.mjs';
@@ -35,11 +35,12 @@ const CLASSIFIER_TURNS = 2;
  * @param {boolean} [options.voice] false skips the speech helper's first build
  * @param {(card: {title: string, plain: string, ok?: string}) => Promise<{ok: boolean, error?: string}>} [options.confirmHuman]
  *   how to ask the person at this machine, for tier 3 and above
+ * @param {typeof showOnThisMac} [options.showOnMac] how to show a PIN to the person at this machine
  * @param {() => number} [options.now]
  */
 export function createEngine(config = {}, options = {}) {
   const resolved = config.roles && config.yardsDir ? config : loadConfig(config);
-  const { worker = {}, gate = {}, broker: brokerOptions = {}, voice = true, runGate, now = Date.now, confirmHuman = askOnThisMac } = options;
+  const { worker = {}, gate = {}, broker: brokerOptions = {}, voice = true, runGate, now = Date.now, confirmHuman = askOnThisMac, showOnMac = showOnThisMac } = options;
 
   fs.mkdirSync(resolved.yardsDir, { recursive: true });
   const store = createStore({ path: resolved.dbPath, now });
@@ -151,6 +152,7 @@ export function createEngine(config = {}, options = {}) {
     signApproval: (id, proof) => decisions.signApproval(id, proof),
 
     confirmHuman,
+    showOnMac,
 
     /** The contract a ship is held to, or null. Fits `engine.contract` in `engine/net`. */
     contract: (shipId) => contractView(store.state().ships[shipId]),

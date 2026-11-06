@@ -122,6 +122,7 @@ test('a stray local process cannot start pairing or list devices', async (t) => 
   assert.equal(started.status, 403);
   assert.equal(started.body.pin, undefined);
   assert.equal((await fetch(`${server.url}/api/devices`)).status, 403);
+  assert.equal(server.lanUrl, null);
 });
 
 test('the key goes when the server does', async (t) => {
