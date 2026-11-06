@@ -209,7 +209,7 @@ export function mountIntake(el, store) {
     }
     sizeRadios.sync();
     if (chosenSize) setText(sizeWords, SIZE_BLURB[chosenSize]);
-    else if (hint) setText(sizeWords, `This reads like a ${SIZE_WORDS[hint].name.toLowerCase()}: ${SIZE_WORDS[hint].says.toLowerCase()}. The planner decides, unless you pick one.`);
+    else if (hint) setText(sizeWords, `This reads like a ${SIZE_WORDS[hint].name.toLowerCase()} project: ${SIZE_WORDS[hint].says.toLowerCase()}. The planner decides, unless you pick one.`);
     else setText(sizeWords, 'The planner will size it, unless you pick one.');
 
     const level = chosenAutonomy ?? store.getLiveState().dials.autonomy ?? DEFAULT_AUTONOMY;
@@ -292,6 +292,7 @@ export function mountIntake(el, store) {
     root.classList.toggle('first', first);
     delete document.documentElement.dataset.boccaGone;
     document.documentElement.dataset.bocca = '';
+    store.actions.emit({ type: 'intake-shown', open: true });
     setBehind(true);
     drawWords();
     compose();
@@ -316,6 +317,7 @@ export function mountIntake(el, store) {
     root.hidden = true;
     root.classList.remove('awake', 'composing', 'typing');
     delete document.documentElement.dataset.bocca;
+    store.actions.emit({ type: 'intake-shown', open: false });
     setBehind(false);
     if (refocus && opener?.isConnected && opener !== document.body) opener.focus?.({ preventScroll: true });
     else if (refocus) document.getElementById('slot-world')?.focus({ preventScroll: true });

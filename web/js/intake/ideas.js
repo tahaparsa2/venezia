@@ -27,9 +27,9 @@ export function sizeHint(idea) {
 
 /** Choosing a size is a choice, so it speaks plain English and always says what it costs. */
 export const SIZE_WORDS = Object.freeze({
-  gondola: { name: 'Sketch', says: 'Skips contract review' },
-  galley: { name: 'Build', says: 'You approve a contract' },
-  galleass: { name: 'Platform', says: 'Several contract milestones' },
+  gondola: { name: 'Small', says: 'Skips contract review' },
+  galley: { name: 'Normal', says: 'You approve a contract' },
+  galleass: { name: 'Large', says: 'Several contract milestones' },
 });
 
 export const SIZE_BLURB = Object.freeze({

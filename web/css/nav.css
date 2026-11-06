@@ -19,9 +19,10 @@
 
 /* The one action. Enamel, cut from the same plate as Approve. */
 .nav-new{--nav-fill:var(--enamel-approve);flex:1.3 1 0;color:var(--vellum-warm);
-  background:linear-gradient(180deg,color-mix(in srgb,var(--enamel-approve) 90%,var(--vellum)),var(--enamel-approve));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--enamel-approve) 96%,var(--vellum)),var(--enamel-approve));
   box-shadow:0 2px 0 var(--enamel-approve-skirt),inset 0 1px 0 color-mix(in srgb,var(--vellum) 40%,transparent)}
 @media (hover:hover){.nav-new:hover{color:var(--vellum-warm);background:var(--enamel-approve)}}
+.nav-new[aria-current=page]{--nav-fill:var(--enamel-approve-skirt);color:var(--vellum-warm);background:var(--enamel-approve-skirt);box-shadow:inset 0 -2px 0 var(--verdigris-light)}
 
 /* Waiting on you: amber, the only colour that means it. */
 .nav-pip{position:absolute;right:calc(50% - 19px);top:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;display:grid;place-items:center;background:var(--amber);color:var(--iron-well);font:500 var(--fs-micro)/1 var(--mono)}

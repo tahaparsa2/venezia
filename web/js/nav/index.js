@@ -31,6 +31,8 @@ export function mountNav(el, store) {
   const bar = h('div', { class: 'nav' }, fresh, ...PAGES.map((page) => keys[page.id]), moreKey, moreList);
   el.append(bar);
 
+  let intakeOpen = false;
+
   function setMore(open) {
     moreList.hidden = !open;
     moreKey.setAttribute('aria-expanded', String(open));
@@ -75,12 +77,15 @@ export function mountNav(el, store) {
   }
 
   function drawCurrent() {
-    const shown = store.shownPage ?? null;
+    // The mouth covers the book, so what the book has open is not what you are looking at.
+    const shown = intakeOpen ? null : store.shownPage ?? null;
     for (const [id, node] of Object.entries(keys)) {
       if (id === shown) node.setAttribute('aria-current', 'page');
       else node.removeAttribute('aria-current');
     }
     moreKey.classList.toggle('is-here', BEHIND_MORE.includes(shown) && FOLDED.has(store.layout.get().mode));
+    if (intakeOpen) fresh.setAttribute('aria-current', 'page');
+    else fresh.removeAttribute('aria-current');
   }
 
   function drawPip(state) {
@@ -110,6 +115,10 @@ export function mountNav(el, store) {
     store.subscribe(drawPip),
     store.actions.on((action) => {
       if (action.type === 'page-shown') drawCurrent();
+      if (action.type === 'intake-shown') {
+        intakeOpen = action.open;
+        drawCurrent();
+      }
     }),
   ];
   drawFold();
