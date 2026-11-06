@@ -75,21 +75,22 @@ function installRibbon(store) {
     const link = store.connection.get();
     document.documentElement.dataset.link = link.state;
     clearTimeout(tick);
-    if (notice) {
-      ribbon.classList.add('up');
-      ribbon.dataset.tone = 'notice';
-      title.textContent = notice.title;
-      detail.textContent = notice.detail;
-      action.textContent = notice.href ? 'Install' : 'Try now';
-      action.hidden = !notice.href;
-      return;
-    }
+    // A broken host or a lost link outranks any passing note, which waits its turn.
     if (alarm) {
       ribbon.classList.add('up');
       ribbon.dataset.tone = 'alarm';
       title.textContent = 'The host has a problem';
       detail.textContent = `It keeps trying by itself. It said: ${alarm.message}`;
       action.hidden = true;
+      return;
+    }
+    if (notice && link.state !== 'offline') {
+      ribbon.classList.add('up');
+      ribbon.dataset.tone = 'notice';
+      title.textContent = notice.title;
+      detail.textContent = notice.detail;
+      action.textContent = notice.href ? 'Install' : 'Try now';
+      action.hidden = !notice.href;
       return;
     }
     const down = link.state === 'offline';

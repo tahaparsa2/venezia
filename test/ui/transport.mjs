@@ -119,7 +119,7 @@ await waitForServer();
   expect(box.left >= 0 && box.right <= box.width, `it stays on a phone screen: ${JSON.stringify(box)}`);
   alarm = null;
   await page.evaluate(() => window.venezia.store.checkHealth());
-  const down = await page.evaluate(() => document.getElementById('link').classList.contains('up'));
+  const down = await page.evaluate(() => document.getElementById('link').dataset.tone === 'alarm');
   expect(!down, 'the ribbon comes down when the alarm clears');
   expect(errors.length === 0, `no page errors ${errors.join(' | ')}`);
   await context.close();
@@ -146,7 +146,11 @@ await waitForServer();
   const seen = await page.evaluate(() => window.seen);
   const contiguous = seen.every((seq, index) => index === 0 || seq === seen[index - 1] + 1) && seen[0] <= counted + 1;
   expect(contiguous && seen.length > 0, `resumed by seq with no gap and no repeat, ${seen.length} events`);
-  const ribbon = await page.evaluate(() => document.getElementById('link').classList.contains('up'));
+  // A note from the fleet may take the ribbon next. What must go is the word that the link is down.
+  const ribbon = await page.evaluate(() => {
+    const node = document.getElementById('link');
+    return node.classList.contains('up') && node.dataset.tone === 'link';
+  });
   expect(!ribbon, 'the ribbon comes down');
 
   await server.stop();

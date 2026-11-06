@@ -128,6 +128,7 @@ canvas,svg,img{display:block}
   :root.only-deck #app:has(#slot-cards .card) .cards{max-height:none}
   :root.only-deck #app:has(#slot-cards .card) #slot-deck{align-self:center;height:auto;max-height:100%}
   :root.only-deck #slot-nav{width:min(100%,760px);justify-self:center}
+  :root.only-deck #demo-mark{bottom:calc(var(--safe-b) + 68px)}
 }
 
 /* A phone on its side beside a screen: the card takes the left, and only if one is up. */
