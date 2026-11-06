@@ -1,7 +1,8 @@
 // Voice as one small state machine, so the deck and the cards draw the same thing.
 //
 //   idle -> listening -> thinking -> understood -> sent -> idle
-//            |  press and hold, or double tap to latch
+//            |  press and hold, or tap once to start and once to stop
+//            +-> trouble, which says why nothing came back and what to do next
 //            +-> typing, wherever no microphone can be had
 //
 // Hearing never acts by itself here. What was understood sits on a chip until you choose Nudge,
@@ -14,7 +15,7 @@
 
 import { cmd } from '/js/commands.js';
 import { cell, perStore } from '/js/input/util.js';
-import { VoiceUnavailable, canCapture, startCapture } from '/js/voice/capture.js';
+import { VoiceUnavailable, canCapture, startCapture, whyNoWords } from '/js/voice/capture.js';
 import { startScripted, scriptedLine } from '/js/voice/scripted.js';
 import { createSpeaker } from '/js/voice/speak.js';
 import { canRecognise, startRecognition } from '/js/voice/speech.js';
@@ -26,16 +27,17 @@ const SENT_MS = 1700;
 const DONE_MS = 4200; // what the server already did stays long enough to read
 const REPLY_MS = 7000;
 const FINISH_SPEECH_DELAY_MS = 1600; // after the first stroke of the bell
-const NOTE_MS = 3200;
+const NOTE_MS = 6000;
 const LEVEL_FALL = 0.82;
 
 const params = new URLSearchParams(location.search);
 
-/** @typedef {'idle'|'starting'|'listening'|'thinking'|'understood'|'typing'|'sent'} Phase */
+/** @typedef {'idle'|'starting'|'listening'|'thinking'|'understood'|'typing'|'sent'|'trouble'} Phase */
 
 const RESTING = Object.freeze({
   phase: 'idle', latched: false, via: null, partial: '', text: '', shipId: null, verb: 'nudge',
   command: null, action: null, reply: null, note: null, error: null, sentAs: null, heardAs: null,
+  asking: false, trouble: null,
 });
 
 /** Things the server worked out and answered, with nothing left to do. */
@@ -51,8 +53,7 @@ export const getVoice = perStore((store) => {
   let driver = null;
   let session = 0;
   let pressedAt = 0;
-  let tapTimer = 0;
-  let awaitingSecondTap = false;
+  let tappedAt = -Infinity;
   let noteTimer = 0;
   let sentTimer = 0;
   let replyTimer = 0;
@@ -60,10 +61,19 @@ export const getVoice = perStore((store) => {
 
   const liveSelected = () => store.view.get().selectedShip ?? store.selectedShip()?.id ?? null;
 
-  function note(text) {
+  function note(text, { stay = false } = {}) {
     clearTimeout(noteTimer);
     state.set({ note: text });
-    noteTimer = setTimeout(() => state.set({ note: null }), NOTE_MS);
+    if (text && !stay) noteTimer = setTimeout(() => state.set({ note: null }), NOTE_MS);
+  }
+
+  /** The end of a press with nothing to show for it. It stays up until it has been dealt with. */
+  function trouble(text) {
+    clearTimeout(noteTimer);
+    driver = null;
+    level = 0;
+    state.set({ ...RESTING, phase: 'trouble', trouble: text });
+    store.announce?.(text);
   }
 
   function modes() {
@@ -80,11 +90,14 @@ export const getVoice = perStore((store) => {
     onPartial(text) {
       if (id === session) state.set({ partial: text });
     },
-    onNote(text) {
-      if (id === session) note(text);
+    onNote(text, options) {
+      if (id === session) note(text, options);
     },
     onFail(plain) {
       if (id === session) fellOver(plain);
+    },
+    onAsking() {
+      if (id === session) state.set({ asking: true, latched: false });
     },
   });
 
@@ -107,13 +120,21 @@ export const getVoice = perStore((store) => {
         }
         if (!started) continue;
         driver = started;
-        state.set({ phase: 'listening', via: mode });
+        state.set({ phase: 'listening', via: mode, asking: false });
         return;
       } catch (error) {
         if (id !== session) return;
         if (error instanceof VoiceUnavailable) {
+          if (error.allowed) {
+            state.set({ ...RESTING });
+            note(error.plain);
+            return;
+          }
+          if (error.denied) {
+            trouble(error.plain);
+            return;
+          }
           note(error.plain);
-          if (error.denied) break;
         }
       }
     }
@@ -122,7 +143,7 @@ export const getVoice = perStore((store) => {
 
   /** The driver died mid-sentence. Try the next one, and keep what was heard. */
   function fellOver(plain) {
-    const { via, partial } = state.get();
+    const { via, partial, phase } = state.get();
     driver = null;
     const options = modes();
     const rest = options.slice(options.indexOf(via) + 1);
@@ -131,16 +152,21 @@ export const getVoice = perStore((store) => {
       showUnderstood({ text: heard, intent: null, via });
       return;
     }
+    // Already let go, so nobody is there to carry on talking into the next driver.
+    if (phase === 'thinking') {
+      session += 1;
+      trouble(plain);
+      return;
+    }
     note(plain);
     const id = ++session;
     begin(id, rest.length > 0 ? rest : ['typed']);
   }
 
   function reset() {
-    clearTimeout(tapTimer);
     clearTimeout(sentTimer);
     clearTimeout(replyTimer);
-    awaitingSecondTap = false;
+    tappedAt = -Infinity;
     driver?.cancel();
     driver = null;
     session += 1;
@@ -202,8 +228,7 @@ export const getVoice = perStore((store) => {
     if (id !== session) return;
     level = 0;
     if (!result.text.trim()) {
-      state.set({ ...RESTING });
-      note('Nothing was heard.');
+      trouble(result.heard ? whyNoWords(result.heard) : 'Nothing was heard. Check the microphone and try again.');
       return;
     }
     showUnderstood({ ...result, via });
@@ -226,41 +251,37 @@ export const getVoice = perStore((store) => {
 
   /** Press of the Talk key, or Space. */
   function press() {
-    const { phase, latched } = state.get();
-    if (phase === 'typing' || phase === 'understood') {
-      // Talking over a chip means you are saying it again.
-      if (phase === 'understood') reset();
-      else return;
-    }
+    const { phase, latched, text } = state.get();
+    if (phase === 'typing' && text.trim()) return;
+    // Talking over a chip means you are saying it again.
+    if (phase === 'typing' || phase === 'understood' || phase === 'trouble') reset();
     if (latched) {
+      // The second half of a double tap, which is only a tap with enthusiasm.
+      if (performance.now() - tappedAt < DOUBLE_TAP_MS) return;
+      if (phase === 'starting') {
+        reset();
+        note('Stopped before the microphone opened.');
+        return;
+      }
       finish();
       return;
     }
-    if (awaitingSecondTap) {
-      clearTimeout(tapTimer);
-      awaitingSecondTap = false;
-      state.set({ latched: true });
-      return;
-    }
+    if (phase === 'starting' || phase === 'thinking') return;
     pressedAt = performance.now();
     start();
   }
 
-  /** Release of the Talk key. A short press waits to see if a second tap is coming. */
+  /** Release of the Talk key. A tap leaves it listening, and a hold ends there. */
   function release() {
-    const { phase, latched } = state.get();
-    if (latched || (phase !== 'listening' && phase !== 'starting')) return;
-    if (performance.now() - pressedAt >= TAP_MS) {
-      if (phase === 'listening') finish();
-      else reset();
+    const { phase, latched, asking } = state.get();
+    if (latched || asking || (phase !== 'listening' && phase !== 'starting')) return;
+    // Let go before the microphone opened is not a person who has finished: they have not begun.
+    if (phase === 'starting' || performance.now() - pressedAt < TAP_MS) {
+      tappedAt = performance.now();
+      state.set({ latched: true });
       return;
     }
-    awaitingSecondTap = true;
-    tapTimer = setTimeout(() => {
-      awaitingSecondTap = false;
-      reset();
-      note('Hold to talk, or double tap to latch.');
-    }, DOUBLE_TAP_MS);
+    finish();
   }
 
   function finishSending(words) {

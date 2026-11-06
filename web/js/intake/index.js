@@ -18,7 +18,9 @@ import { createTalk } from '/js/intake/talk.js';
 const SIZES = ['gondola', 'galley', 'galleass'];
 const NAME_WAIT_MS = 2500;
 const CAPTION_MS = 6500;
-const HELD_MIN_MS = 160;
+const TAP_MS = 280; // shorter than this is a tap, which keeps listening until the next one
+const DOUBLE_TAP_MS = 320;
+const NOTE_MS = 6000;
 
 const later = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);
@@ -114,6 +116,11 @@ export function mountIntake(el, store) {
   let feeding = false;
   let held = false;
   let heldAt = 0;
+  let latched = false; // a tap: it keeps listening until the next one
+  let asking = false; // the browser's question about the microphone is up
+  let tappedAt = -Infinity;
+  let pressTurn = 0;
+  let noteTimer = 0;
   let spoken = '';
   let chosenSize = null;
   let chosenAutonomy = null;
@@ -132,8 +139,19 @@ export function mountIntake(el, store) {
       stage.speak(level);
       store.actions.emit({ type: 'voice', level });
     },
-    onNote(text) {
+    onNote(text, { stay = false } = {}) {
+      say(text ?? '');
+      clearTimeout(noteTimer);
+      if (text && !stay) noteTimer = setTimeout(() => say(''), NOTE_MS);
+    },
+    onStopped(text) {
+      endListening();
       say(text);
+    },
+    onAsking() {
+      asking = true;
+      latched = false;
+      drawWords();
     },
     nextLine: () => STARTERS[line++ % STARTERS.length],
   });
@@ -155,18 +173,23 @@ export function mountIntake(el, store) {
   function drawWords() {
     const plain = plainNow();
     const fresh = firstRun;
-    if (held) {
-      setText(headline, plain ? 'Listening.' : 'The mouth is listening.');
-      setText(sub, 'Let go when you have finished.');
+    if (held && asking) {
+      setText(headline, 'Allow the microphone.');
+      setText(sub, 'Your browser is asking. Choose Allow.');
       sub.hidden = false;
-      setText(talkWord, 'Listening');
+      setText(talkWord, 'Waiting for you');
+    } else if (held) {
+      setText(headline, plain ? 'Listening.' : 'The mouth is listening.');
+      setText(sub, latched ? 'Tap Talk when you have finished.' : 'Let go when you have finished.');
+      sub.hidden = false;
+      setText(talkWord, latched ? 'Tap to stop' : 'Listening');
     } else {
       setText(headline, plain ? 'Tell Venezia your idea.' : 'Speak an idea into the mouth.');
       setText(sub, fresh
         ? 'Say what you want made. The factory writes down what done means, builds it, and proves it.'
         : '');
       sub.hidden = !fresh;
-      setText(talkWord, 'Hold to talk');
+      setText(talkWord, 'Tap or hold to talk');
     }
     field.placeholder = 'Or type it here';
     setText(feedKey, plain ? 'Start this project' : 'Into the mouth');
@@ -286,6 +309,8 @@ export function mountIntake(el, store) {
     if (!open) return;
     open = false;
     held = false;
+    latched = false;
+    asking = false;
     talk.cancel();
     stage.stop();
     root.hidden = true;
@@ -309,12 +334,29 @@ export function mountIntake(el, store) {
     hide();
   }
 
-  /* ------------------------------------------------------------------------- holding to talk */
+  /* --------------------------------------------------------------------------- talking */
 
+  function endListening() {
+    held = false;
+    latched = false;
+    asking = false;
+    root.classList.remove('listening');
+    drawWords();
+    root.style.setProperty('--voice', '0');
+    stage.speak(0);
+  }
+
+  /** A press of the Talk key: starts listening, or ends a tap that is still listening. */
   async function hold() {
-    if (held || feeding) return;
+    if (feeding) return;
+    if (latched) {
+      if (performance.now() - tappedAt >= DOUBLE_TAP_MS) stopListening();
+      return;
+    }
+    if (held) return;
     held = true;
     heldAt = performance.now();
+    const turn = ++pressTurn;
     audio.unlock?.();
     root.classList.add('listening');
     drawWords();
@@ -322,32 +364,39 @@ export function mountIntake(el, store) {
     spoken = field.value.trim();
     say('');
     const listening = await talk.press();
-    if (!listening) {
-      root.classList.remove('listening');
-      held = false;
-      drawWords();
-      field.focus();
+    if (turn !== pressTurn) return;
+    if (!listening && held) {
+      endListening();
+      if (!store.layout.get().coarse) field.focus();
     }
+    asking = false;
   }
 
-  async function letGo() {
-    if (!held) return;
-    held = false;
-    root.classList.remove('listening');
-    drawWords();
-    root.style.setProperty('--voice', '0');
-    stage.speak(0);
-    store.actions.emit({ type: 'talk', phase: 'up' });
-    if (performance.now() - heldAt < HELD_MIN_MS && store.demo === null) {
-      talk.cancel();
-      say('Hold it down while you speak.');
+  /** The key came up. A tap leaves it listening, and so does letting go before it has begun. */
+  function letGo() {
+    if (!held || latched || asking) return;
+    if (performance.now() - heldAt < TAP_MS || !talk.listening()) {
+      latched = true;
+      tappedAt = performance.now();
+      drawWords();
       return;
     }
-    const text = await talk.release();
+    stopListening();
+  }
+
+  async function stopListening() {
+    const started = talk.listening();
+    endListening();
+    store.actions.emit({ type: 'talk', phase: 'up' });
+    pressTurn += 1;
+    const { text, why } = await talk.release();
     if (text) field.value = joined(text);
     spoken = '';
     compose();
-    if (field.value.trim()) feedKey.focus({ preventScroll: true });
+    if (field.value.trim() && text) feedKey.focus({ preventScroll: true });
+    if (!started) say('Stopped before the microphone opened.');
+    else if (why) say(why);
+    measureMouth();
   }
 
   talkKey.addEventListener('pointerdown', (event) => {
@@ -368,6 +417,12 @@ export function mountIntake(el, store) {
     if (event.key === ' ' || event.key === 'Enter') letGo();
   });
   talkKey.addEventListener('blur', letGo);
+  // A screen reader presses with a click and nothing else, which reads as a tap.
+  talkKey.addEventListener('click', (event) => {
+    if (event.detail !== 0) return;
+    hold();
+    letGo();
+  });
 
   function onKey(event) {
     if (event.key === 'Escape') {

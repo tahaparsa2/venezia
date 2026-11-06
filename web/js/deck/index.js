@@ -26,12 +26,13 @@ const CONSOLE_RATIO = 1.4;
 const STACK_MIN_H = 580;
 
 const VOICE_LEGEND = Object.freeze({
-  idle: ['Hold to talk', 'Double tap to latch'],
+  idle: ['Talk', 'Tap or hold'],
   starting: ['Listening', ''],
   listening: ['Listening', 'Release to send'],
   thinking: ['Understanding', ''],
-  understood: ['Hold to talk', 'Say it again'],
-  typing: ['Hold to talk', 'Double tap to latch'],
+  understood: ['Talk', 'Say it again'],
+  typing: ['Talk', 'Tap or hold'],
+  trouble: ['Talk', 'Try again'],
   sent: ['Sent', ''],
 });
 
@@ -87,7 +88,7 @@ export function mountDeck(el, store) {
 
   const approve = key('approve', 'Approve');
   const reject = key('reject', 'Reject');
-  const talk = key('talk', 'Hold to talk');
+  const talk = key('talk', 'Talk');
   talk.button.dataset.lit = 'true';
   const wave = h('canvas', { class: 'key__wave', 'aria-hidden': 'true' });
   talk.cap.append(h('span', { class: 'key__window' }, wave));
@@ -236,10 +237,11 @@ export function mountDeck(el, store) {
     root.dataset.voice = phase;
     root.classList.toggle('is-latched', latched);
     talk.button.classList.toggle('is-latched', latched);
-    const [word, sub] = latched ? ['Latched', 'Tap to stop'] : VOICE_LEGEND[phase];
+    const { asking } = value;
+    const [word, sub] = asking ? ['Allow it', 'In your browser'] : latched ? ['Listening', 'Tap to stop'] : VOICE_LEGEND[phase];
     talk.main.textContent = word;
     talk.sub.textContent = sub;
-    talk.button.setAttribute('aria-label', latched ? 'Listening, latched. Press to stop.' : 'Talk. Hold to talk, double tap to latch.');
+    talk.button.setAttribute('aria-label', latched ? 'Listening. Press to stop.' : 'Talk. Tap to start and tap to stop, or hold while you speak.');
     talk.button.setAttribute('aria-pressed', String(latched));
     const hearing = phase === 'listening' || phase === 'starting';
     if (hearing) waveform.start();

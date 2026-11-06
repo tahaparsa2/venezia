@@ -445,11 +445,11 @@ All surfaces are clients of section 11.
 
 - **Web PWA** at `/`. Mobile first, works from 360 px to ultrawide.
 - **Deck** at `/deck`: the phone or tablet alone as a physical panel, next to any screen showing the world.
-- **Keyboard**: `1-6` lamps, `Y` approve, `N` reject, `Space` hold to talk, `S` steer, `[ ]` dial, arrow keys for the eight-wind stick.
+- **Keyboard**: `1-6` lamps, `Y` approve, `N` reject, `Space` hold or tap to talk, `S` steer, `[ ]` dial, arrow keys for the eight-wind stick.
 - **Gamepad**: mapping from research 04 section 6.3.
 - **CLI** `./vz`, a wrapper at the repo root that needs nothing installed and works from any folder and through a symlink, or `npm run vz --`: `serve, new, status, watch, steer, stop, approve, reject, publish, open, lessons, doctor, pair`, each with `--json`, plus `./vz do <command>` for anything in the catalog. `approve` needs `--confirm` at tier 3 and above.
 - **MCP server** `./vz mcp`: stdio, plain JSON-RPC, exposing the same commands, so any Claude session can run the factory. It will not answer a decision that needs a hold, yes or no.
-- **Voice**: hold to talk, double tap to latch. Hull names are addressable ("tell Aurora to use a darker theme"). Grammar first, haiku classifier only as a fallback. Spoken briefing on request and on finish. Voice leaves tier 3 and above alone entirely, including saying no, and it cannot scuttle. The classifier can never answer a decision.
+- **Voice**: hold to talk, or tap once to start and once to stop. A press that ends with no words always says why, from what reached the page: blocked, no sound, silence, or nothing recognised. Hull names are addressable ("tell Aurora to use a darker theme"). Grammar first, haiku classifier only as a fallback. Spoken briefing on request and on finish. Voice leaves tier 3 and above alone entirely, including saying no, and it cannot scuttle. The classifier can never answer a decision.
 
 ## 13. Reward system, all real
 

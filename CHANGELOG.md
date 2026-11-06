@@ -2,6 +2,24 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Tap once to start talking and tap again to stop, on the deck and the idea screen, next to holding. A double tap does the same as a tap.
+- A press that ends with no words says why and what to do next: blocked, no sound reaching Venezia, a silent or very faint microphone, too short, or nothing recognised. On the deck the reason stays up until you act on it, with Type it instead beside it.
+- The first press says "Allow the microphone in your browser, then hold Talk again", and says when it is allowed. A block by the browser or by macOS names the exact place to fix it, for Chrome and for Safari.
+- `test/ui/real-voice.mjs` plays real speech through Chrome's capture into the real server and speech helper, on both surfaces, and is part of the UI suite.
+
+### Fixed
+
+- A short tap vanished, and letting go before the microphone had opened threw the press away with no word.
+- The audio context is made inside the press, so a browser that wants a gesture has one, and a stuck context can no longer hang the press.
+- Audio devices running below 16 kHz, such as an old Bluetooth headset, came through at twice the speed and were not recognised.
+- While the speech helper builds for first use, Venezia says "Getting voice ready" and waits, rather than giving up after 10 seconds.
+- A press shorter than the socket's connection never told the server it had ended.
+- The level meter reads decibels, so a quiet voice still moves it.
+
 ## 0.1.1 - 2026-11-05
 
 ### Added
