@@ -50,10 +50,11 @@ export function fingerprint(pem) {
 /**
  * Make sure a root and a leaf exist for these names, issuing whatever is missing, expiring
  * or wrong. Safe to call again when the machine's address changes.
- * @param {{dir: string, hosts: string[], ips: string[], opensslBin?: string, now?: () => number}} options
+ * @param {{dir: string, hosts: string[], ips: string[], leaf?: string, opensslBin?: string, now?: () => number}} options
+ *   `leaf` names the certificate, for a server that holds a second one under the same root.
  * @returns {Promise<{key: string, cert: string, ca: string, caPath: string, fingerprint: string, issued: boolean}>}
  */
-export async function ensureCertificates({ dir, hosts, ips, opensslBin = 'openssl', now = Date.now }) {
+export async function ensureCertificates({ dir, hosts, ips, leaf: leafName = 'leaf', opensslBin = 'openssl', now = Date.now }) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.chmodSync(dir, 0o700);
   const file = (name) => path.join(dir, name);
@@ -81,8 +82,8 @@ export async function ensureCertificates({ dir, hosts, ips, opensslBin = 'openss
   }
 
   const leafGood = () => {
-    if (rootIssued || !fs.existsSync(file('leaf.crt')) || !fs.existsSync(file('leaf.key'))) return false;
-    const leaf = new X509Certificate(fs.readFileSync(file('leaf.crt')));
+    if (rootIssued || !fs.existsSync(file(`${leafName}.crt`)) || !fs.existsSync(file(`${leafName}.key`))) return false;
+    const leaf = new X509Certificate(fs.readFileSync(file(`${leafName}.crt`)));
     const root = new X509Certificate(fs.readFileSync(file('ca.crt')));
     return leaf.verify(root.publicKey)
       && Date.parse(leaf.validTo) - now() > RENEW_BEFORE_MS
@@ -91,25 +92,25 @@ export async function ensureCertificates({ dir, hosts, ips, opensslBin = 'openss
 
   let issued = rootIssued;
   if (!leafGood()) {
-    await makeKey('leaf.key');
-    fs.writeFileSync(file('leaf.cnf'), leafConfig(hosts, ips));
+    await makeKey(`${leafName}.key`);
+    fs.writeFileSync(file(`${leafName}.cnf`), leafConfig(hosts, ips));
     await openssl([
-      'req', '-new', '-sha256', '-key', file('leaf.key'), '-subj', `/O=Venezia/CN=${hosts[0]}`, '-out', file('leaf.csr'),
+      'req', '-new', '-sha256', '-key', file(`${leafName}.key`), '-subj', `/O=Venezia/CN=${hosts[0]}`, '-out', file(`${leafName}.csr`),
       '-config', file('ca.cnf'),
     ]);
     await openssl([
-      'x509', '-req', '-sha256', '-days', String(LEAF_DAYS), '-in', file('leaf.csr'), '-CA', file('ca.crt'), '-CAkey', file('ca.key'),
-      '-set_serial', `0x${randomBytes(16).toString('hex').replace(/^./, '4')}`, '-extfile', file('leaf.cnf'), '-extensions', 'leaf',
-      '-out', file('leaf.crt'),
+      'x509', '-req', '-sha256', '-days', String(LEAF_DAYS), '-in', file(`${leafName}.csr`), '-CA', file('ca.crt'), '-CAkey', file('ca.key'),
+      '-set_serial', `0x${randomBytes(16).toString('hex').replace(/^./, '4')}`, '-extfile', file(`${leafName}.cnf`), '-extensions', 'leaf',
+      '-out', file(`${leafName}.crt`),
     ]);
-    fs.rmSync(file('leaf.csr'), { force: true });
+    fs.rmSync(file(`${leafName}.csr`), { force: true });
     issued = true;
   }
 
   const ca = fs.readFileSync(file('ca.crt'), 'utf8');
   return {
-    key: fs.readFileSync(file('leaf.key'), 'utf8'),
-    cert: fs.readFileSync(file('leaf.crt'), 'utf8'),
+    key: fs.readFileSync(file(`${leafName}.key`), 'utf8'),
+    cert: fs.readFileSync(file(`${leafName}.crt`), 'utf8'),
     ca,
     caPath: file('ca.crt'),
     fingerprint: fingerprint(ca),

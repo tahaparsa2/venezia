@@ -123,8 +123,9 @@ test('a project with no name yet is still spoken of', () => {
 test('finish lines say what happened and what you can do', () => {
   const ready = state(ship('a', 'Aurora', ...toReady)).ships.a;
   assert.match(finishBriefing(ready), /^Aurora is ready\. .*Say publish when you want it on the web\.$/);
-  const live = state(ship('a', 'Aurora', ...toReady, 'publishing', 'launched')).ships.a;
-  assert.equal(finishBriefing(live), 'Aurora is live, and the live check passed.');
+  const saved = state(ship('a', 'Aurora', ...toReady, 'publishing', 'launched')).ships.a;
+  assert.equal(finishBriefing(saved), 'Aurora has a copy saved on this Mac. Nothing left it.');
+  assert.equal(finishBriefing({ ...saved, publishes: { 'github-pages': { live: true } } }), 'Aurora is live, and the live check passed.');
   const failed = state(ship('a', 'Aurora', 'contracting', 'failed')).ships.a;
   assert.equal(finishBriefing(failed), 'Aurora has failed. Say retry Aurora to try again.');
   const done = state(ship('a', 'Aurora', ...toReady, 'learning', 'done')).ships.a;

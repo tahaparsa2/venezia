@@ -52,7 +52,7 @@ function launches(state) {
   const found = [];
   for (const ship of Object.values(state.ships)) {
     for (const entry of Object.values(ship.publishes)) {
-      if (entry.status === 'verified') found.push({ ship, entry, key: `${ship.id}/${entry.target}` });
+      if (entry.live) found.push({ ship, entry, key: `${ship.id}/${entry.target}` });
     }
   }
   return found.sort((a, b) => b.entry.updatedAt - a.entry.updatedAt);

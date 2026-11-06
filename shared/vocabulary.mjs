@@ -188,6 +188,12 @@ export const PUBLISH_TARGETS = Object.freeze([
   'local', 'tarball', 'github-private', 'github-pages', 'gist-secret', 'vercel', 'cloudflare',
 ]);
 
+/** These stay on this machine, so nothing sent to them is live, launched or out there. */
+export const LOCAL_TARGETS = Object.freeze(['local', 'tarball']);
+
+/** Whether anything of this ship is out in the world, with a live check to show for it. */
+export const isLive = (ship) => Object.values(ship.publishes ?? {}).some((entry) => entry.live);
+
 export const LESSON_KINDS = Object.freeze(['hazard', 'shoal', 'technique', 'preference']);
 export const LESSON_STATUSES = Object.freeze(['candidate', 'law', 'burned']);
 export const LESSON_TEXT_MAX = 280;

@@ -2,7 +2,7 @@
 // These are heard rather than read, so sentences stay short, and they use plain English
 // throughout, because a briefing is what you act on.
 
-import { LAMP_COLOUR } from '../../shared/vocabulary.mjs';
+import { LAMP_COLOUR, isLive } from '../../shared/vocabulary.mjs';
 
 const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
 
@@ -37,6 +37,9 @@ const DOING = {
   scuttled: 'was abandoned',
 };
 
+/** A copy on this machine goes through `launched` too, and it has not gone anywhere. */
+const SAVED_HERE = 'has a copy saved on this Mac';
+
 const BLOCKED = {
   human_needed: 'is stuck and needs you',
   rate_limited: 'is waiting for your usage limit to reset',
@@ -52,6 +55,7 @@ export const nameOf = (ship) => ship.name ?? 'Your new project';
 /** The middle of a sentence about a project: "is being built, three of five items done". */
 export function doing(ship) {
   if (ship.state === 'blocked') return BLOCKED[ship.blockReason] ?? 'is stuck';
+  if (ship.state === 'launched' && !isLive(ship)) return SAVED_HERE;
   const phrase = DOING[ship.state] ?? 'is working';
   const { done, total } = ship.hull ?? { done: 0, total: 0 };
   if (ship.state === 'building' && total > 0) return `${phrase}, ${number(done)} of ${number(total)} items done`;
@@ -90,7 +94,7 @@ function groups(state) {
 }
 
 function freshLine(ship) {
-  if (ship.state === 'launched') return `${nameOf(ship)} is live.`;
+  if (ship.state === 'launched') return `${nameOf(ship)} ${doing(ship)}.`;
   if (ship.state === 'ready') return `${nameOf(ship)} is ready for you to look at.`;
   return `${nameOf(ship)} is finished.`;
 }
@@ -202,7 +206,7 @@ export function finishBriefing(ship, state = {}) {
     case 'ready':
       return `${name} is ready. ${record} ${ship.preview ? 'The preview is running. ' : ''}Say publish when you want it on the web.`;
     case 'launched':
-      return `${name} is live, and the live check passed.`;
+      return isLive(ship) ? `${name} is live, and the live check passed.` : `${name} ${SAVED_HERE}. Nothing left it.`;
     case 'done':
       return `${name} is finished, and its notes are written up.`;
     case 'failed':

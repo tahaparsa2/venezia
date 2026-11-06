@@ -58,7 +58,7 @@ test('an unknown command and a bad flag fail cleanly', async () => {
 test('no server: one clear sentence and exit 1', async () => {
   const { stderr, code } = await vz(['status'], { VENEZIA_URL: 'http://127.0.0.1:9' });
   assert.equal(code, 1);
-  assert.match(stderr, /not running.*vz serve/);
+  assert.match(stderr, /not running.*cd .* && npm start/);
   const json = await vz(['status', '--json'], { VENEZIA_URL: 'http://127.0.0.1:9' });
   assert.deepEqual(Object.keys(JSON.parse(json.stdout)), ['ok', 'error']);
 });
@@ -165,11 +165,11 @@ test('watch follows live events', async (t) => {
   assert.equal(watched.stdout.trim().split('\n').length, 3);
 });
 
-test('pair explains itself when LAN mode is off', async (t) => {
+test('pair in the demo says it needs the real factory, and how to start it', async (t) => {
   const { env } = await startSim(t);
   const { stderr, code } = await vz(['pair'], env);
   assert.equal(code, 1);
-  assert.match(stderr, /--lan/);
+  assert.match(stderr, /Pairing needs the real factory.*npm start/);
 });
 
 test('pair prints a QR, a code and a fingerprint, and lists devices', async (t) => {
@@ -178,7 +178,7 @@ test('pair prints a QR, a code and a fingerprint, and lists devices', async (t) 
   assert.equal(code, 0);
   assert.match(stdout, /█/);
   assert.match(stdout, /Code: \d{6}/);
-  assert.match(stdout, /https:\/\/venezia\.local:\d+\/pair#t=/);
+  assert.match(stdout, /https:\/\/venezia\.local:\d+\/pair\n/);
   assert.match(stdout, /Certificate fingerprint/);
   const details = await json('pair');
   assert.match(details.pin, /^\d{6}$/);

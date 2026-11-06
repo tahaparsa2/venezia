@@ -1,0 +1,23 @@
+#!/bin/sh
+# The vz command, with nothing installed. Works from any folder and through a symlink.
+
+self=$0
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case $target in
+    /*) self=$target ;;
+    *) self=$(dirname "$self")/$target ;;
+  esac
+done
+root=$(cd -P "$(dirname "$self")" && pwd)
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Venezia needs Node 25, and this Terminal cannot find node. Install it from https://nodejs.org" >&2
+  exit 127
+fi
+if [ ! -d "$root/node_modules" ]; then
+  echo "Venezia's packages are not installed yet. Run: cd '$root' && npm install" >&2
+  exit 1
+fi
+
+exec node "$root/bin/vz.mjs" "$@"

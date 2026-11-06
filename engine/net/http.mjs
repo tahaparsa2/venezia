@@ -1,6 +1,8 @@
-// The server (SPEC 11, 12). Plain HTTP on 127.0.0.1 always; with `lan`, also HTTPS on every
-// interface, where each request needs a paired device. It never binds plain HTTP off this
-// machine: mic, service workers and wake lock do not even exist on `http://LAN-IP`.
+// The server (SPEC 11, 12). Plain HTTP on 127.0.0.1 always. Phone access adds HTTPS on every
+// interface, where each request needs a paired device: at boot with `lan`, or later when the
+// person asks for a pairing code, and it closes again on request with no restart. It never
+// binds plain HTTP off this machine: mic, service workers and wake lock do not even exist on
+// `http://LAN-IP`.
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
@@ -17,6 +19,8 @@ import { ensureCertificates, mobileConfig } from './certs.mjs';
 import { llmsTxt, shipMarkdown } from './export.mjs';
 import { LAN_NAME, lanAddresses, publishName } from './mdns.mjs';
 import { pairPage, placeholderPage } from './pair-page.mjs';
+import { createMacProof } from './mac-proof.mjs';
+import { DEMO_PAIRING, PROOF_HEADER } from '../../shared/pairing.mjs';
 import { qrSvg, qrTerminal } from './qr.mjs';
 import {
   contentType, resolveInside, safeSegments, sendBody, sendFile,
@@ -37,10 +41,25 @@ const EVIDENCE_CSP = "sandbox; default-src 'none'; img-src 'self' data:; media-s
 const PUBLIC_ON_LAN = new Set(['/pair', '/api/pair/claim', '/pair/ca.crt', '/pair/venezia.mobileconfig']);
 
 class HttpError extends Error {
-  constructor(status, message) {
+  constructor(status, message, extra = {}) {
     super(message);
     this.status = status;
+    this.extra = extra;
   }
+}
+
+/** Why phone access could not start, in words a person can act on. */
+class PhoneAccessError extends Error {
+  plain = true;
+}
+
+function phoneAccessReason(error, port) {
+  if (error.code === 'EADDRINUSE') {
+    return `Phone access could not start, because another program is already using port ${port}. Close that program, or start Venezia on another port: npm start -- --lan-port ${port + 1}`;
+  }
+  if (error.code === 'EACCES') return `Phone access could not start, because this Mac would not let Venezia use port ${port}. Start Venezia on another port: npm start -- --lan-port 8443`;
+  if (error.certificate) return `Phone access could not start, because its security certificate could not be made: ${error.message.split('\n')[0]}. ./vz doctor checks this Mac.`;
+  return `Phone access could not start: ${error.message}`;
 }
 
 function sendJson(response, status, body) {
@@ -119,6 +138,7 @@ function decodeId(raw) {
  * @param {() => string[]} [options.addresses] this machine's LAN addresses
  * @param {number} [options.watchMs] how often to look for an address change
  * @param {(line: string) => void} [options.log]
+ * @param {() => number} [options.now]
  */
 export async function startServer({
   engine,
@@ -134,6 +154,7 @@ export async function startServer({
   addresses = lanAddresses,
   watchMs = LAN_WATCH_MS,
   log = () => {},
+  now = Date.now,
 }) {
   if (!engine?.store || typeof engine.command !== 'function') throw new Error('startServer needs an engine with a store and a command function');
   const host = config.host ?? '127.0.0.1';
@@ -144,9 +165,13 @@ export async function startServer({
   const netDir = path.join(config.dataDir, 'net');
   const streams = createStreams({ store });
   const say = createSpeaker({ dataDir: config.dataDir, ...sayOptions });
-  const pairing = createPairing({ file: path.join(netDir, 'devices.json') });
+  /** The demo pairs for real, but a device it pairs must never open the real factory. */
+  const devicesFile = path.join(netDir, engine.sim ? 'demo-devices.json' : 'devices.json');
+  const pairing = createPairing({ file: devicesFile, onForget: dropDevice });
+  const macProof = createMacProof({ ask: (card) => askThePerson('local', card), now });
   // Workers and yard code cannot read `data/`, so holding this is what a local client proves.
   const surfaceKey = writeSurfaceKey(config);
+  const askedLanPort = lanPort;
   const { version } = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
 
   let localPort = port;
@@ -155,6 +180,20 @@ export async function startServer({
   let credentials = null;
   let nameService = null;
   let watcher = null;
+  let trustProbe = null;
+  let closing = null;
+  /** Every socket open on the LAN listeners, because a WebSocket leaves the server's own count. */
+  const lanSockets = new Set();
+  /** The same sockets by device. Live updates, voice and a held poll all run on one of these. */
+  const deviceSockets = new Map();
+  /** Each Turn off. A yes that was waiting while one happened has been overtaken by it. */
+  let turnedOff = 0;
+  /** Turning phone access on and off happen one at a time, in the order they were asked for. */
+  let lanTurns = Promise.resolve();
+  const inTurn = (step) => {
+    lanTurns = lanTurns.then(step, step);
+    return lanTurns;
+  };
 
   const hasKey = (request) => {
     const given = Buffer.from(String(request.headers[SURFACE_KEY_HEADER] ?? ''));
@@ -164,12 +203,32 @@ export async function startServer({
 
   /**
    * Which surface sent a request, from what it can prove (SPEC 9). Anything from the LAN is a
-   * paired browser. On this machine a browser sends an Origin, and the CLI holds the key. Any
-   * other local caller could be anything at all, so it gets what MCP gets, the strictest case.
+   * paired browser. On this machine a browser sends an Origin, or on a same-origin read, where
+   * it sends none, Sec-Fetch-Site. The CLI holds the key. Any other local caller could be
+   * anything at all, so it gets what MCP gets, the strictest case.
    */
   function surfaceOf(kind, request) {
-    if (kind !== 'local' || request.headers.origin !== undefined) return 'web';
+    if (kind !== 'local' || request.headers.origin !== undefined || request.headers['sec-fetch-site'] === 'same-origin') return 'web';
     return request.headers[SURFACE_HEADER] === 'cli' && hasKey(request) ? 'cli' : 'mcp';
+  }
+
+  /** The key the CLI holds. Workers and yard code cannot read it. */
+  const holdsKey = (request) => request.headers[SURFACE_HEADER] === 'cli' && hasKey(request);
+
+  /** A device's connections, so that taking it away takes them too. */
+  function holdForDevice(device, socket) {
+    let held = deviceSockets.get(device.id);
+    if (!held) deviceSockets.set(device.id, held = new Set());
+    if (held.has(socket)) return;
+    held.add(socket);
+    socket.once('close', () => {
+      held.delete(socket);
+      if (held.size === 0 && deviceSockets.get(device.id) === held) deviceSockets.delete(device.id);
+    });
+  }
+
+  function dropDevice(id) {
+    for (const socket of deviceSockets.get(id) ?? []) socket.destroy();
   }
 
   /** The step no process can take for you, whatever it holds. A phone was paired in person. */
@@ -243,23 +302,39 @@ export async function startServer({
   }
 
   function requireLan() {
-    if (!secure) throw new HttpError(409, 'LAN access is off. Start the server with: vz serve --lan');
+    if (!secure) throw new HttpError(409, 'Phone access is off. Press Show a pairing code in Settings, or run ./vz pair.');
   }
+
+  const pairAddress = (name) => `https://${name}:${lanPort}/pair`;
 
   function startPairing() {
     requireLan();
-    const { token, pin, expiresAt } = pairing.start();
-    const link = (name) => `https://${name}:${lanPort}/pair#t=${token}`;
-    const url = link(LAN_NAME);
+    const { pin, expiresAt } = pairing.start();
+    // Only an address. A phone that has not trusted the certificate yet cannot tell who answers it.
+    const url = pairAddress(LAN_NAME);
+    const ipUrl = lanIps[0] ? pairAddress(lanIps[0]) : null;
     return {
       ok: true,
       url,
-      ipUrl: lanIps[0] ? link(lanIps[0]) : null,
+      ipUrl,
       pin,
       expiresAt,
       fingerprint: credentials.fingerprint,
       qrSvg: qrSvg(url),
+      ipQrSvg: ipUrl ? qrSvg(ipUrl) : null,
       qrText: qrTerminal(url),
+      warning: lanIps.length === 0 ? 'This Mac is not on a network yet, so a phone cannot reach it. Join Wi-Fi, then press Show a pairing code again.' : null,
+    };
+  }
+
+  /** Whether phone access is on and where. It says nothing about any one device. */
+  function phoneAccess() {
+    return {
+      ok: true,
+      on: secure !== null,
+      url: secure ? `https://${LAN_NAME}:${lanPort}` : null,
+      ipUrl: secure && lanIps[0] ? `https://${lanIps[0]}:${lanPort}` : null,
+      devices: pairing.list().length,
     };
   }
 
@@ -318,14 +393,28 @@ export async function startServer({
     }],
   ];
 
-  /** The device list is for you, in a browser or at the command line, and never for a stray process. */
+  /** Phone access is for you, in a browser or at the command line, and never for a stray process. */
   function requirePerson(request) {
-    if (surfaceOf('local', request) === 'mcp') throw new HttpError(403, 'Only the vz command or a browser on this machine can do that.');
+    if (surfaceOf('local', request) === 'mcp') throw new HttpError(403, 'Only the ./vz command or a browser on this machine can do that.');
+  }
+
+  /**
+   * What can change who reaches this factory takes more than looking like a browser, because
+   * anything on this machine can send those headers. The demo has nothing behind it to protect.
+   */
+  function requireProof(request) {
+    requirePerson(request);
+    if (engine.sim || holdsKey(request) || macProof.holds(request.headers[PROOF_HEADER])) return;
+    throw new HttpError(403, 'Confirm this on the Mac first, or run ./vz pair in Terminal.', { needsProof: true });
   }
 
   const LOCAL_GET_ROUTES = [
-    [/^\/api\/devices$/, (request, response) => {
+    [/^\/api\/phone-access$/, (request, response) => {
       requirePerson(request);
+      sendJson(response, 200, phoneAccess());
+    }],
+    [/^\/api\/devices$/, (request, response) => {
+      requireProof(request);
       sendJson(response, 200, pairing.list());
     }],
   ];
@@ -333,13 +422,40 @@ export async function startServer({
   const LOCAL_POST_ROUTES = [
     [/^\/api\/pair\/start$/, async (request, response) => {
       requirePerson(request);
-      requireLan();
-      const asked = await askThePerson('local', { title: 'Link a new device to Venezia?', plain: 'That device will be able to approve anything you can. Only say yes if you just asked for this.', ok: 'Link it' });
+      // A demo with --lan has a listener to pair with. Without it there is nothing behind one.
+      if (engine.sim && !secure) throw new HttpError(409, DEMO_PAIRING);
+      const opening = secure ? '' : 'This turns on phone access, so Venezia listens on your local network over HTTPS. ';
+      requireProof(request);
+      const presses = turnedOff;
+      const asked = await askThePerson('local', { title: 'Link a new device to Venezia?', plain: `${opening}That device will be able to approve anything you can. Only say yes if you just asked for this.`, ok: 'Link it' });
       if (!asked.ok) throw new HttpError(403, asked.error ?? 'You said no on this Mac.');
+      if (presses !== turnedOff) throw new HttpError(409, 'Phone access was turned off while that was waiting, so it stayed off.');
+      try {
+        await inTurn(startLan);
+      } catch (error) {
+        throw new HttpError(503, error.message);
+      }
       sendJson(response, 200, startPairing());
     }],
-    [/^\/api\/devices\/revoke$/, async (request, response) => {
+    [/^\/api\/mac-proof\/start$/, async (request, response) => {
       requirePerson(request);
+      const result = await macProof.begin();
+      if (!result.ok) throw new HttpError(result.status, result.error);
+      sendJson(response, 200, result);
+    }],
+    [/^\/api\/mac-proof\/claim$/, async (request, response) => {
+      requirePerson(request);
+      const result = macProof.claim((await readJson(request))?.code);
+      if (!result.ok) throw new HttpError(result.status, result.error);
+      sendJson(response, 200, result);
+    }],
+    [/^\/api\/phone-access\/off$/, async (request, response) => {
+      requireProof(request);
+      await turnOff();
+      sendJson(response, 200, phoneAccess());
+    }],
+    [/^\/api\/devices\/revoke$/, async (request, response) => {
+      requireProof(request);
       const { id } = (await readJson(request)) ?? {};
       if (typeof id !== 'string' || !pairing.revoke(id)) throw new HttpError(404, 'There is no paired device with that id');
       sendJson(response, 200, { ok: true });
@@ -349,11 +465,22 @@ export async function startServer({
   const LAN_PUBLIC = [
     [/^\/pair$/, (request, response) => {
       const nonce = randomBytes(16).toString('base64url');
-      sendBody(request, response, pairPage({ fingerprint: credentials.fingerprint, nonce }), {
+      // checkHeaders has already held this Host against the addresses this server answers on.
+      const host = request.headers.host.toLowerCase();
+      const probePort = trustProbe?.address()?.port ?? null;
+      const probe = probePort === null ? '' : ` https://${host.split(':')[0]}:${probePort}`;
+      const fallback = lanIps[0] ? pairAddress(lanIps[0]) : null;
+      sendBody(request, response, pairPage({
+        fingerprint: credentials.fingerprint,
+        nonce,
+        probePort,
+        fallback: fallback && !fallback.includes(`//${host}/`) ? fallback : null,
+        paired: pairing.verify(readCookie(request.headers.cookie, SESSION_COOKIE)) !== null,
+      }), {
         type: 'text/html; charset=utf-8',
         headers: {
           'cache-control': 'no-store',
-          'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; frame-ancestors 'none'`,
+          'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self' wss://${host}${probe}; frame-ancestors 'none'`,
         },
       });
     }],
@@ -486,12 +613,13 @@ export async function startServer({
         const query = new URLSearchParams(mark < 0 ? '' : request.url.slice(mark + 1));
         if (kind === 'lan' && !PUBLIC_ON_LAN.has(rawPath)) {
           const device = pairing.verify(readCookie(request.headers.cookie, SESSION_COOKIE));
-          if (!device) {
+          if (device) holdForDevice(device, request.socket);
+          else {
             if (request.method === 'GET' && (request.headers.accept ?? '').includes('text/html')) {
               response.writeHead(302, { location: '/pair', 'cache-control': 'no-store' });
               response.end();
             } else {
-              sendJson(response, 401, { ok: false, error: 'This device is not paired. Run "vz pair" on your Mac.' });
+              sendJson(response, 401, { ok: false, error: 'This device is not paired. On your Mac, open Settings and press Show a pairing code.' });
             }
             return;
           }
@@ -504,7 +632,7 @@ export async function startServer({
           response.destroy();
           return;
         }
-        sendJson(response, status, { ok: false, error: status === 500 ? 'Something went wrong on the server' : error.message });
+        sendJson(response, status, { ok: false, error: status === 500 ? 'Something went wrong on the server' : error.message, ...error.extra });
       }
     };
   }
@@ -523,9 +651,13 @@ export async function startServer({
         refuse(refused.status, 'Refused');
         return;
       }
-      if (kind === 'lan' && !pairing.verify(readCookie(request.headers.cookie, SESSION_COOKIE))) {
-        refuse(401, 'Not Paired');
-        return;
+      if (kind === 'lan') {
+        const device = pairing.verify(readCookie(request.headers.cookie, SESSION_COOKIE));
+        if (!device) {
+          refuse(401, 'Not Paired');
+          return;
+        }
+        holdForDevice(device, socket);
       }
       const mark = request.url.indexOf('?');
       const rawPath = mark < 0 ? request.url : request.url.slice(0, mark);
@@ -548,44 +680,126 @@ export async function startServer({
     });
   }
 
-  async function issue() {
-    credentials = await ensureCertificates({
-      dir: netDir, hosts: [LAN_NAME, 'localhost'], ips: [...lanIps, '127.0.0.1'], opensslBin,
+  /** A listener on the LAN, which keeps hold of its sockets so that it can drop every one. */
+  function lanListener(server) {
+    const hold = (socket) => {
+      lanSockets.add(socket);
+      socket.once('close', () => lanSockets.delete(socket));
+    };
+    server.on('connection', hold);
+    server.on('secureConnection', hold);
+    return server;
+  }
+
+  function shut(server) {
+    return new Promise((resolve) => {
+      server.close(resolve);
+      server.closeAllConnections();
     });
   }
 
+  async function issue() {
+    const names = { dir: netDir, hosts: [LAN_NAME, 'localhost'], ips: [...lanIps, '127.0.0.1'], opensslBin };
+    try {
+      credentials = await ensureCertificates(names);
+      credentials.probe = await ensureCertificates({ ...names, leaf: 'probe' });
+    } catch (error) {
+      error.certificate = true;
+      throw error;
+    }
+  }
+
+  /**
+   * The trust check for /pair. Accepting a certificate warning covers the one certificate that
+   * was shown, so a second one, from the same root, on its own listener, only loads on a device
+   * that trusts the root itself. It answers one word to anyone and touches nothing.
+   */
+  async function startTrustProbe() {
+    const probe = lanListener(https.createServer({ key: credentials.probe.key, cert: credentials.probe.cert }, (request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store', 'access-control-allow-origin': '*', 'x-content-type-options': 'nosniff' });
+      response.end('trusted');
+    }));
+    try {
+      await listen(probe, 0, '0.0.0.0');
+      trustProbe = probe;
+    } catch (error) {
+      log(`The certificate check could not start: ${error.message}`);
+    }
+  }
+
+  function publish() {
+    if (!lanIps[0]) return;
+    if (nameService) nameService.setIp(lanIps[0]);
+    else nameService = publishName({ port: lanPort, ip: lanIps[0], log, ...mdnsOptions });
+  }
+
   async function startLan() {
-    lanIps = addresses();
-    if (lanIps.length === 0) log('No local network address was found. Pairing will wait for one.');
-    await issue();
-    secure = https.createServer({ key: credentials.key, cert: credentials.cert }, handler('lan'));
-    secure.on('upgrade', upgrader('lan'));
-    lanPort = await listen(secure, lanPort, '0.0.0.0');
-    if (lanIps[0]) nameService = publishName({ port: lanPort, ip: lanIps[0], log, ...mdnsOptions });
+    if (secure) return;
+    if (closing) throw new PhoneAccessError('Venezia is stopping, so phone access cannot start.');
+    try {
+      lanIps = addresses();
+      if (lanIps.length === 0) log('No local network address was found. Pairing will wait for one.');
+      await issue();
+      const server = lanListener(https.createServer({ key: credentials.key, cert: credentials.cert }, handler('lan')));
+      server.on('upgrade', upgrader('lan'));
+      lanPort = await listen(server, askedLanPort, '0.0.0.0');
+      secure = server;
+    } catch (error) {
+      lanIps = [];
+      throw new PhoneAccessError(phoneAccessReason(error, askedLanPort));
+    }
+    await startTrustProbe();
+    publish();
     watcher = setInterval(() => {
       const current = addresses();
       if (current.join() === lanIps.join()) return;
       lanIps = current;
       issue().then(() => {
         secure?.setSecureContext({ key: credentials.key, cert: credentials.cert });
-        if (lanIps[0]) nameService?.setIp(lanIps[0]);
+        trustProbe?.setSecureContext({ key: credentials.probe.key, cert: credentials.probe.cert });
+        if (secure) publish();
       }).catch((error) => log(`Could not renew the certificate: ${error.message}`));
     }, watchMs);
     watcher.unref();
+    log(`Phone access is on at https://${LAN_NAME}:${lanPort}`);
+  }
+
+  /** Close the listeners and drop every device's connection. Pairings stay, so a phone comes back. */
+  async function stopLan() {
+    if (!secure) return;
+    const servers = [secure, ...(trustProbe ? [trustProbe] : [])];
+    secure = null;
+    trustProbe = null;
+    clearInterval(watcher);
+    watcher = null;
+    nameService?.stop();
+    nameService = null;
+    lanIps = [];
+    pairing.cancel();
+    const closed = Promise.all(servers.map(shut));
+    for (const socket of lanSockets) socket.destroy();
+    await closed;
+    lanPort = askedLanPort;
+    log('Phone access is off.');
+  }
+
+  function turnOff() {
+    turnedOff += 1;
+    return inTurn(stopLan);
   }
 
   const plain = http.createServer(handler('local'));
   plain.on('upgrade', upgrader('local'));
   localPort = await listen(plain, port, host);
   try {
-    if (lan) await startLan();
+    if (lan) await inTurn(startLan);
   } catch (error) {
     plain.closeAllConnections();
     plain.close();
+    streams.close();
+    fs.rmSync(surfaceKeyFile(config), { force: true });
     throw error;
   }
-
-  let closing = null;
 
   return {
     get port() { return localPort; },
@@ -593,22 +807,24 @@ export async function startServer({
     get lanPort() { return secure ? lanPort : null; },
     get lanUrl() { return secure ? `https://${LAN_NAME}:${lanPort}` : null; },
     get lanCa() { return credentials?.ca ?? null; },
+    /** The port of the listener behind the certificate check on /pair. */
+    get trustProbePort() { return trustProbe?.address()?.port ?? null; },
     pairing,
     streams,
     startPairing,
+    phoneAccess,
+    /** Turn phone access on, as a yes on this Mac does. */
+    openToPhones: () => inTurn(startLan),
+    /** Turn phone access off, keeping every pairing. */
+    closeToPhones: turnOff,
 
     /** Stop everything, and drop every open connection. Safe to call twice. */
     close() {
       closing ??= (async () => {
         fs.rmSync(surfaceKeyFile(config), { force: true });
-        if (watcher) clearInterval(watcher);
-        nameService?.stop();
+        await inTurn(stopLan).catch(() => {});
         streams.close();
-        const servers = secure ? [plain, secure] : [plain];
-        await Promise.all(servers.map((server) => new Promise((resolve) => {
-          server.close(resolve);
-          server.closeAllConnections();
-        })));
+        await shut(plain);
       })();
       return closing;
     },

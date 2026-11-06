@@ -5,6 +5,20 @@ writes a contract for it, builds it, and your Mac tests the result in a real bro
 that passes those mechanical checks gets a receipt, and only you can publish it. No model decides
 that something is done.
 
+## Start here
+
+Open Terminal, go to this folder, and run `./vz`:
+
+```
+cd path/to/Venezia
+./vz
+```
+
+That lists every command. It needs nothing installed outside this folder, and `npm run vz -- status`
+does the same as `./vz status`.
+
+Optional: run `npm link` once in this folder to make plain `vz` work everywhere.
+
 ## What you need
 
 - A Mac. Voice typing needs macOS 26 or later. The keyboard works without it.
@@ -51,30 +65,50 @@ npm start
 Then speak or type an idea on the page, or from another terminal:
 
 ```
-node bin/vz.mjs new "A tip calculator for splitting a bill"
-node bin/vz.mjs status
+./vz new "A tip calculator for splitting a bill"
+./vz status
 ```
 
-`node bin/vz.mjs` with no arguments lists every command.
+If a command says Venezia is not running, it also gives the exact line to start it.
 
 ## Use it from your phone
 
-Your phone must be on the same Wi-Fi as your Mac.
+Your phone must be on the same Wi-Fi as your Mac. With Venezia running from a plain `npm start`, open
+Settings on this Mac and press **Show a pairing code**, or run:
 
 ```
-node bin/vz.mjs serve --lan
+./vz pair
 ```
 
-In a second terminal:
+Say yes in the box on your Mac. The first time in a browser, a box also shows a code to type into
+the page, because a page cannot otherwise show that you are the one using it. Phone access turns on
+with no restart, and you get a QR code and a PIN. It was off until then, and only this Mac could reach Venezia. Settings shows **Phone access is
+on** with a **Turn off** button, and `./vz pair --off` does the same. Turning it off closes the
+network listener and disconnects every device, but they stay paired. A restart leaves it off, unless
+you start with `./vz serve --lan`.
 
-```
-node bin/vz.mjs pair
-```
+The first time on a phone, it has to learn to trust your Mac. The panel, `./vz pair` and the page on
+the phone all list these steps in order:
 
-Say yes in the prompt on your Mac. Scan the QR code with your phone and enter the PIN it shows.
-A paired phone can approve anything you can. `vz pair --list` shows paired devices, and
-`vz pair --revoke <id>` removes one. Pairing is tested against the real server, but not yet on a
-physical phone.
+1. **On the Mac:** if it asks whether node may accept incoming network connections, click Allow.
+2. Scan the QR code and open it in Safari.
+3. Safari warns "This Connection Is Not Private". Tap Show Details, visit this website, Visit Website.
+4. Download the profile, then tap Allow.
+5. Settings, Profile Downloaded, Install.
+6. Settings, General, About, Certificate Trust Settings, and turn on full trust for Venezia Local Root.
+7. Go back to Safari. The page sees the certificate is trusted, and asks for the code on your Mac.
+
+If the phone cannot find `venezia.local`, use the IP address shown beside the QR code. Android has its
+own steps, in the same places.
+
+A paired phone can approve anything you can. `./vz pair --list` shows paired devices, and
+`./vz pair --revoke <id>` removes one.
+
+**This has not been tried on a real phone.** It is tested over real HTTPS in Chrome, with a browser
+acting as the phone, but not on an iPhone or an Android phone. The steps come from Apple and Google
+documentation. Whether iOS accepts a certificate limited to local addresses, and whether the page's
+trust check behaves on Safari as it does on Chrome, are unproven, and the page says so. If the check
+gets it wrong, **Pair anyway** on that page still works, with less protection.
 
 On the phone, hold Talk and speak. What it heard sits on a chip until you choose Nudge (fold it
 in), Next (after this job) or Now (change course), so a mishearing costs one tap.
@@ -87,7 +121,7 @@ reviewer who did not build it checks the result. If it passes, you get a receipt
 prototype you can use. Publishing needs your say, and a public publish needs you to hold the button.
 
 A finished project keeps its prototype for as long as its receipt holds. The Preview tab starts it
-and shows **Open prototype** with its address, and `vz open Marea` does the same from the command
+and shows **Open prototype** with its address, and `./vz open Marea` does the same from the command
 line. It always serves what the gate tested, never the working files. A restart stops every
 prototype, and opening one brings it back. Three run at once by default (`maxPreviews` in the
 config), and the one opened longest ago stops to make room. A voided receipt, a scuttled project
@@ -148,7 +182,7 @@ Known limits are in [docs/ROADMAP.md](docs/ROADMAP.md). The binding design is in
 ## Security
 
 Venezia runs code that a model wrote, on your Mac. Read [SECURITY.md](SECURITY.md) first, above all
-before you use `--lan`. Changes are in [CHANGELOG.md](CHANGELOG.md).
+before you turn on phone access. Changes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Acknowledgements
 

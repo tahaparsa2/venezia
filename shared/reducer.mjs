@@ -5,8 +5,8 @@
 import { checkFields, field } from './commands.mjs';
 import {
   BLOCK_REASONS, DECISION_KINDS, DEFAULT_AUTONOMY, DIALS, LAMP_COLOUR, LAMP_SLOTS, LESSON_KINDS,
-  LESSON_TEXT_MAX, PUBLISH_TARGETS, ROLES, SAME_STATION, SIZES, STATE, STATES, STEER_STATES,
-  TERM, TESSERA_ACTORS, TESSERA_KIND, TESSERA_KINDS, TIERS, WORKER_OUTCOMES, rankFor, weatherFor,
+  LESSON_TEXT_MAX, LOCAL_TARGETS, PUBLISH_TARGETS, ROLES, SAME_STATION, SIZES, STATE, STATES, STEER_STATES,
+  TERM, TESSERA_ACTORS, TESSERA_KIND, TESSERA_KINDS, TIERS, WORKER_OUTCOMES, isLive, rankFor, weatherFor,
 } from './vocabulary.mjs';
 
 /**
@@ -546,15 +546,35 @@ function patchRun(current, runId, change) {
   return { ...current, runs: { ...current.runs, [runId]: { ...entry, ...change(entry) } } };
 }
 
-function patchPublish(status) {
-  return onShip((current, data, event) => ({
-    ...current,
-    publishes: {
-      ...current.publishes,
-      [data.target]: { ...current.publishes[data.target], ...data, status, updatedAt: event.ts },
-    },
-  }));
+/** `change` reads the entry as it stands, and what it returns wins over `status`. */
+function patchPublish(status, change = () => ({})) {
+  return onShip((current, data, event) => {
+    const entry = current.publishes[data.target];
+    return {
+      ...current,
+      publishes: {
+        ...current.publishes,
+        [data.target]: { ...entry, ...data, status, updatedAt: event.ts, ...change(entry ?? {}, data) },
+      },
+    };
+  });
 }
+
+const verifiedPublish = patchPublish('verified', (entry, data) => ({ live: !LOCAL_TARGETS.includes(data.target) }));
+
+/**
+ * A rollback says what is still out. An earlier checked version that stayed up stays live, and
+ * only a rollback that left nothing there takes that away.
+ */
+const rolledBackPublish = patchPublish('rolledback', (entry, data) => {
+  if (!data.stillOut) return { live: false };
+  return entry.live ? { status: 'verified' } : {};
+});
+
+const liveTiles = (state, shipId, dimmed) => ({
+  ...state,
+  tesserae: state.tesserae.map((tile) => (tile.shipId === shipId && tile.kind === 'live' ? { ...tile, dimmed } : tile)),
+});
 
 function patchLesson(state, id, change) {
   const current = state.lessons[id];
@@ -756,8 +776,16 @@ const HANDLERS = {
 
   'publish.planned': patchPublish('planned'),
   'publish.applied': patchPublish('applied'),
-  'publish.verified': patchPublish('verified'),
-  'publish.rolledback': patchPublish('rolledback'),
+  'publish.verified'(state, event, data) {
+    const next = verifiedPublish(state, event, data);
+    return LOCAL_TARGETS.includes(data.target) ? next : liveTiles(next, event.shipId, false);
+  },
+  // A live tile says the site is out and was checked, so it dims once the site is gone.
+  'publish.rolledback'(state, event, data) {
+    const next = rolledBackPublish(state, event, data);
+    const wasLive = state.ships[event.shipId]?.publishes[data.target]?.live;
+    return wasLive && !isLive(next.ships[event.shipId]) ? liveTiles(next, event.shipId, true) : next;
+  },
 
   'lesson.drafted'(state, event, data) {
     if (state.lessons[data.id]) return state;
@@ -869,8 +897,8 @@ const FEED_TEXT = {
   'preview.down': () => 'Preview stopped',
   'publish.planned': (d) => `Publish planned to ${d.target}`,
   'publish.applied': (d) => `Published to ${d.target}`,
-  'publish.verified': (d) => `Live check passed on ${d.target}`,
-  'publish.rolledback': (d) => `Rolled back ${d.target}`,
+  'publish.verified': (d) => (LOCAL_TARGETS.includes(d.target) ? `Checked the copy on ${d.target}` : `Live check passed on ${d.target}`),
+  'publish.rolledback': (d) => `Rolled back ${d.target}${d.stillOut ? ', and the earlier version is still out' : ''}`,
   'lesson.drafted': (d) => `New lesson: ${d.text}`,
   'lesson.used': () => 'Lesson used as a hint',
   'lesson.scored': (d) => `Lesson scored a ${d.outcome}`,

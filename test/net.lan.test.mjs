@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
+import https from 'node:https';
 import path from 'node:path';
 import { test } from 'node:test';
 import tls from 'node:tls';
@@ -16,8 +17,10 @@ import { ensureCertificates, mobileConfig } from '../engine/net/certs.mjs';
 import { readSurfaceKey } from '../engine/net/client.mjs';
 import { LAN_NAME, lanAddresses, publishName } from '../engine/net/mdns.mjs';
 import { qrSvg, qrTerminal } from '../engine/net/qr.mjs';
+import { createSimEngine } from '../engine/sim-engine.mjs';
 import { REPO, testDir } from './helpers.mjs';
-import { raw, serve, stubEngine } from './net.helpers.mjs';
+import { raw, serve, ship, stubEngine } from './net.helpers.mjs';
+import { until } from './worker-support.mjs';
 
 const run = promisify(execFile);
 const openssl = async (args) => (await run('openssl', args)).stdout;
@@ -140,14 +143,15 @@ function pairingFor(t, options = {}) {
   return createPairing({ file: path.join(testDir(t), 'devices.json'), ...options });
 }
 
-test('a token works once', (t) => {
+test('a PIN works once, and the pairing holds no other secret', (t) => {
   const pairing = pairingFor(t);
-  const { token } = pairing.start();
-  assert.ok(Buffer.from(token, 'base64url').length >= 16, 'at least 128 bits');
-  const claim = pairing.claim({ token, name: 'iPhone' });
+  const started = pairing.start();
+  assert.deepEqual(Object.keys(started).sort(), ['expiresAt', 'pin']);
+  const { pin } = started;
+  const claim = pairing.claim({ pin, name: 'iPhone' });
   assert.equal(claim.ok, true);
   assert.equal(pairing.verify(claim.secret).name, 'iPhone');
-  assert.equal(pairing.claim({ token }).status, 410);
+  assert.equal(pairing.claim({ pin }).status, 410);
 });
 
 test('a PIN works once, and five wrong tries burn the pairing', (t) => {
@@ -171,32 +175,32 @@ test('one address is locked out after ten wrong tries across pairings', (t) => {
     const wrong = pin === '000000' ? '000001' : '000000';
     for (let j = 0; j < 5; j++) pairing.claim({ pin: wrong, ip: '10.0.0.5' });
   }
-  const { token } = pairing.start();
-  assert.equal(pairing.claim({ token, ip: '10.0.0.5' }).status, 429);
-  assert.equal(pairing.claim({ token, ip: '10.0.0.6' }).ok, true);
+  const { pin } = pairing.start();
+  assert.equal(pairing.claim({ pin, ip: '10.0.0.5' }).status, 429);
+  assert.equal(pairing.claim({ pin, ip: '10.0.0.6' }).ok, true);
 });
 
 test('a pairing expires', (t) => {
   let clock = 1000;
   const pairing = pairingFor(t, { now: () => clock, ttlMs: 500 });
-  const { token } = pairing.start();
+  const { pin } = pairing.start();
   clock += 501;
-  assert.equal(pairing.claim({ token }).status, 410);
+  assert.equal(pairing.claim({ pin }).status, 410);
 });
 
 test('a new pairing replaces the old one', (t) => {
   const pairing = pairingFor(t);
   const first = pairing.start();
   const second = pairing.start();
-  assert.equal(pairing.claim({ token: first.token }).status, 403);
-  assert.equal(pairing.claim({ token: second.token }).ok, true);
+  if (first.pin !== second.pin) assert.equal(pairing.claim({ pin: first.pin }).status, 403);
+  assert.equal(pairing.claim({ pin: second.pin }).ok, true);
 });
 
 test('only a hash of the session is stored, the file is private, and devices survive a restart', (t) => {
   const dir = testDir(t);
   const file = path.join(dir, 'devices.json');
   const pairing = createPairing({ file });
-  const { secret, device } = pairing.claim({ token: pairing.start().token, name: 'iPad' });
+  const { secret, device } = pairing.claim({ pin: pairing.start().pin, name: 'iPad' });
   assert.doesNotMatch(fs.readFileSync(file, 'utf8'), new RegExp(secret));
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
   const reopened = createPairing({ file });
@@ -227,8 +231,8 @@ test('header checks', () => {
 });
 
 test('a QR code encodes something and fits a terminal', () => {
-  assert.match(qrSvg('https://venezia.local:8443/pair#t=abc'), /^<svg /);
-  const lines = qrTerminal('https://venezia.local:8443/pair#t=abc').split('\n');
+  assert.match(qrSvg('https://venezia.local:8443/pair'), /^<svg /);
+  const lines = qrTerminal('https://venezia.local:8443/pair').split('\n');
   assert.ok(lines.length > 10);
   assert.ok(lines.every((line) => line.length === lines[0].length));
 });
@@ -391,24 +395,23 @@ test('nothing but the pairing pages answers without a paired device', async (t) 
   assert.match((await ask({ path: '/pair/venezia.mobileconfig' })).headers['content-type'], /aspen-config/);
 });
 
-test('pair by QR token: the cookie opens everything, and only over HTTPS', async (t) => {
+test('pair by PIN: the cookie opens everything, and only over HTTPS', async (t) => {
   const engine = stubEngine(t);
   const { ask, server, lanPort } = await lanServer(t, { engine });
   const { url, ipUrl, pin, fingerprint, qrSvg: svg, qrText } = server.startPairing();
-  assert.match(url, new RegExp(`^https://venezia\\.local:${lanPort}/pair#t=`));
-  assert.match(ipUrl, /^https:\/\/10\.1\.2\.3:/);
+  assert.equal(url, `https://venezia.local:${lanPort}/pair`);
+  assert.equal(ipUrl, `https://10.1.2.3:${lanPort}/pair`);
   assert.match(pin, /^\d{6}$/);
   assert.match(fingerprint, /^[0-9A-F:]+$/);
   assert.match(svg, /<svg/);
   assert.ok(qrText.length > 100);
 
-  const token = url.split('#t=')[1];
   const origin = `https://${LAN_NAME}:${lanPort}`;
   const claim = await ask({
     path: '/api/pair/claim',
     method: 'POST',
     headers: { 'content-type': 'application/json', origin },
-    body: JSON.stringify({ token, name: 'iPhone' }),
+    body: JSON.stringify({ pin, name: 'iPhone' }),
   });
   assert.equal(claim.status, 200);
   assert.deepEqual(Object.keys(claim.json), ['ok', 'device']);
@@ -430,9 +433,9 @@ test('pair by QR token: the cookie opens everything, and only over HTTPS', async
   assert.equal(engine.commands[0].idea, 'From the phone');
 
   const replay = await ask({
-    path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ token }),
+    path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin }),
   });
-  assert.equal(replay.status, 410, 'a token works once');
+  assert.equal(replay.status, 410, 'a PIN works once');
 
   const socket = new WebSocket(`wss://127.0.0.1:${lanPort}/ws`, {
     ca: server.lanCa, servername: LAN_NAME, headers: { host: `${LAN_NAME}:${lanPort}`, origin, cookie: session },
@@ -448,27 +451,18 @@ test('pair by QR token: the cookie opens everything, and only over HTTPS', async
   assert.equal((await ask({ path: '/api/state', headers: { cookie: session } })).status, 401, 'revoked at once');
 });
 
-test('pair by PIN, and the fragment token never reaches the server', async (t) => {
-  const { ask, server, lanPort } = await lanServer(t);
+test('the pairing page never holds the code, and never reads one from the link', async (t) => {
+  const { ask, server } = await lanServer(t);
   const { pin } = server.startPairing();
-  const origin = `https://${LAN_NAME}:${lanPort}`;
   const page = await ask({ path: '/pair' });
-  assert.match(page.text, /location\.hash/);
+  assert.doesNotMatch(page.text, /location\.hash/);
   assert.match(page.headers['content-security-policy'], /script-src 'nonce-/);
   assert.doesNotMatch(page.text, new RegExp(pin));
-  const claim = await ask({
-    path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin }),
-  });
-  assert.equal(claim.status, 200);
 });
 
 test('a claim needs a same-origin browser POST', async (t) => {
   const { ask, server } = await lanServer(t);
-  const { token } = (() => {
-    const pairing = server.startPairing();
-    return { token: pairing.url.split('#t=')[1] };
-  })();
-  const body = JSON.stringify({ token });
+  const body = JSON.stringify({ pin: server.startPairing().pin });
   const json = { 'content-type': 'application/json' };
   assert.equal((await ask({ path: '/api/pair/claim', method: 'POST', headers: json, body })).status, 403);
   assert.equal((await ask({
@@ -494,7 +488,7 @@ test('an unpaired WebSocket is refused on the LAN, and so is a paired one from a
 test('a claim that is not an object is refused, not a crash', async (t) => {
   const { ask, server, lanPort } = await lanServer(t);
   server.startPairing();
-  for (const body of ['null', '3', '[]', '{"token":5,"pin":false}']) {
+  for (const body of ['null', '3', '[]', '{"pin":false}']) {
     const response = await ask({
       path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin: `https://${LAN_NAME}:${lanPort}` }, body,
     });
@@ -534,6 +528,103 @@ test('pairing starts from the Mac over loopback, and devices are managed there',
   assert.equal((await raw({
     port, path: '/api/devices/revoke', method: 'POST', headers: { 'content-type': 'application/json', ...cli }, body: '{"id":"nope"}',
   })).status, 404);
+});
+
+test('removing a device ends everything it has open, and leaves every other device alone', async (t) => {
+  const voiced = [];
+  const engine = stubEngine(t, { voice: (client) => { voiced.push(client); client.on('message', (data) => client.send(data)); } });
+  const { ask, server, lanPort } = await lanServer(t, { engine });
+  const origin = `https://${LAN_NAME}:${lanPort}`;
+  const pair = async (name) => {
+    const { pin } = server.startPairing();
+    const claim = await ask({ path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin, name }) });
+    return claim.headers['set-cookie'][0].split(';')[0];
+  };
+  const open = (route, cookie) => new Promise((resolve, reject) => {
+    const socket = new WebSocket(`wss://127.0.0.1:${lanPort}${route}`, {
+      ca: server.lanCa, servername: LAN_NAME, headers: { host: `${LAN_NAME}:${lanPort}`, origin, cookie },
+    });
+    socket.vzClosed = new Promise((closed) => { socket.once('close', closed); });
+    socket.once('open', () => resolve(socket));
+    socket.once('error', reject);
+  });
+  const stream = (route, cookie) => new Promise((resolve, reject) => {
+    const request = https.request({
+      host: '127.0.0.1', port: lanPort, path: route, ca: server.lanCa, servername: LAN_NAME, agent: false, headers: { host: `${LAN_NAME}:${lanPort}`, cookie },
+    }, (response) => {
+      response.on('data', () => {});
+      response.vzClosed = new Promise((closed) => { response.once('close', closed); });
+      response.on('error', () => {});
+      resolve(response);
+    });
+    request.on('error', reject);
+    request.end();
+  });
+
+  const gone = await pair('Lost phone');
+  const kept = await pair('Own phone');
+  const [live, voice, keeper] = [await open('/ws', gone), await open('/ws/voice', gone), await open('/ws', kept)];
+  const sse = await stream('/sse', gone);
+  const held = new Promise((resolve) => {
+    const request = https.request({
+      host: '127.0.0.1', port: lanPort, path: '/api/events?wait=20000', ca: server.lanCa, servername: LAN_NAME, agent: false, headers: { host: `${LAN_NAME}:${lanPort}`, cookie: gone },
+    }, (response) => {
+      response.on('data', () => {});
+      response.on('close', () => resolve('closed'));
+      response.on('error', () => resolve('closed'));
+    });
+    request.on('error', () => resolve('closed'));
+    request.end();
+  });
+  await until(() => server.streams.counts().polls === 1 && server.streams.counts().sse === 1, { what: 'the feeds to open' });
+
+  const lost = server.pairing.list().find((device) => device.name === 'Lost phone');
+  assert.equal(server.pairing.revoke(lost.id), true);
+  await Promise.all([live.vzClosed, voice.vzClosed, sse.vzClosed, held]);
+  await until(() => server.streams.counts().sse === 0 && server.streams.counts().polls === 0, { what: 'the feeds to go' });
+  assert.equal(voiced[0].readyState === voiced[0].OPEN, false, 'the voice socket is closed on the server too');
+  assert.equal(server.streams.counts().sockets, 1, 'only the other device is left');
+
+  const heard = new Promise((resolve) => { keeper.once('message', (data) => resolve(JSON.parse(data))); });
+  ship(engine.store);
+  assert.equal((await heard).e.type, 'ship.created', 'the other device still hears everything');
+  keeper.terminate();
+});
+
+test('a session ends after its year, whatever the cookie says', (t) => {
+  let clock = 1000;
+  const forgotten = [];
+  const pairing = pairingFor(t, { now: () => clock, onForget: (id) => forgotten.push(id) });
+  const { secret, device } = pairing.claim({ pin: pairing.start().pin, name: 'iPad' });
+  clock += 364 * 24 * 3600 * 1000;
+  assert.equal(pairing.verify(secret)?.id, device.id);
+  clock += 2 * 24 * 3600 * 1000;
+  assert.equal(pairing.verify(secret), null);
+  assert.deepEqual(forgotten, [device.id], 'what it had open goes with it');
+  assert.deepEqual(pairing.list(), []);
+});
+
+test('a device paired in a demo is written apart, and the real server has never heard of it', async (t) => {
+  const dir = testDir(t);
+  const config = { root: dir, port: 0 };
+  const demo = createSimEngine({ autostart: false, ambient: false, config });
+  t.after(() => demo.close());
+  const { port, ask, server: demoServer, lanPort } = await lanServer(t, { engine: demo });
+  const started = await raw({ port, path: '/api/pair/start', method: 'POST', headers: { origin: `http://127.0.0.1:${port}` } });
+  assert.equal(started.status, 200);
+  const origin = `https://${LAN_NAME}:${lanPort}`;
+  const claim = await ask({ path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin: started.json.pin, name: 'Demo phone' }) });
+  assert.equal(claim.status, 200);
+  const cookie = claim.headers['set-cookie'][0].split(';')[0];
+  const secret = cookie.split('=')[1];
+  const net = path.join(demo.config.dataDir, 'net');
+  assert.equal(fs.existsSync(path.join(net, 'devices.json')), false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(net, 'demo-devices.json'), 'utf8'))[0].name, 'Demo phone');
+  await demoServer.close();
+
+  const real = await lanServer(t, { engine: stubEngine(t, { dir }) });
+  assert.equal(real.server.pairing.verify(secret), null);
+  assert.equal((await real.ask({ path: '/api/state', headers: { cookie } })).status, 401);
 });
 
 test('an address change reissues the leaf and republishes the name, with no restart', async (t) => {

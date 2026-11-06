@@ -100,7 +100,7 @@ export const githubPrivate = {
     if (previousCommit) {
       if (!fs.existsSync(bare)) await tools.must(tools.gitArgv('clone', '--bare', '--no-hardlinks', '--quiet', origin.yard, bare), { what: 'Copying the source' });
       await tools.must(tools.gitAuthArgv('-C', bare, 'push', '--force', remote, `${previousCommit}:refs/heads/main`), { what: 'Moving main back' });
-      return { commit: previousCommit };
+      return { commit: previousCommit, stillOut: true };
     }
     if (created) await tools.must(tools.ghArgv('repo', 'archive', `${owner}/${repo}`, '--yes'), { what: 'Archiving the repository' });
     return { archived: created };

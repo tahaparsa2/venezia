@@ -128,7 +128,7 @@ export function helperIsBuilt({ source = HELPER_SOURCE, binDir = HELPER_BIN_DIR 
 }
 
 /**
- * Check speech on this machine, for `vz doctor`. Builds the helper if needed.
+ * Check speech on this machine, for `./vz doctor`. Builds the helper if needed.
  * @param {{locale?: string, helperPath?: string, build?: typeof buildHelper}} [options]
  * @returns {Promise<{ok: true, locale: string} | {ok: false, code: string, plain: string, detail?: string}>}
  */

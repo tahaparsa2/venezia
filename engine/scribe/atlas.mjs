@@ -3,7 +3,7 @@
 // something changed. Project text is untrusted, so it is flattened on the way in.
 
 import { COMMANDS } from '../../shared/commands.mjs';
-import { TERM, label } from '../../shared/vocabulary.mjs';
+import { TERM, isLive, label } from '../../shared/vocabulary.mjs';
 import { oneLine, tableCell } from '../portolano/text.mjs';
 
 const usd = (value) => `$${value.toFixed(2)}`;
@@ -26,7 +26,7 @@ export function renderAtlas({ state, yardsPath = '../yards' }) {
   const lessons = Object.values(state.lessons);
   const laws = lessons.filter((lesson) => lesson.status === 'law');
   const hints = lessons.filter((lesson) => lesson.status === 'candidate');
-  const launched = ships.filter((ship) => Object.values(ship.publishes).some((entry) => entry.status === 'verified')).length;
+  const launched = ships.filter(isLive).length;
 
   const lines = [
     '# Atlas',

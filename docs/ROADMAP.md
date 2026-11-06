@@ -9,8 +9,8 @@ feature that claims otherwise.
   galleys and galleasses are tested on a fake Claude only.
 - No real publish has happened. GitHub Pages has only been rehearsed, inside preflight. `vercel`
   and `cloudflare` are probes that report what setup is needed, not adapters.
-- Pairing and LAN are tested against the real server with test clients. No physical phone has been
-  through it in a recorded test.
+- Pairing and phone access are tested over real HTTPS with Chrome acting as the phone. No physical
+  phone has been through it, so the iPhone and Android steps and the trust check on Safari are unproven.
 - Voice is tested with a fake speech helper and a fake microphone. Real speech quality is unmeasured.
 
 ## The factory

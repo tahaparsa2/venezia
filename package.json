@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node bin/vz.mjs serve",
     "sim": "node bin/vz.mjs serve --sim",
+    "vz": "node bin/vz.mjs",
     "test": "node --test --test-concurrency=4 \"test/**/*.test.mjs\"",
     "test:ui": "node test/ui/run-all.mjs",
     "doctor": "node bin/vz.mjs doctor"

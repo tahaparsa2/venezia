@@ -1,14 +1,14 @@
 // What the folio says. Plain English first, since anything that affects a choice must be
 // understood without the fiction. `plain` picks the twin words in plain mode.
 
-import { TERM, label } from '/shared/vocabulary.mjs';
+import { LOCAL_TARGETS, TERM, label } from '/shared/vocabulary.mjs';
 
 const say = (plain, id) => label(id, { plain });
 
 /** Publish targets in the order of how far they reach. SPEC 9. */
 /** Where a ship can really be opened now. A local publish lives and dies with its preview. */
 export function livePlaces(ship) {
-  return Object.values(ship.publishes).filter((entry) => entry.status === 'verified' && entry.url && (entry.target !== 'local' || ship.preview));
+  return Object.values(ship.publishes).filter((entry) => entry.url && (entry.live || (entry.target === 'local' && entry.status === 'verified' && ship.preview)));
 }
 
 export const TARGETS = Object.freeze([
@@ -218,8 +218,12 @@ export function simpleLine(event, plain, ship = null) {
     case 'receipt.voided': return `lost her receipt${data.reason ? `: ${data.reason.toLowerCase()}` : ''}.`;
     case 'preview.up': return 'is running locally, for you to try.';
     case 'publish.applied': return `went out to ${TARGET[data.target]?.name ?? data.target}.`;
-    case 'publish.verified': return `is live on ${TARGET[data.target]?.name ?? data.target}. The live check passed.`;
-    case 'publish.rolledback': return 'failed the live check and was rolled back. Nothing is live.';
+    case 'publish.verified': return LOCAL_TARGETS.includes(data.target)
+      ? `was checked on ${TARGET[data.target]?.name ?? data.target}. It stays on this computer.`
+      : `is live on ${TARGET[data.target]?.name ?? data.target}. The live check passed.`;
+    case 'publish.rolledback': return data.stillOut
+      ? 'failed the live check and was rolled back. The version before it is still out.'
+      : 'failed the live check and was rolled back. Nothing is live.';
     case 'lesson.drafted': return `left a lesson: ${data.text}`;
     case 'ship.rated': return `was rated ${data.score} of 5${data.note ? `: "${data.note}"` : ''}.`;
     case 'ship.state': {

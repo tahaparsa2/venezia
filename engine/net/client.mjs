@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { normaliseName } from '../../shared/names.mjs';
+import { REPO_ROOT } from '../config.mjs';
 
 export const SERVER_FILE = 'server.json';
 /** Set on every POST, so the server can tell the CLI and MCP from a browser. */
@@ -14,6 +15,12 @@ export const SURFACE_HEADER = 'x-venezia-surface';
 export const SURFACE_KEY_HEADER = 'x-venezia-key';
 
 export class ClientError extends Error {}
+
+/** A path as it is typed at a prompt, quoted only if it has to be. */
+const shellPath = (folder) => (/^[\w@%+=:,./-]+$/.test(folder) ? folder : `'${folder.replaceAll("'", "'\\''")}'`);
+
+/** What to type to start the server, from anywhere. */
+export const startCommand = () => `cd ${shellPath(REPO_ROOT)} && npm start`;
 
 /** Where a running server keeps the key the CLI proves itself with. */
 export const surfaceKeyFile = (config) => path.join(config.dataDir, 'net', 'surface.key');
@@ -37,7 +44,7 @@ export function readSurfaceKey(config) {
   }
 }
 
-/** Where `vz serve` leaves its address. */
+/** Where `./vz serve` leaves its address. */
 export const serverFile = (config) => path.join(config.dataDir, SERVER_FILE);
 
 function pidAlive(pid) {
@@ -79,7 +86,7 @@ export function createClient({ url, surface, key }) {
     try {
       response = await fetch(`${base}${route}`, init);
     } catch {
-      throw new ClientError(`Venezia is not running at ${base}. Start it with: vz serve`);
+      throw new ClientError(`Venezia is not running at ${base}. Start it in another Terminal window with: ${startCommand()}`);
     }
     const text = await response.text();
     let body;
@@ -144,6 +151,8 @@ export function createClient({ url, surface, key }) {
     },
 
     pairStart: () => post('/api/pair/start', {}),
+    phoneAccess: () => get('/api/phone-access'),
+    phoneOff: () => post('/api/phone-access/off', {}),
     devices: () => get('/api/devices'),
     revokeDevice: (id) => post('/api/devices/revoke', { id }),
   };
@@ -167,7 +176,7 @@ const APPROVING = /^(approve|allow|accept|yes|ok|noted|publish|confirm|retry|pro
 const REJECTING = /^(reject|deny|refuse|no\b|decline|cancel|abort|stop|keep|burn)/i;
 
 /**
- * Which option `vz approve` or `vz reject` means on this decision.
+ * Which option `./vz approve` or `./vz reject` means on this decision.
  * @param {any} decision
  * @param {'approve'|'reject'} intent
  * @returns {any} the option

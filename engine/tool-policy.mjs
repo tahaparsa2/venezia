@@ -266,7 +266,7 @@ function gitVerb(args) {
 /** Why a simple command is a publish route or otherwise barred, or null. */
 function barred({ program, args }) {
   if (BARRED_PROGRAMS.includes(program)) return `${program} is not available to workers`;
-  if (args.some((arg) => baseName(arg) === 'vz.mjs')) return 'A worker cannot drive the factory';
+  if (args.some((arg) => baseName(arg) === 'vz.mjs' || (arg.includes('/') && baseName(arg) === 'vz'))) return 'A worker cannot drive the factory';
   if (program === 'git') {
     const { verb, rest } = gitVerb(args);
     const pushes = verb === 'push' || verb === 'send-email' || ((verb === 'subtree' || verb === 'lfs') && rest[0] === 'push');
@@ -275,6 +275,8 @@ function barred({ program, args }) {
   if (PACKAGE_MANAGERS.has(program)) {
     const verb = program === 'yarn' && firstPlain(args) === 'npm' ? firstPlain(args.slice(args.indexOf('npm') + 1)) : firstPlain(args);
     if (PUBLISH_VERBS.includes(verb)) return `${program} ${verb} is not available to workers`;
+    const script = args.findIndex((arg) => arg === 'run' || arg === 'run-script');
+    if (script >= 0 && firstPlain(args.slice(script + 1)) === 'vz') return 'A worker cannot drive the factory';
   }
   if (PUBLISH_PAIRS[program]?.includes(firstPlain(args))) return `${program} ${firstPlain(args)} is not available to workers`;
   if (program === 'rsync' && args.some((arg) => !arg.startsWith('-') && /^[^/]+:/.test(arg))) return 'rsync to another machine is not available to workers';

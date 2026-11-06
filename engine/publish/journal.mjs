@@ -15,7 +15,8 @@ export function createJournal(file, { now = Date.now } = {}) {
   /** A line cut short by a crash is ignored. Every line before it is whole. */
   const entries = [];
   if (fs.existsSync(file)) {
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const line of text.split('\n')) {
       if (!line) continue;
       try {
         entries.push(JSON.parse(line));
@@ -23,6 +24,8 @@ export function createJournal(file, { now = Date.now } = {}) {
         // Torn final line.
       }
     }
+    // The next entry must start a line of its own, or it joins the torn one and is lost with it.
+    if (text && !text.endsWith('\n')) fs.appendFileSync(file, '\n');
   }
 
   const append = (entry) => {
@@ -40,6 +43,12 @@ export function createJournal(file, { now = Date.now } = {}) {
 
   const latestFor = (planHash) => entries.findLast((entry) => entry.planHash === planHash);
 
+  /** The newest note of a kind since this plan's last intent. Notes never change what `latestFor` sees. */
+  const noteFor = (kind, planHash) => {
+    const since = entries.findLastIndex((entry) => entry.kind === 'intent' && entry.planHash === planHash);
+    return entries.slice(since + 1).findLast((entry) => entry.kind === kind && entry.about === planHash) ?? null;
+  };
+
   return {
     intent: (plan, extra = {}) => append({
       kind: 'intent', planHash: plan.hash, target: plan.target, shipId: plan.shipId, slug: plan.slug, ...extra,
@@ -48,6 +57,15 @@ export function createJournal(file, { now = Date.now } = {}) {
     failure: (planHash, reason) => append({ kind: 'failure', planHash, reason }),
     rollback: (planHash, receipt) => append({ kind: 'rollback', planHash, receipt }),
     grant: (target, planHash) => append({ kind: 'grant', target, grantedBy: planHash }),
+    /** On disk before a push: what a rollback needs, so a crash cannot lose the state before it. */
+    prepared: (planHash, facts) => append({ kind: 'prepared', about: planHash, facts }),
+    /** This plan's publish passed its live check. */
+    verified: (planHash) => append({ kind: 'verified', about: planHash }),
+
+    /** What this run of a plan was about to push, if it got that far. */
+    preparedFor: (planHash) => noteFor('prepared', planHash)?.facts ?? null,
+    /** Whether this run of a plan has ever passed its live check. */
+    wasVerified: (planHash) => noteFor('verified', planHash) !== null,
 
     /** The receipt for a plan that is published right now. */
     receiptFor(planHash) {

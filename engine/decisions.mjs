@@ -18,7 +18,7 @@ const HELD_KINDS = new Set(['tool', 'network']);
 /** Surfaces a model or a stray sentence can reach. They may ask for tier 3 and above, and never approve it. */
 const CANNOT_APPROVE = Object.freeze({
   voice: 'Voice cannot approve this. Use a tap or a key.',
-  mcp: 'An agent cannot approve this. A person has to hold it on the deck, or run vz approve --confirm.',
+  mcp: 'An agent cannot approve this. A person has to hold it on the deck, or run ./vz approve --confirm.',
 });
 
 const DEFAULT_APPROVAL_TTL_MS = 5 * 60 * 1000;

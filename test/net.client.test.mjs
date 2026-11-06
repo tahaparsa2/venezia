@@ -78,7 +78,7 @@ test('the server address: flag, then environment, then the running server, then 
 
 test('no server gives one clear sentence', async () => {
   const client = createClient({ url: 'http://127.0.0.1:9' });
-  await assert.rejects(client.state(), /not running at .* vz serve/);
+  await assert.rejects(client.state(), /not running at .* cd .* && npm start/);
 });
 
 test('a ship exports its whole story as Markdown', () => {

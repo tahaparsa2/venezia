@@ -1,4 +1,4 @@
-// `vz doctor`: is this machine ready to run the factory? Each check says what it found in plain
+// `./vz doctor`: is this machine ready to run the factory? Each check says what it found in plain
 // English and what to do about it. The protocol smoke test costs nothing: `initialize` works
 // before any user message, so no model is ever called.
 

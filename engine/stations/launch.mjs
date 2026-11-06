@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { PUBLISHABLE, RENOWN_AWARDS, whyNoPrototype } from '../../shared/vocabulary.mjs';
+import { PUBLISHABLE, RENOWN_AWARDS, isLive, whyNoPrototype } from '../../shared/vocabulary.mjs';
 import { folderHash } from '../gate/artifact.mjs';
 import { EVIDENCE_FILE, SITE_FOLDER, TREE_FOLDER } from '../gate/index.mjs';
 import { sha256 } from '../gate/util.mjs';
@@ -16,6 +16,8 @@ import { block, clip, go, halt, latestCard, nameOf, onVisit, wait } from './shar
 
 const REFUSED = new Set(['reject', 'keep']);
 const SOURCE_SKIP = ['node_modules', '.git', '.venezia'];
+
+const VOIDED = 'The code changed after the gate passed, so the receipt was voided and nothing can leave. Use refit to prove it again.';
 
 const planFile = (ctx, shipId) => path.join(ctx.config.dataDir, 'publish', 'plans', `${shipId}.json`);
 
@@ -93,6 +95,14 @@ export function checkReceipt(ctx, ship) {
   if (!problem) return true;
   ctx.store.append({ type: 'receipt.voided', shipId: ship.id, actor: 'receipt', data: { reason: problem } });
   return false;
+}
+
+/** A void receipt stops a publish wherever it is found, so nothing left is waiting to go out. */
+function receiptGone(ctx, ship) {
+  dropPlan(ctx, ship.id);
+  if (ship.state !== 'done') return openKeepCard(ctx, ship, VOIDED);
+  ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'host', data: { bell: 'pregadi', reason: `${nameOf(ship)} was not published: ${VOIDED}` } });
+  return wait();
 }
 
 /**
@@ -182,7 +192,7 @@ async function offerLocal(ctx, ship) {
   let saved = '';
   try {
     const artifact = await ctx.broker.artifact({
-      shipId: ship.id, yard: yardPath(ctx.config, ship.id), evidenceDir: ship.artifacts.evidence.path, evidenceHash: ship.receipt.evidenceHash, slug: slugOf(ship),
+      shipId: ship.id, yard: yardPath(ctx.config, ship.id), evidenceDir: ship.artifacts.evidence.path, evidenceHash: ship.receipt.evidenceHash, slug: slugOf(ship), contract: lockedCopy(ship),
     });
     const plan = await ctx.broker.plan('tarball', artifact);
     const preflight = await ctx.broker.preflight(plan);
@@ -196,6 +206,9 @@ async function offerLocal(ctx, ship) {
   return openKeepCard(ctx, ship, `${where}${saved} Finish when you have seen it, or publish it somewhere first.`, `${nameOf(ship)} is ready for you`);
 }
 
+/** Where the host keeps the contract, out of every builder's reach. */
+const lockedCopy = (ship) => (ship.artifacts.contract ? { path: ship.artifacts.contract.path, hash: ship.artifacts.contract.hash } : null);
+
 async function planPublish(ctx, ship, target, { again = false, asked = false } = {}) {
   let plan;
   let preflight;
@@ -206,6 +219,7 @@ async function planPublish(ctx, ship, target, { again = false, asked = false } =
       evidenceDir: ship.artifacts.evidence.path,
       evidenceHash: ship.receipt.evidenceHash,
       slug: slugOf(ship),
+      contract: lockedCopy(ship),
     });
     plan = await ctx.broker.plan(target, artifact);
     preflight = await ctx.broker.preflight(plan);
@@ -215,6 +229,8 @@ async function planPublish(ctx, ship, target, { again = false, asked = false } =
   }
   // Planning takes a while. A scuttle or a refit since then leaves nothing to approve.
   if (!onVisit(ctx, ship)) return halt();
+  // So can a commit landing, and nothing else looks at the tree in that time.
+  if (!checkReceipt(ctx, ship)) return receiptGone(ctx, ctx.ship(ship.id));
   if (!preflight.ok) {
     return openKeepCard(ctx, ship, `Publishing was refused at ${preflight.failed}: ${preflight.steps.at(-1).detail}`);
   }
@@ -233,7 +249,7 @@ async function planPublish(ctx, ship, target, { again = false, asked = false } =
     ...card,
     shipId: ship.id,
     title: again ? `Try publishing ${nameOf(ship)} again?` : card.title,
-    plain: again ? `The last attempt did not stay live, so nothing is published. ${card.plain}` : card.plain,
+    plain: again ? `${isLive(ship) ? 'The last attempt did not stay live, so the version before it is still out.' : 'The last attempt did not go live, so nothing is published.'} ${card.plain}` : card.plain,
     options: card.options.map((option) => (option.id === 'reject' ? { ...option, label: 'Keep it local' } : option)),
   });
   // Only now: a plan on disk with no card of its own would match an approval already used.
@@ -265,8 +281,7 @@ export async function ready(ctx, ship) {
     if (card?.resolvedAt === null && !card.payloadHash) return wait();
     if (card?.resolution?.optionId === 'keep') return go('learning');
     if (card?.resolvedAt === null) ctx.decisions.withdraw(card.id, 'The receipt no longer holds.');
-    dropPlan(ctx, ship.id);
-    return openKeepCard(ctx, ctx.ship(ship.id), 'The code changed after the gate passed, so the receipt was voided and nothing can leave. Use refit to prove it again.');
+    return receiptGone(ctx, ctx.ship(ship.id));
   }
   await ensurePreview(ctx, ship);
   noteUnheard(ctx, ship);
@@ -301,9 +316,7 @@ export async function done(ctx, ship) {
     if (!asked && !plan && !open) return wait();
     if (!checkReceipt(ctx, ship)) {
       if (open) ctx.decisions.withdraw(card.id, 'The receipt no longer holds.');
-      dropPlan(ctx, ship.id);
-      ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'host', data: { bell: 'pregadi', reason: `${nameOf(ship)} was not published: the code changed after the gate passed, so the receipt was voided. Use refit to prove it again.` } });
-      return wait();
+      return receiptGone(ctx, ship);
     }
     if (open) return wait();
     if (card?.resolution?.optionId === 'approve' && plan?.hash === card.payloadHash) return go('publishing');
@@ -321,10 +334,21 @@ export async function publishing(ctx, ship) {
   const plan = loadPlan(ctx, ship.id);
   if (!plan) return go(home);
 
+  // With an intent or a receipt on file it has gone out, and only finishing it is left to do.
+  const { journal } = ctx.broker;
+  if (!journal.interrupted(plan.hash) && !journal.receiptFor(plan.hash) && !checkReceipt(ctx, ship)) {
+    dropPlan(ctx, ship.id);
+    if (home === 'done') ctx.store.append({ type: 'bell.rung', shipId: ship.id, actor: 'host', data: { bell: 'pregadi', reason: `${nameOf(ship)} was not published: ${VOIDED}` } });
+    return go(home);
+  }
+
   const card = latestCard(ctx, ship.id, 'publish');
   const approved = card?.payloadHash === plan.hash && card.resolution?.optionId === 'approve';
-  // The answer and how it was given are on the log, so this holds across a restart.
-  const token = approved ? ctx.broker.approve(plan, { via: card.resolution.via ?? 'tap' }) : undefined;
+  // The answer, when it came and how are on the log, so this holds across a restart. The clock
+  // runs from that yes, and one yes publishes once: past its time, it has to be asked for again.
+  const token = approved
+    ? ctx.broker.approve(plan, { via: card.resolution.via ?? 'tap', at: card.resolvedAt, nonce: sha256(card.id).slice(0, 18) })
+    : undefined;
   const outcome = await ctx.broker.finish(plan, token);
   // The host could not look, so the site may be fine. The plan and the journal keep it open.
   if (outcome.status === 'unverified') {

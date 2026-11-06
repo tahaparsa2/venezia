@@ -238,7 +238,8 @@ function audit({ touch, width, height }) {
       if (vertical && element.scrollHeight > element.clientHeight + 2) complaints.push(`text cut off: ${name(element)} ${element.scrollHeight}>${element.clientHeight}`);
       if (!vertical && !ellipsis && element.scrollWidth > element.clientWidth + 2) complaints.push(`text cut off: ${name(element)} ${element.scrollWidth}>${element.clientWidth}`);
     }
-    if (element.children.length === 0 && box.right > width + 1 && !scrolls(element)) complaints.push(`text off the right edge: ${name(element)}`);
+    // The ticker's line rolls through its paper slot on purpose, clipped and faded at both ends.
+    if (element.children.length === 0 && box.right > width + 1 && !scrolls(element) && !element.closest('.ticker__paper')) complaints.push(`text off the right edge: ${name(element)}`);
     if (element.children.length === 0 && box.bottom > height + 1 && !scrolls(element) && !offstage(element)) complaints.push(`text off the bottom: ${name(element)}`);
     if (parseFloat(style.fontSize) < 10.5 && element.children.length === 0 && !element.closest('svg')) complaints.push(`tiny text: ${name(element)} ${style.fontSize}`);
 

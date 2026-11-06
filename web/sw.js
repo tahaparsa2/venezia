@@ -11,7 +11,7 @@ const SHELL = [
   '/css/tokens.css', '/css/base.css', '/css/world.css', '/css/folio.css', '/css/cards.css', '/css/deck.css', '/css/intake.css',
   '/js/main.js', '/js/a11y.js', '/js/commands.js', '/js/layout.js', '/js/store.js', '/js/transport.js',
   '/js/world/index.js', '/js/folio/index.js', '/js/cards/index.js', '/js/deck/index.js', '/js/intake/index.js',
-  '/shared/commands.mjs', '/shared/names.mjs', '/shared/reducer.mjs', '/shared/sim.mjs', '/shared/vocabulary.mjs',
+  '/shared/commands.mjs', '/shared/names.mjs', '/shared/pairing.mjs', '/shared/reducer.mjs', '/shared/sim.mjs', '/shared/vocabulary.mjs',
   '/fonts/cardo-latin-400-normal.woff2', '/fonts/cardo-latin-400-italic.woff2', '/fonts/cardo-latin-700-normal.woff2',
   '/fonts/dm-mono-latin-400-normal.woff2', '/fonts/dm-mono-latin-500-normal.woff2',
   '/icons/icon.svg', '/icons/icon-192.png', '/icons/apple-touch-icon.png',

@@ -10,7 +10,7 @@ The factory's memory, in files you can read. A portolano was a sailor's book of 
 
 The event log is the source of truth, and these files mirror it. To change what workers are told, use the lesson commands, not these files:
 
-- `vz lessons` lists lessons.
+- `./vz lessons` lists lessons.
 - Promote a lesson to make it a rule. Only you can do that.
 - Burn a lesson to throw it away. Burning a rule adds a "Withdrawn" entry to the Mariegola, and the original stays.
 

@@ -107,7 +107,7 @@ try {
   await page.click('.page-settings .act-now');
   await page.waitForTimeout(500);
   const said = await page.textContent('.pair');
-  check('pairing without --lan says what to do', /--lan|LAN/.test(said), said);
+  check('pairing in the demo says it needs the real factory, in one line', said.trim() === 'Pairing needs the real factory. Stop the demo, then run: npm start', said);
   await page.screenshot({ path: path.join(SHOTS, 'folio-real-settings.png') });
 
   const noise = errors.filter((text) => !/status of 40[0-9]|409/.test(text));

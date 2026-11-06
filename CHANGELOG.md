@@ -2,6 +2,19 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Phone access starts on demand, with no restart, after a yes on the Mac: from Show a pairing code in Settings, or `./vz pair`. A loopback-only server is still the default, and `--lan` still works.
+- Settings shows Phone access is on, with a Turn off button. `./vz pair --off` does the same. It closes the listeners and disconnects devices without unpairing them.
+- The pairing panel, `./vz pair` and the `/pair` page give the first-time steps in order, for iPhone and Android, and say plainly that no real phone has tried them. `/pair` checks whether the phone trusts the certificate and says what to do next.
+- A `./vz` wrapper that needs nothing installed and works from any folder and through a symlink, plus `npm run vz --`.
+
+### Changed
+
+- Every hint now gives a command that works. When the server is not running, the message gives the exact line, including the `cd`.
+
 ## 0.1.0 - 2026-11-05
 
 The first version, not yet published.

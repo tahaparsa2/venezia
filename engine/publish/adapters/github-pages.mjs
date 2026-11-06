@@ -31,6 +31,18 @@ const headOf = async (tools, work) => {
   return result.ok ? result.stdout.trim() : null;
 };
 
+/** The branch's tip on the remote now, or null if there is no such branch. Read-only. */
+async function remoteHead(tools, remote) {
+  const listed = await tools.must(tools.gitAuthArgv('ls-remote', remote, `refs/heads/${BRANCH}`), { what: 'Reading the output repository' });
+  return listed.stdout.split(/\s/)[0] || null;
+}
+
+/** Whether a push that failed may have landed anyway. Unable to look counts as yes. */
+async function mayHaveLanded(tools, remote, commit) {
+  const listed = await tools.exec(tools.gitAuthArgv('ls-remote', remote, `refs/heads/${BRANCH}`));
+  return !listed.ok || listed.stdout.startsWith(commit);
+}
+
 async function openCheckout(tools, { work, remote, branchExists }) {
   fs.rmSync(work, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(work), { recursive: true });
@@ -124,39 +136,57 @@ export const githubPages = {
     return { ok: problems.length === 0, problems, note: 'Rehearsed against a local repository. Nothing remote changed.' };
   },
 
+  /**
+   * What is on the remote decides what happens, not the plan, which is older than any crash. A
+   * push that landed before a crash is adopted, with the state from before it, off the journal.
+   */
   async apply(plan, ctx) {
-    const { owner, repo, remote, work, createRepo, branchExists, enablePages } = plan.details;
+    const { owner, repo, remote, work, createRepo, enablePages } = plan.details;
     const tools = ctx.bound;
-    if (createRepo && !(await repoExists(ctx.tools, owner, repo))) {
-      await tools.must(tools.ghArgv('repo', 'create', `${owner}/${repo}`, '--public', '--disable-issues', '--disable-wiki'), { what: 'Creating the public repository' });
-    }
-    await openCheckout(tools, { work, remote, branchExists });
-    const previous = await headOf(ctx.tools, work);
-    const hadSite = fs.existsSync(path.join(work, plan.slug));
-    await commitSite({ tools: ctx.tools, work, slug: plan.slug, payload: ctx.stage, message: `Publish ${plan.slug} (${plan.hash.slice(0, 12)})`, firstTime: !branchExists });
-    const commit = await headOf(ctx.tools, work);
-    await tools.must(tools.gitAuthArgv('-C', work, 'push', remote, BRANCH), { what: 'Pushing the site' });
-    const receipt = { url: plan.expectedUrl, owner, repo, remote, commit, previous, hadSite };
+    const place = { url: plan.expectedUrl, owner, repo, remote };
+    let out = ctx.prepared;
+    let sent = false;
 
-    // The site is out from here on, so a failure must carry what the rollback needs.
+    // The site is out from the push on, so a failure must carry what the rollback needs.
     try {
-      if (enablePages) {
+      if (createRepo && !(await repoExists(ctx.tools, owner, repo))) {
+        await tools.must(tools.ghArgv('repo', 'create', `${owner}/${repo}`, '--public', '--disable-issues', '--disable-wiki'), { what: 'Creating the public repository' });
+      }
+      const head = await remoteHead(ctx.tools, remote);
+      await openCheckout(ctx.tools, { work, remote, branchExists: head !== null });
+      sent = Boolean(out) && head !== null
+        && (await ctx.tools.exec(ctx.tools.gitArgv('-C', work, 'merge-base', '--is-ancestor', out.commit, 'HEAD'))).ok;
+      if (!sent) {
+        const previous = await headOf(ctx.tools, work);
+        const hadSite = fs.existsSync(path.join(work, plan.slug));
+        await commitSite({ tools: ctx.tools, work, slug: plan.slug, payload: ctx.stage, message: `Publish ${plan.slug} (${plan.hash.slice(0, 12)})`, firstTime: head === null });
+        out = { ...place, commit: await headOf(ctx.tools, work), previous, hadSite };
+        ctx.prepare(out);
+        await tools.must(tools.gitAuthArgv('-C', work, 'push', remote, BRANCH), { what: 'Pushing the site' });
+        sent = true;
+      }
+
+      // After a crash the Pages switch may be on already, and turning it on twice is an error.
+      const pagesOff = enablePages && !(ctx.resuming && (await ctx.tools.exec(ctx.tools.ghArgv('api', `repos/${owner}/${repo}/pages`))).ok);
+      if (pagesOff) {
         await tools.must(tools.ghArgv('api', '-X', 'POST', `repos/${owner}/${repo}/pages`, '--input', '-'), { what: 'Turning on GitHub Pages', input: PAGES_SOURCE });
       }
+      // Another site may have landed on top of an adopted push, and the build follows the tip.
+      const tip = await headOf(ctx.tools, work);
       const buildStatus = tools.ghArgv('api', `repos/${owner}/${repo}/pages/builds/latest`, ...BUILD_FIELDS);
       const deadline = ctx.now() + ctx.pagesBuildTimeoutMs;
       for (;;) {
         const [status, built] = (await tools.must(buildStatus, { what: 'Checking the Pages build' })).stdout.trim().split('\t');
-        if (built === commit && status === 'built') break;
-        if (built === commit && status === 'errored') throw new Error('GitHub Pages could not build the site');
+        if (built === tip && status === 'built') break;
+        if (built === tip && status === 'errored') throw new Error('GitHub Pages could not build the site');
         if (ctx.now() > deadline) throw new Error('GitHub Pages did not finish building in time');
         await ctx.sleep(ctx.pollMs);
       }
     } catch (error) {
-      error.partial = receipt;
+      if (out && (sent || await mayHaveLanded(ctx.tools, remote, out.commit))) error.partial = out;
       throw error;
     }
-    return receipt;
+    return out;
   },
 
   async verify(receipt, ctx) {
@@ -177,7 +207,8 @@ export const githubPages = {
       await tools.must(tools.gitAuthArgv('-C', work, 'push', remote, BRANCH), { what: 'Pushing the rollback' });
     }
     const commit = await headOf(tools, work);
+    const stillOut = fs.existsSync(path.join(work, slug));
     fs.rmSync(work, { recursive: true, force: true });
-    return { commit, restored: hadSite };
+    return { commit, restored: hadSite, stillOut };
   },
 };

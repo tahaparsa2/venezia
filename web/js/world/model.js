@@ -1,7 +1,7 @@
 // What the world should show, worked out from reduced state alone. No DOM and no clock except
 // the moon's, so a scrub through history draws exactly what the factory looked like then.
 
-import { STATE, STATION, STATIONS } from '/shared/vocabulary.mjs';
+import { STATE, STATION, STATIONS, isLive } from '/shared/vocabulary.mjs';
 
 /** How far along the street each pipeline state sits, in stations: 0 Bocca to 5 Portolano. */
 const ALONG = Object.freeze({
@@ -63,7 +63,7 @@ function badgeOf(ship, voided) {
   if (ship.state === 'paused') return 'paused';
   if (voided) return 'voided';
   if (ship.state === 'publishing') return 'publishing';
-  if (ship.state === 'launched') return 'live';
+  if (ship.state === 'launched') return isLive(ship) ? 'live' : 'saved';
   if (ship.state === 'done') return ship.unread ? 'done' : '';
   if (ship.receipt) return 'proved';
   if (ship.state === 'building' && ship.hull.total > 0) return `${ship.hull.done}/${ship.hull.total}`;
