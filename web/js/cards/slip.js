@@ -39,7 +39,7 @@ export function createSlip(store, voice) {
   }, h('span', { class: 'verb__word', text: VERB_WORD[id] }), h('span', { class: 'verb__hint', text: VERB_HINT[id] }))]));
   const stop = h('button', { type: 'button', class: 'verb verb--stop', text: 'Stop', on: { click: () => voice.stopShip() } });
   const refit = h('button', { type: 'button', class: 'verb', on: { click: () => voice.refit() } },
-    h('span', { class: 'verb__word', text: 'Refit' }), h('span', { class: 'verb__hint', text: 'A new contract version' }));
+    h('span', { class: 'verb__word', text: 'Change it' }), h('span', { class: 'verb__hint', text: 'A new contract version' }));
   const create = h('button', { type: 'button', class: 'verb', on: { click: () => voice.create() } },
     h('span', { class: 'verb__word', text: 'New project' }), h('span', { class: 'verb__hint', text: 'Start from this idea' }));
   const confirm = h('button', { type: 'button', class: 'verb verb--main', text: 'Do it', on: { click: () => voice.confirm() } });

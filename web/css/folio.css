@@ -29,7 +29,9 @@
 .run-back::after{content:'';position:absolute;inset:-14px -8px}
 .run-head:has(.run-back:not([hidden])){justify-content:space-between}
 .x{min-width:var(--tap);min-height:var(--tap);margin:-14px -12px -14px 0;font:400 22px/1 var(--serif);color:var(--ink-soft)}
-.folio-close{display:none}
+.folio-close{display:none;margin-left:auto}
+/* A page's head has a title of its own, so on a desk the running head would only repeat it. */
+:root[data-layout=desk] .folio:not([data-page=ship]) .run-head,:root[data-layout=ultrawide] .folio:not([data-page=ship]) .run-head{display:none}
 :root[data-layout=phone] .folio-close,:root[data-layout=landscape] .folio-close{display:block}
 :root[data-layout=phone] .run-head{padding-bottom:var(--s1)}
 
@@ -51,10 +53,10 @@
 :root[data-layout=phone] .folio-head{padding-top:var(--s2)}
 
 /* The water street: where she has got to, drawn as six windows on one line. */
-.street{display:flex;align-items:flex-start;height:auto;margin-top:var(--s2);padding-right:34px}
-.street li{flex:1 1 0;position:relative;height:30px}
-.street li:last-child{flex:0 0 9px}
-.street-word{position:absolute;left:-1px;top:15px;font:400 var(--fs-micro)/1.2 var(--mono);letter-spacing:-.02em;color:var(--ink-muted);white-space:nowrap}
+.street{display:flex;align-items:flex-start;height:auto;margin-top:var(--s2)}
+.street li{flex:1 1 auto;position:relative;height:30px;padding-right:4px}
+.street li:last-child{flex:0 0 auto;padding-right:0}
+.street-word{display:block;padding-top:15px;font:400 var(--fs-micro)/1.2 var(--mono);letter-spacing:-.03em;color:var(--ink-muted);white-space:nowrap}
 .street li[data-at=here] .street-word{color:var(--ink);font-weight:500}
 .street li::before{content:'';position:absolute;left:0;right:0;top:6px;height:1px;background:var(--rule-soft)}
 .street li:last-child::before{display:none}
@@ -333,7 +335,8 @@
 .panel-head{flex:none;padding:var(--s3) 0 var(--s3)}
 .panel-title{font:400 var(--fs-head)/1.05 var(--serif);letter-spacing:-.005em}
 .panel-name{font-weight:700}
-.panel-aside{margin-left:.35em;font:italic 400 var(--fs-body)/1 var(--serif);letter-spacing:0;color:var(--ink-muted);white-space:nowrap}
+.panel-aside{margin-left:.35em;font:italic 400 var(--fs-body)/1 var(--serif);letter-spacing:0;color:var(--ink-muted)}
+.panel-title:focus-visible,.hull-name:focus-visible{outline:none}
 :root[data-layout=desk] .panel-title,:root[data-layout=ultrawide] .panel-title{font-size:2rem}
 .panel-say{margin-top:var(--s1);font:italic 400 var(--fs-body)/1.3 var(--serif);color:var(--ink-soft)}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px var(--s4) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
@@ -346,7 +349,8 @@
 .renown{display:flex;flex-direction:column;gap:3px;margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--ink)}
 .renown b{font:400 var(--fs-body)/1.25 var(--serif);color:var(--gold-light)}
 .renown span{font:400 var(--fs-micro)/1.3 var(--mono);color:var(--text-on-night-soft)}
-.wall-scroll{padding-top:var(--s1)}
+.page-mosaic{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
+.wall-scroll{flex:none;overflow:visible;padding:var(--s1) 0 0}
 .wall-group+.wall-group{margin-top:var(--s3)}
 .wall-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s1)}
 .wall-name{position:relative;font:italic 700 var(--fs-read)/1.2 var(--serif);color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule-soft);text-underline-offset:3px}
@@ -360,9 +364,12 @@
 .wall-keys{position:absolute;inset:0}
 .wall-key{position:absolute;display:block;min-width:24px;min-height:24px;cursor:pointer}
 .wall-key:focus-visible{outline:2px solid var(--vellum)!important;outline-offset:-1px}
-.tile-say{flex:none;margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--vellum-warm);box-shadow:inset 0 0 0 .5px var(--rule)}
+.tile-say{position:sticky;bottom:0;z-index:1;flex:none;margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--vellum-warm);box-shadow:inset 0 0 0 .5px var(--rule)}
 .tile-say[hidden]{display:none}
-.tile-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 var(--s3)}
+.page-mosaic>.panel-head,.page-mosaic>.wall-legend,.page-mosaic>.renown-why{flex:none}
+.tile-close{position:absolute;right:var(--s1);top:var(--s1);margin:0;min-height:32px;min-width:32px}
+.tile-close[hidden]{display:none}
+.tile-head{padding-right:26px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 var(--s3)}
 .tile-kind{font:700 var(--fs-body)/1.25 var(--serif)}
 .tile-when{font:400 var(--fs-micro)/1.3 var(--mono);color:var(--ink-muted)}
 .tile-means{margin-top:2px;font:400 var(--fs-small)/1.3 var(--serif);color:var(--ink-soft)}
@@ -605,11 +612,13 @@
 .help-first{counter-reset:first;display:flex;flex-direction:column;gap:var(--s1);font:400 var(--fs-small)/1.3 var(--serif)}
 .help-first li{counter-increment:first;position:relative;padding-left:22px}
 .help-first li::before{content:counter(first);position:absolute;left:0;top:0;font:700 var(--fs-small)/1.3 var(--serif);color:var(--verdigris-ink)}
-.help-list{display:flex;flex-direction:column;gap:5px;font:400 var(--fs-small)/1.28 var(--serif);color:var(--ink-soft)}
+.help-list{display:flex;flex-direction:column;gap:4px;font:400 var(--fs-small)/1.25 var(--serif);color:var(--ink-soft)}
+.help-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px var(--s3)}
+.help-pair li{align-items:center}
 .help-list li{display:flex;align-items:flex-start;gap:var(--s2)}
 .help-list b{color:var(--ink)}
 .help-num{flex:none;width:24px;font:700 var(--fs-label)/1.5 var(--serif);font-style:normal;color:var(--vermilion-ink)}
-.help-word{flex:none;width:44px}
+.help-word{flex:none}
 .help-tile{flex:none}
 .help-lamp{flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:4px;font:700 var(--fs-small)/1 var(--mono);font-style:normal;color:var(--iron-well);background:var(--lamp-off)}
 .help-lamp[data-colour=amber]{background:var(--lamp-amber)}

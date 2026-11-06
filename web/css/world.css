@@ -14,11 +14,12 @@
 .w button:focus-visible{outline:2px solid var(--vellum);outline-offset:2px}
 
 /* The HUD keeps its place when the stage lifts, so it needs its own night sky to sit on. */
-.w-hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(100% + 26px);z-index:-1;opacity:0;pointer-events:none;
-  background:linear-gradient(180deg,var(--lagoon-deep) calc(100% - 26px),transparent);transition:opacity .35s ease}
+.w-hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(100% + 6px);z-index:-1;opacity:0;pointer-events:none;
+  background:linear-gradient(180deg,var(--lagoon-deep) calc(100% - 6px),transparent);transition:opacity .35s ease}
 .w.is-lifted .w-hud::before{opacity:1}
+.w[data-chart=low] .w-hud::before{display:none}
 /* Words on a pale sky need the night brought with them: an engraved band, not a glow. */
-.w.is-day .w-hud::before{opacity:.92;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(239,228,203,.035) 3px 4px),linear-gradient(180deg,var(--lagoon-deep) calc(100% - 26px),transparent)}
+.w.is-day .w-hud::before{opacity:.92;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(239,228,203,.035) 3px 4px),linear-gradient(180deg,var(--lagoon-deep) calc(100% - 6px),transparent)}
 .w.is-day .w-weather{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 88%,transparent)}
 
 /* -------------------------------------------------------------------------- the lion */
@@ -52,6 +53,9 @@
 .w-st-plain{font:italic 400 var(--fs-label)/1 var(--serif);letter-spacing:0;text-transform:none;color:var(--text-on-night-soft)}
 .w-st-plain:empty{display:none}
 .w-st-plain::before{content:'\b7\a0'}
+.w-st-plain.is-only{font:500 var(--fs-micro)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--vellum)}
+.w-st-plain.is-only::before{content:none}
+.w-st>span:empty{display:none}
 .w-st-n{display:none;font:500 var(--fs-micro)/1 var(--mono);color:var(--lagoon-deep);background:var(--verdigris-light);padding:2px 4px;border-radius:7px;letter-spacing:0}
 .w-st.has-n .w-st-n{display:block}
 @media (hover:hover){.w-st:hover{background:var(--lagoon-lift)}}
@@ -111,7 +115,10 @@
   text-shadow:0 0 3px var(--lagoon),0 0 6px var(--lagoon),0 1px 2px var(--lagoon-deep);transition:opacity 1.6s ease}
 .w-purse{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;min-height:var(--tap);text-align:left;pointer-events:auto;justify-self:start}
 .w-fame{justify-self:end}
+.w-k{white-space:nowrap}
 .w-k::after{content:' \203A';letter-spacing:0}
+.w-k-long{display:none}
+@container world (min-width:560px){.w-k-long{display:inline}}
 .w-purse:focus-visible,.w-title:focus-visible,.w-weather:focus-visible{outline-color:var(--vellum);outline-offset:3px}
 @media (hover:hover){.w-purse:hover .w-k,.w-weather:hover span{text-decoration:underline;text-underline-offset:3px}}
 .w-fame{align-items:flex-end;text-align:right}
@@ -237,3 +244,17 @@
 
 /* On a phone the weather line runs over the mountains, so it carries its own dark plate. */
 :root[data-layout=phone] .w-weather{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 82%,transparent)}
+
+/* A short narrow chart cannot hold both names without them landing on each other. The plain one
+   stays, and the Venetian one is in Help. */
+@container world (max-width:440px){
+  .w[data-chart=low] .w-st>span{display:none}
+  .w[data-chart=low] .w-st-plain{font:500 var(--fs-micro)/1 var(--mono);color:var(--vellum)}
+  .w[data-chart=low] .w-st-plain::before{content:none}
+}
+
+/* With no shade behind the short chart's HUD, each figure carries its own, like the weather. */
+.w[data-chart=low] .w-purse{min-height:0;padding:2px 7px;background:color-mix(in srgb,var(--lagoon-deep) 82%,transparent)}
+@container world (max-width:560px){
+  .w[data-chart=low] .w-weather span{display:none}
+}

@@ -102,7 +102,7 @@ export function createTicker(store) {
     if (ships.length === 0 || state.inbox.length > 0) return null;
     if (ships.some((ship) => !AT_REST.has(ship.state))) return null;
     const finished = ships.filter((ship) => ship.state === 'done' || ship.state === 'launched').length;
-    return finished ? `${finished} finished, nothing running` : 'Nothing running';
+    return finished ? `${finished} finished` : 'All quiet';
   }
 
   function latest(state) {
@@ -120,6 +120,7 @@ export function createTicker(store) {
         restShown = rest;
         shownSeq = -1;
         set('Nothing needs you', rest, false);
+        if (paper.classList.contains('is-over')) set('Nothing needs you', '', false);
       }
       return;
     }

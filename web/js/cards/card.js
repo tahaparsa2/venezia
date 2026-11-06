@@ -19,7 +19,7 @@ function stampFor(ship) {
   if (!ship?.receipt) return null;
   return ship.receipt.voided
     ? h('span', { class: 'stamp stamp--void', text: 'Void', title: 'The code changed after it was verified' })
-    : h('span', { class: 'stamp stamp--verified', text: 'Verified', title: 'The host has a receipt for this commit' });
+    : h('span', { class: 'stamp stamp--verified', text: 'Verified', title: 'Venezia has a receipt for this exact code' });
 }
 
 /**

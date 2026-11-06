@@ -13,7 +13,7 @@ const DEPTHS = [['simple', 'Simple'], ['technical', 'Technical'], ['commentary',
 /** Margin notes: why a moment matters. Facts about the system, never about the project. */
 const GLOSS = {
   'gate.failed': 'A failure is kept, not hidden. The fix must be a new commit, and the whole gate runs again.',
-  'gate.first': 'Passing first try is the only gate that earns renown.',
+  'gate.first': 'Passing first try is the only check that earns points.',
   'receipt.issued': 'The receipt names the commit, the contract and the evidence. Change one byte and it is void.',
   'receipt.voided': 'This is why the gold dims: the proof was for code that is no longer the code.',
   'review.changes': 'The reviewer is never the builder, and has to cite evidence.',

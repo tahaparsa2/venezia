@@ -261,7 +261,8 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
   tileRow.append(tiles, tally);
   title.append(element('span', 'w-venetie', 'VENETIE'), tileRow);
   const fame = hudButton(element('button', 'w-purse w-fame'), 'mosaic', 'Verified points. Open Results');
-  const fameKey = element('span', 'w-k w-k-gold', 'Verified points');
+  const fameKey = element('span', 'w-k w-k-gold');
+  fameKey.append(element('span', 'w-k-long', 'Verified '), 'points');
   const fameValue = element('div', 'w-v');
   const fameFigure = element('b');
   fameValue.append(fameFigure, element('span', 'w-u w-u-points', 'points'));
@@ -334,8 +335,9 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
 
   function wordPlaques() {
     for (const plaque of plaques) {
-      plaque.name.textContent = word(store, plaque.id);
-      plaque.plainName.textContent = plain() ? '' : STATION[plaque.id].plain;
+      plaque.name.textContent = plain() ? '' : word(store, plaque.id);
+      plaque.plainName.textContent = STATION[plaque.id].plain;
+      plaque.plainName.classList.toggle('is-only', plain());
     }
     bocca.setAttribute('aria-label', 'New idea');
   }

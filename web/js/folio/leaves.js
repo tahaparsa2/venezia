@@ -87,9 +87,9 @@ function refitLeaf(ctx, ship, close) {
   const field = h('textarea', { class: 'leaf-field', rows: 3, 'aria-label': 'What should change', placeholder: 'Now add sharing' });
   const error = h('p', { class: 'leaf-error', 'aria-live': 'polite', hidden: true });
   const go = h('button', {
-    type: 'submit', class: 'act act-now', text: 'Refit',
+    type: 'submit', class: 'act act-now', text: 'Change it',
   });
-  return leafShell('Refit', close, h('form', {
+  return leafShell('Change this project', close, h('form', {
     onsubmit: async (event) => {
       event.preventDefault();
       const text = field.value.trim();

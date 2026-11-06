@@ -49,7 +49,7 @@ export function createNowTab(ctx) {
     type: 'button', class: `act act-verb act-verb-${verb}`, text: verb[0].toUpperCase() + verb.slice(1), onclick: () => send(verb),
     onpointerenter: () => tip(verb), onfocus: () => tip(verb), onpointerleave: () => tip(null), onblur: () => tip(null),
   })]));
-  const stop = h('button', { type: 'button', class: 'act act-stop', text: 'Stop', onclick: () => act(cmd.stop(ctx.shipId()), 'Stopped. She is paused.') });
+  const stop = h('button', { type: 'button', class: 'act act-stop', text: 'Stop', onclick: () => act(cmd.stop(ctx.shipId()), 'Stopped. It is paused.') });
   const hint = h('p', { class: 'steer-hint', 'aria-live': 'polite' });
   const steer = h('form', { class: 'steer', onsubmit: (event) => event.preventDefault() }, field,
     h('div', { class: 'verbs' }, verbs.nudge, verbs.next, verbs.now, stop), hint);
@@ -125,7 +125,7 @@ export function createNowTab(ctx) {
       setText(closedAct, 'Retry');
       closedAct.onclick = () => act(cmd.retry(ship.id), 'Retrying');
     } else {
-      setText(closedSay, state === 'scuttled' ? 'Abandoned. Nothing more can be sent.' : 'Finished. Use Refit to change it.');
+      setText(closedSay, state === 'scuttled' ? 'Abandoned. Nothing more can be sent.' : 'Finished. Press Change it to reopen it.');
     }
   }
 

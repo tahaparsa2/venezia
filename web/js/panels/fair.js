@@ -72,7 +72,7 @@ function busiest(rows) {
 
 export function createFairPanel(ctx) {
   const { store } = ctx;
-  const head = pageHead('Launched', 'the Fair of the Sensa');
+  const head = pageHead('Launched', 'the Fair');
   const grid = h('ul', { class: 'fair' });
   const empty = h('div', { class: 'fair-empty', hidden: true },
     h('p', { class: 'folio-empty-big', text: 'Nothing launched yet.' }),

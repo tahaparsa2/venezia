@@ -37,15 +37,15 @@ export function statusOf(ship, waiting = false) {
     case 'contracting': return { word: 'Writing the contract', tone: 'work' };
     case 'building': return { word: `Building, ${progress.done} of ${progress.total} done`, tone: 'work' };
     case 'proving': return { word: 'Being checked', tone: 'work' };
-    case 'repairing': return { word: 'Failed a check, being repaired', tone: 'work' };
+    case 'repairing': return { word: 'Being repaired', tone: 'work' };
     case 'reviewing': return { word: 'Being reviewed', tone: 'work' };
-    case 'ready': return { word: 'Passed, ready to publish', tone: 'ready' };
+    case 'ready': return { word: 'Ready to publish', tone: 'ready' };
     case 'publishing': return { word: 'Publishing', tone: 'work' };
     case 'launched': return { word: 'Live', tone: 'live' };
-    case 'learning': return { word: 'Writing up what it learned', tone: 'work' };
+    case 'learning': return { word: 'Writing it up', tone: 'work' };
     case 'done': return isLive(ship) ? { word: 'Finished and live', tone: 'live' } : { word: 'Finished', tone: 'done' };
     case 'paused': return { word: 'Paused', tone: 'stop' };
-    case 'blocked': return ship.blockReason === 'rate_limited' ? { word: 'Waiting for usage to refill', tone: 'work' } : { word: 'Stuck, needs you', tone: 'need' };
+    case 'blocked': return ship.blockReason === 'rate_limited' ? { word: 'Waiting for usage', tone: 'work' } : { word: 'Stuck, needs you', tone: 'need' };
     case 'failed': return { word: 'Failed', tone: 'stop' };
     case 'scuttled': return { word: 'Abandoned', tone: 'stop' };
     default: return { word: state.replaceAll('_', ' '), tone: 'work' };
@@ -89,7 +89,12 @@ export const ASKING = Object.freeze([
 const GATE_STEPS = {
   contract: { name: 'Contract read', fail: 'The contract could not be read, so nothing could be checked.' },
   install: { name: 'Installed', fail: 'The project would not install from scratch.' },
+  lockfile: { name: 'Exact versions pinned', fail: 'There is no lockfile, so the install cannot be repeated exactly.' },
   build: { name: 'Built', fail: 'The project would not build.' },
+  'build-output': { name: 'Build produced a page', fail: 'The build finished, but its page is missing or empty.' },
+  payload: { name: 'Built files are safe to ship', fail: 'Something in the built files should not be published.' },
+  'locked-surface': { name: 'Locked files untouched', fail: 'The locked part of the project was changed.' },
+  'local-only': { name: 'Stayed on this Mac', fail: 'The server was open to the network instead of only this Mac.' },
   test: { name: 'Locked tests', fail: 'A test written before the code was built does not pass.' },
   'secret-scan': { name: 'Secret scan', fail: 'Something that looks like a password or key is in the code.' },
   'start-health': { name: 'Server started', fail: 'The app did not start, or did not answer when asked.' },

@@ -8,8 +8,8 @@ const MARKS = {
   open: 'Not built yet',
   active: 'Being built',
   built: 'Built, not yet proven',
-  failed: 'Built, but the gate failed',
-  proven: 'Proven by the gate',
+  failed: 'Built, but a check failed',
+  proven: 'Checked by Venezia',
   not_met: 'The reviewer says this is not met',
   unproven: 'The reviewer could not confirm this',
 };
@@ -95,8 +95,8 @@ export function createContractTab(ctx) {
       setText(lead, hasContract ? 'The contract is written. Its work items are coming.' : 'The planner has not written the contract yet. It says what done means, before any code.');
     } else {
       setText(lead, proven === items.length
-        ? `All ${items.length} proven by the host, not by a model's word.`
-        : `${proven} of ${items.length} proven. A tick only turns gold when the host has seen it work.`);
+        ? `All ${items.length} proven by Venezia itself, not by an AI's word.`
+        : `${proven} of ${items.length} proven. A tick only turns gold when Venezia has seen it work.`);
     }
 
     syncList(list, items.map((item, index) => ({ ...item, mark: marks[index] })), (item) => item.id, () => h('li', {},

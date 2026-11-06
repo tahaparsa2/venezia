@@ -8,7 +8,7 @@ import { evidenceFile, evidenceLink, evidenceRun, pictureName, picturesIn, readE
 import { gateRuns } from '/js/folio/shiplog.js';
 import { gateStep, roleWord, TARGET, livePlaces } from '/js/folio/words.js';
 
-const seconds = (ms) => (ms === null || ms === undefined ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+const seconds = (ms) => (!ms ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 
 /** The round stamp, cut as an inline SVG so its lettering runs round the rim. */
 function stampSvg() {
@@ -46,7 +46,7 @@ export function createProofTab(ctx) {
   const steps = h('ol', { class: 'gate-steps', 'aria-label': 'Gate steps' });
   const runsHead = h('h3', { class: 'rub', text: 'Every run', hidden: true });
   const runs = h('ol', { class: 'gate-runs', hidden: true });
-  const shots = h('div', { class: 'shots', hidden: true }, h('h3', { class: 'rub', text: 'What the gate saw' }), h('div', { class: 'shots-row' }));
+  const shots = h('div', { class: 'shots', hidden: true }, h('h3', { class: 'rub', text: 'What Venezia saw' }), h('div', { class: 'shots-row' }));
   const links = h('p', { class: 'proof-links', hidden: true });
 
   const stamp = stampSvg();
@@ -96,7 +96,7 @@ export function createProofTab(ctx) {
       row.replaceChildren(...files.map((file) => {
         const src = evidenceFile(store, location, file);
         return src ? h('a', { class: 'shot', href: evidenceLink(store, location, file), target: '_blank', rel: 'noopener', 'aria-label': `Screenshot ${file}, opens larger` },
-          h('span', { class: 'shot-plate' }, h('img', { src, alt: `What the gate saw: ${file}`, loading: 'lazy', onerror: (event) => event.currentTarget.closest('.shot').remove() })),
+          h('span', { class: 'shot-plate' }, h('img', { src, alt: `What Venezia saw: ${file}`, loading: 'lazy', onerror: (event) => event.currentTarget.closest('.shot').remove() })),
           h('span', { class: 'shot-caption', text: `${pictureName(file)}, ${clock(run.ts)}` })) : null;
       }).filter(Boolean));
       shots.hidden = row.children.length === 0;
@@ -190,9 +190,9 @@ export function createProofTab(ctx) {
       setText(earlier.firstChild, `An earlier run, ${dayMonth(chosen.ts)} at ${clock(chosen.ts)}. ${chosen.ok ? 'It passed.' : 'It failed, and is kept.'}`);
     }
     if (attempts === 0) {
-      setText(lead, 'No gate has run yet. No model decides done: the host runs these checks itself.');
+      setText(lead, 'No checks have run yet. Venezia runs them itself, and no AI decides when it is done.');
     } else if (status === 'running') {
-      setText(lead, `Gate running, try ${attempts}. The host is doing this, no model is involved.`);
+      setText(lead, `Checking, try ${attempts}. Venezia is doing this itself, no AI is involved.`);
     } else if (status === 'passed') {
       setText(lead, attempts === 1 ? 'Passed on the first try.' : `Passed on try ${attempts}.`);
     } else if (status === 'idle') {
@@ -236,7 +236,7 @@ export function createProofTab(ctx) {
       setText(title, voided ? 'Receipt voided' : 'Receipt');
       setText(words, voided
         ? `${(held.voidReason ?? 'The code changed after the gate').replace(/\.?$/, '.')} Proof no longer stands until the gate passes again.`
-        : `Signed by the host on ${dayMonth(held.issuedAt)} at ${clock(held.issuedAt)}. Any later change to the code voids it.`);
+        : `Signed by Venezia on ${dayMonth(held.issuedAt)} at ${clock(held.issuedAt)}. Any later change to the code voids it.`);
       syncList(hashes, [['Commit', held.commit], ['Contract', held.contractHash], ['Evidence', held.evidenceHash]].flatMap(([term, value]) => [
         { key: `t${term}`, tag: 'dt', text: term },
         { key: `d${term}`, tag: 'dd', text: shortHash(value) },

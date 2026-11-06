@@ -525,7 +525,7 @@ function groupsOf(state) {
  */
 export function createMosaicPanel(ctx, { column = false } = {}) {
   const { store } = ctx;
-  const head = pageHead('Results', 'the Mosaic', 'Every gold tile is something Venezia checked itself, not something an AI claimed. Tap a tile to see what it proves.');
+  const head = pageHead('Results', 'the Mosaic', 'Every gold tile is something Venezia checked itself, not something an AI claimed. Choose a tile to see what it proves.');
   const points = h('p', { class: 'renown' }, h('b'), h('span'));
   const pointsWhy = h('p', { class: 'panel-note renown-why', text: POINTS_LINE });
   const walls = h('div', { class: 'wall-groups' });
@@ -540,8 +540,9 @@ export function createMosaicPanel(ctx, { column = false } = {}) {
   const tileWhen = h('span', { class: 'tile-when' });
   const tileMeans = h('p', { class: 'tile-means' });
   const tileOpen = h('button', { type: 'button', class: 'act act-now tile-open', onclick: () => openPicked() });
+  const tileClose = h('button', { type: 'button', class: 'x tile-close', 'aria-label': 'Close', text: '\u00d7', onclick: () => pick(null) });
   const tileSay = h('div', { class: 'tile-say', 'aria-live': 'polite', hidden: true },
-    h('p', { class: 'tile-head' }, tileWordEl, tileWhen), tileMeans, tileOpen);
+    h('p', { class: 'tile-head' }, tileWordEl, tileWhen), tileMeans, tileOpen, tileClose);
 
   const legend = h('ul', { class: 'wall-legend', 'aria-label': 'What the tiles mean' }, [...TESSERA_KINDS.map((kind) => kind.id), 'voided'].map((id) => {
     const sample = h('canvas', { class: 'legend-tile', 'aria-hidden': 'true' });
@@ -576,11 +577,12 @@ export function createMosaicPanel(ctx, { column = false } = {}) {
     setText(tileMeans, tile.dimmed ? TILE_MEANS.voided : TILE_MEANS[tile.kind] ?? '');
     setText(tileOpen, tile.kind === 'law' || !tile.shipId ? 'Open the Rulebook' : 'Open the evidence');
     tileOpen.hidden = tile !== picked;
+    tileClose.hidden = tile !== picked;
   }
 
   function pick(tile) {
     picked = tile;
-    for (const block of blocks.values()) block.wall.mark(tile.seq);
+    for (const block of blocks.values()) block.wall.mark(tile?.seq ?? null);
     describe(tile);
   }
 
@@ -591,7 +593,7 @@ export function createMosaicPanel(ctx, { column = false } = {}) {
     const count = h('span', { class: 'wall-count' });
     const host = h('div', { class: 'wall-body' });
     const wall = createWall({
-      store, host, scroller: body, onHover: describe, onTile: pick, pick: (state) => groupsOf(state).find((entry) => entry.id === group.id)?.tiles ?? [],
+      store, host, scroller: el, onHover: describe, onTile: pick, pick: (state) => groupsOf(state).find((entry) => entry.id === group.id)?.tiles ?? [],
     });
     block = { el: h('section', { class: 'wall-group' }, h('header', { class: 'wall-head' }, name, count), host), wall, count, name };
     blocks.set(group.id, block);

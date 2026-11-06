@@ -198,6 +198,7 @@ export function mountDeck(el, store) {
     if (ships.length === 0) return 'Steering tells a running project something. Press New idea to start one.';
     const target = store.selectedShip();
     if (target && !STEERABLE_NOT.has(target.state)) return null;
+    if (ships.some((ship) => !STEERABLE_NOT.has(ship.state))) return 'Steering talks to one project. Press its lamp first, then Steer.';
     return 'Steering tells a running project something, and none is running. Open one from Projects, or press New idea.';
   }
 
@@ -282,8 +283,9 @@ export function mountDeck(el, store) {
     dial.draw();
     ticker.draw(state);
     const stuck = steerBlocked();
-    steer.dataset.idle = String(Boolean(stuck));
-    steer.setAttribute('aria-label', stuck ? 'Steer. Nothing is running to steer.' : 'Steer the selected project');
+    const running = Object.values(state.ships).some((ship) => !STEERABLE_NOT.has(ship.state));
+    steer.dataset.idle = String(!running);
+    steer.setAttribute('aria-label', !running ? 'Steer. Nothing is running to steer.' : stuck ? 'Steer. Choose a project first.' : 'Steer the selected project');
   };
 
   const offState = store.subscribe((state, events, meta) => {
