@@ -24,6 +24,7 @@ export function createNowTab(ctx) {
     h('div', { class: 'gauge', role: 'img' }, h('i')),
     h('p', { class: 'now-speech' }));
   const feed = h('ol', { class: 'now-feed', 'aria-label': 'Recent activity' });
+  const publishFailed = h('p', { class: 'now-failed', role: 'status', hidden: true });
   const liveRow = h('p', { class: 'now-live', hidden: true },
     h('span', { class: 'now-live-say', text: 'Live at ' }),
     h('a', { class: 'link now-live-link', target: '_blank', rel: 'noopener' }));
@@ -57,7 +58,7 @@ export function createNowTab(ctx) {
   const closedAct = h('button', { type: 'button', class: 'act act-now' });
   const closed = h('div', { class: 'steer steer-shut', hidden: true }, closedSay, closedAct);
 
-  const body = h('div', { class: 'tab-body' }, say, liveRow, worker, facts, h('h3', { class: 'rub', text: 'Activity' }), feed);
+  const body = h('div', { class: 'tab-body' }, say, publishFailed, liveRow, worker, facts, h('h3', { class: 'rub', text: 'Activity' }), feed);
   const el = h('div', { class: 'tab tab-now', role: 'tabpanel' }, body, steer, closed);
 
   let ship = null;
@@ -128,9 +129,12 @@ export function createNowTab(ctx) {
     }
   }
 
-  /** Publishing's obvious next thought is "open it". */
+  /** Publishing's obvious next thought is "open it", and a failed one has to say why. */
   function drawLive() {
     const place = livePlaces(ship).at(-1);
+    const failed = Object.entries(ship.publishes ?? {}).find(([, entry]) => entry.status === 'rolledback' && !entry.live);
+    publishFailed.hidden = !failed || Boolean(place);
+    if (failed) setText(publishFailed, `The last publish did not go out, and nothing is public. ${failed[1].reason ?? ''} Press Publish to try again.`);
     liveRow.hidden = !place;
     if (!place) return;
     const [where, link] = liveRow.children;

@@ -278,8 +278,11 @@ export const getAudio = perStore((store) => {
   store.subscribe((state, events, meta) => {
     if (meta.replay || meta.seeking) return;
     for (const event of events) {
-      if (event.type === 'bell.rung') bell(event.data.bell, { reason: event.data.reason });
-      else if (event.type === 'tessera.set' && event.data.kind !== 'dark') tessera();
+      if (event.type === 'bell.rung') {
+        bell(event.data.bell, { reason: event.data.reason });
+        // Sound can be off, so what stopped must also be said on screen, and stay long enough to read.
+        if (event.data.bell === 'maleficio') store.notify(event.data.reason, { title: 'That stopped', ms: 15000 });
+      } else if (event.type === 'tessera.set' && event.data.kind !== 'dark') tessera();
     }
   });
 

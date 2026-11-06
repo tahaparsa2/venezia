@@ -26,6 +26,19 @@ async function commitSite({ tools, work, slug, payload, message, firstTime }) {
   return true;
 }
 
+/** How many polls an `errored` build record must survive with no deploy run to explain it. */
+const ERRORED_POLLS = 6;
+const RUN_FIELDS = '.workflow_runs | map(select(.name == "pages build and deployment")) | first | select(.) | [.status, .conclusion // ""] | @tsv';
+
+/** The Pages deploy for one commit, or null if GitHub has not started one. */
+async function deployRun(tools, owner, repo, commit) {
+  const asked = await tools.exec(tools.ghArgv('api', `repos/${owner}/${repo}/actions/runs?head_sha=${commit}&per_page=10`, '--jq', RUN_FIELDS));
+  const line = asked.ok ? asked.stdout.trim() : '';
+  if (!line) return null;
+  const [status, conclusion] = line.split('\t');
+  return { status, conclusion };
+}
+
 const headOf = async (tools, work) => {
   const result = await tools.exec(tools.gitArgv('-C', work, 'rev-parse', 'HEAD'));
   return result.ok ? result.stdout.trim() : null;
@@ -166,20 +179,34 @@ export const githubPages = {
         sent = true;
       }
 
-      // After a crash the Pages switch may be on already, and turning it on twice is an error.
-      const pagesOff = enablePages && !(ctx.resuming && (await ctx.tools.exec(ctx.tools.ghArgv('api', `repos/${owner}/${repo}/pages`))).ok);
-      if (pagesOff) {
-        await tools.must(tools.ghArgv('api', '-X', 'POST', `repos/${owner}/${repo}/pages`, '--input', '-'), { what: 'Turning on GitHub Pages', input: PAGES_SOURCE });
+      // Pushing gh-pages to a public repo turns Pages on by itself, and so can a crash before
+      // this line. Asking again then fails, so what counts is whether Pages is on afterwards.
+      const pagesOn = async () => (await ctx.tools.exec(ctx.tools.ghArgv('api', `repos/${owner}/${repo}/pages`))).ok;
+      if (enablePages && !(await pagesOn())) {
+        const enabled = await tools.exec(tools.ghArgv('api', '-X', 'POST', `repos/${owner}/${repo}/pages`, '--input', '-'), { input: PAGES_SOURCE });
+        if (!enabled.ok) {
+          await ctx.sleep(ctx.pollMs);
+          if (!(await pagesOn())) throw new Error(`Turning on GitHub Pages failed: ${enabled.stderr.trim().slice(-200)}`);
+        }
       }
       // Another site may have landed on top of an adopted push, and the build follows the tip.
       const tip = await headOf(ctx.tools, work);
       const buildStatus = tools.ghArgv('api', `repos/${owner}/${repo}/pages/builds/latest`, ...BUILD_FIELDS);
       const deadline = ctx.now() + ctx.pagesBuildTimeoutMs;
-      for (;;) {
-        const [status, built] = (await tools.must(buildStatus, { what: 'Checking the Pages build' })).stdout.trim().split('\t');
-        if (built === tip && status === 'built') break;
-        if (built === tip && status === 'errored') throw new Error('GitHub Pages could not build the site');
-        if (ctx.now() > deadline) throw new Error('GitHub Pages did not finish building in time');
+      for (let polls = 1; ; polls += 1) {
+        // The Actions run for this commit is the honest record. `pages/builds` can say errored
+        // while the deploy is still going, and a deploy can take minutes. Slow is not failed.
+        const run = await deployRun(ctx.tools, owner, repo, tip);
+        if (run?.status === 'completed') {
+          if (run.conclusion === 'success') break;
+          throw new Error(`GitHub's deploy ended as ${run.conclusion}. Nothing was wrong with the site, so it is safe to try again.`);
+        }
+        if (!run) {
+          const [status, built] = (await tools.must(buildStatus, { what: 'Checking the Pages build' })).stdout.trim().split('\t');
+          if (built === tip && status === 'built') break;
+          if (built === tip && status === 'errored' && polls >= ERRORED_POLLS) throw new Error('GitHub Pages could not build the site');
+        }
+        if (ctx.now() > deadline) throw new Error('GitHub was still deploying after 15 minutes, so this was stopped. It is safe to try again.');
         await ctx.sleep(ctx.pollMs);
       }
     } catch (error) {

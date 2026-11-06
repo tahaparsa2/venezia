@@ -582,3 +582,5 @@
 .folio:has(.folio-empty:not([hidden])) .edge-key{color:var(--text-on-night-soft);background:none;box-shadow:none}
 .folio:has(.folio-empty:not([hidden])) .run-title,.folio:has(.folio-empty:not([hidden])) .fol{color:var(--text-on-night-soft)}
 #slot-folio:has(.folio-empty:not([hidden])) :focus-visible{outline-color:var(--vellum)}
+
+.now-failed { margin: 0 0 12px; padding: 8px 10px; border-left: 3px solid var(--vermilion, #C8391F); }
