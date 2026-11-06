@@ -168,6 +168,7 @@
 .w.is-empty .w-first{opacity:1;visibility:visible;transition:opacity 1.2s ease .3s}
 .w.is-empty .w-city{opacity:.14}
 .w.is-empty .w-hud,.w.is-empty .w-weather,.w.is-empty .w-st{opacity:0;pointer-events:none}
+.w.is-empty .w-purse,.w.is-empty .w-title{pointer-events:none}
 .w.is-empty .w-st{visibility:hidden}
 .w.is-empty .w-bocca{transform:var(--night);filter:drop-shadow(0 0 14px rgba(243,233,210,.22))}
 .w.is-empty .w-bocca-mouth{opacity:calc(.82 + var(--voice)*.18)}
@@ -254,7 +255,10 @@
 }
 
 /* With no shade behind the short chart's HUD, each figure carries its own, like the weather. */
-.w[data-chart=low] .w-purse{min-height:0;padding:2px 7px;background:color-mix(in srgb,var(--lagoon-deep) 82%,transparent)}
+.w[data-chart=low] .w-purse{position:relative;min-height:0;padding:2px 7px;background:color-mix(in srgb,var(--lagoon-deep) 82%,transparent)}
+/* A small figure keeps a finger-sized target. */
+.w-weather::after{content:'';position:absolute;inset:-7px -3px}
+.w[data-chart=low] .w-purse::after,.w[data-chart=low] .w-weather::after{content:'';position:absolute;inset:-11px -3px}
 @container world (max-width:560px){
   .w[data-chart=low] .w-weather span{display:none}
 }

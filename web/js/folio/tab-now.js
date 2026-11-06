@@ -5,6 +5,7 @@ import { cmd } from '/js/commands.js';
 import { STATE } from '/shared/vocabulary.mjs';
 import { clock, h, setText, syncList, usd } from '/js/folio/dom.js';
 import { TARGET, readable, roleWord, stateSentence, livePlaces } from '/js/folio/words.js';
+import { shortAddress } from '/js/places.js';
 
 const VERB_TIP = {
   nudge: 'Nudge: applied at its next step. "Also make it dark."',
@@ -140,7 +141,7 @@ export function createNowTab(ctx) {
     const [where, link] = liveRow.children;
     setText(where, `Live on ${TARGET[place.target]?.name ?? place.target}: `);
     link.href = place.url;
-    setText(link, place.url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+    setText(link, shortAddress(place.url));
   }
 
   function update(current) {

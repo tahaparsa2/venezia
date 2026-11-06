@@ -4,6 +4,7 @@
 import { dayMonth, h, pageHead, plural, setText, syncList } from '/js/folio/dom.js';
 import { evidenceFile, evidenceRun, picturesIn, readEvidence } from '/js/folio/evidence.js';
 import { TARGET } from '/js/folio/words.js';
+import { shortAddress } from '/js/places.js';
 
 const SIX_HOURS = 6 * 3600 * 1000;
 
@@ -122,7 +123,7 @@ export function createFairPanel(ctx) {
       link.hidden = !url;
       if (url) {
         link.href = url;
-        setText(link, url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+        setText(link, shortAddress(url));
       }
       const score = row.ship.rating ? `, rated ${row.ship.rating.score} of 5` : '';
       setText(node.querySelector('.stall-meta'), `${TARGET[row.entry.target]?.name ?? row.entry.target}, ${dayMonth(row.entry.updatedAt)}${score}`);

@@ -31,6 +31,7 @@ The stubs already there show the contract working. Replace them.
 | `mountDeck(el, store)` | `js/deck/index.js` | `css/deck.css` | `/`, `/deck` | `#slot-deck` |
 | `mountCards(el, store)` | `js/cards/index.js` | `css/cards.css` | `/`, `/deck` | `#slot-cards` |
 | `mountFolio(el, store)` | `js/folio/index.js` | `css/folio.css` | `/` | `#slot-folio` |
+| `mountNav(el, store)` | `js/nav/index.js` | `css/nav.css` | `/`, `/deck` | `#slot-nav` |
 | `mountIntake(el, store)` | `js/intake/index.js` | `css/intake.css` | `/` | `#slot-intake` |
 
 - A mount returns `{destroy}`, or a promise of it. `destroy` removes everything it added.
@@ -95,7 +96,7 @@ updates itself, and `html[data-plain]` is set for CSS.
 `html[data-sensa]` is set by the world while a public publish has the water. The cards hold the
 next decision until it clears, for 14 seconds at most: waiting approves nothing.
 
-`view.panel` is `null`, or a string the folio owns (`'ship'`, `'chronicle'`, `'mosaic'`,
+`view.panel` is `null`, or a string the folio owns (`'projects'`, `'ship'`, `'chronicle'`, `'mosaic'`,
 `'lessons'`, `'fair'`). On a phone, a value raises the sheet and `null` closes it, so to open
 details on tap: `store.view.set({selectedShip: id, panel: 'ship'})`. In the column layouts it only
 picks what the folio shows. Escape clears it.

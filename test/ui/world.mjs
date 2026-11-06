@@ -72,7 +72,9 @@ for (const [width, height, touch] of labelSizes) {
   await page.waitForTimeout(500);
   const fleetNow = await debug(page);
   const box = await page.locator('.w-stage').boundingBox();
-  const free = fleetNow.stops.find((stop) => !fleetNow.fleet.some((h) => Math.hypot(h.x - stop.x, h.y - 10 - stop.y) < 70));
+  // Free means nothing is on top of it: no hull nearby, and no ribbon lying across it.
+  const clear = await page.evaluate(({ stops, left, top }) => stops.filter((stop) => !document.elementFromPoint(left + stop.x, top + stop.y)?.closest('button')).map((stop) => stop.id), { stops: fleetNow.stops, left: box.x, top: box.y });
+  const free = fleetNow.stops.find((stop) => clear.includes(stop.id) && !fleetNow.fleet.some((h) => Math.hypot(h.x - stop.x, h.y - 10 - stop.y) < 70));
   await page.touchscreen.tap(box.x + free.x, box.y + free.y);
   await page.waitForTimeout(150);
   expect(await page.locator('.w-who').isVisible(), `tapping stop ${free.id} on the water should open who is there`);

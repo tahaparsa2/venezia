@@ -98,10 +98,10 @@ const shipTwo = await live.page.evaluate(() => {
 });
 await live.page.waitForTimeout(400);
 const targets = [
-  ['.hull-switch', 'folio head'],
+  ['.run-back', 'folio head'],
   ['.tab-key[aria-selected=true]', 'tab'],
-  ['.foot-new', 'foot key'],
-  ['.edge-key', 'fore-edge'],
+  ['.foot-key:not([hidden])', 'foot key'],
+  ['.nav-key', 'navigation'],
   ['.w-rib', 'world ribbon'],
   ['.w-st', 'world station'],
   ['#structure button', 'structure row'],

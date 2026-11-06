@@ -67,16 +67,16 @@ for (const kind of ['publish', 'questions', 'contract', 'tool', 'lesson']) {
   note(await measure(page, `card ${kind}`));
 }
 await clearInbox(page);
-for (const panel of ['ship', 'contract', 'proof', 'preview', 'chronicle', 'mosaic', 'lessons', 'fair', 'treasury', 'settings']) {
+for (const panel of ['projects', 'ship', 'contract', 'proof', 'preview', 'chronicle', 'mosaic', 'lessons', 'fair', 'treasury', 'settings', 'help']) {
   await page.evaluate((p) => window.venezia.store.view.set({ panel: p }), panel);
   await page.waitForTimeout(450);
   note(await measure(page, `panel ${panel}`));
 }
 await page.evaluate(() => window.venezia.store.view.set({ panel: 'ship' }));
 await page.waitForTimeout(400);
-await page.evaluate(() => document.querySelector('.hull-switch').click());
+await page.evaluate(() => document.querySelector('.foot-key:not([hidden])')?.click());
 await page.waitForTimeout(400);
-note(await measure(page, 'fleet leaf'));
+note(await measure(page, 'leaf'));
 await close();
 
 const second = await launch({ width: W, height: H, dsf: 2, touch: true, query: 'demo=fleet&nosw=1&fresh=1&ambient=0' });

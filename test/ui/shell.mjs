@@ -105,8 +105,10 @@ for (const size of [{ name: 'deck-390', width: 390, height: 844, touch: true }, 
   const { context, page, logged } = await open(`${server.url}/deck`, size);
   const layout = await page.evaluate(() => window.venezia.store.layout.get());
   expect(layout.mode === 'deckonly', `${size.name}: layout is ${layout.mode}`);
+  // The navigation shares the screen with the deck, below it or beside it, and between them they fill it.
   const deck = await box(page, 'slot-deck');
-  expect(deck.bottom >= size.height - 1 && deck.right >= size.width - 1 && deck.width >= size.width * .5, `${size.name}: deck does not fill`);
+  const nav = await box(page, 'slot-nav');
+  expect(Math.max(deck.bottom, nav.bottom) >= size.height - 1 && Math.max(deck.right, nav.right) >= size.width - 1 && deck.width >= (size.width - (nav.height > nav.width ? nav.width : 0)) * .5, `${size.name}: deck and navigation do not fill`);
   expect(logged.length === 0, `${size.name}: console: ${logged.join(' | ')}`);
   await page.screenshot({ path: path.join(SHOTS, `shell-${size.name}.png`) });
   await context.close();

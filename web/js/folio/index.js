@@ -242,7 +242,6 @@ export function mountFolio(el, store) {
 
   function draw() {
     const state = store.getState();
-    const { plain } = store.view.get();
     const layout = store.layout.get();
     const ship = page === 'ship' ? store.selectedShip() : null;
     if (ship?.id !== drawnShip) {

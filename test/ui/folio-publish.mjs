@@ -43,7 +43,7 @@ try {
   await page.waitForTimeout(500);
 
   check('a finished hull shows Publish', await key().isVisible());
-  check('its line says so', /can be published or refit/.test(await page.textContent('.page-ship')));
+  check('its line says so', /can publish it or change it/.test(await page.textContent('.page-ship')));
   await key().click();
   await page.waitForSelector('.leaf .tiers');
   check('the leaf offers the rungs', (await page.$$('.leaf .tiers li')).length === 7);

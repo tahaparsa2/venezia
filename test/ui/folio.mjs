@@ -49,7 +49,7 @@ async function desk() {
   const rated = await lastCommand(page);
   check('rate sends ship.rate', rated?.type === 'ship.rate' && rated.score === 4, JSON.stringify(rated));
 
-  await page.click('.foot-key:has-text("Refit")');
+  await page.click('.foot-key:has-text("Change it")');
   await settle(page);
   await shot(page, 'laptop-leaf-refit');
   await page.fill('.leaf textarea', 'Now add sharing');
@@ -57,11 +57,6 @@ async function desk() {
   await settle(page);
   const refit = await lastCommand(page);
   check('refit sends ship.refit', refit?.type === 'ship.refit' && refit.text === 'Now add sharing', JSON.stringify(refit));
-
-  await page.click('.hull-switch');
-  await settle(page);
-  await shot(page, 'laptop-leaf-fleet');
-  await page.keyboard.press('Escape');
 
   /* --------------------------------------------------------------------- chronicle */
   await pick(page, 'sim-scirocco', 'chronicle');
@@ -103,6 +98,10 @@ async function desk() {
   check('every tile is a real link', (await page.$$('.wall-key')).length === tile, String(tile));
   await page.click('.wall-key >> nth=0');
   await settle(page, 300);
+  check('a tile says what it proves', (await page.textContent('.tile-means')).length > 20);
+  await shot(page, 'laptop-mosaic-tile');
+  await page.click('.tile-open');
+  await settle(page, 300);
   check('a tile opens its proof', await page.$eval('#folio-tab-proof', (node) => node.getAttribute('aria-selected') === 'true'));
   const dark = await page.evaluate(() => {
     const { store } = window.venezia;
@@ -113,6 +112,9 @@ async function desk() {
   await settle(page, 300);
   const darkIndex = await page.$$eval('.wall-key', (nodes) => nodes.findIndex((node) => /Gate failed/.test(node.getAttribute('aria-label'))));
   await page.click(`.wall-key >> nth=${darkIndex}`);
+  await settle(page, 300);
+  check('a dark tile says it failed', /failed/.test(await page.textContent('.tile-means')));
+  await page.click('.tile-open');
   await settle(page, 500);
   await shot(page, 'laptop-dark-tile-proof');
   check('a dark tile opens the run that failed', await page.isVisible('.why'), await page.textContent('.why-head'));

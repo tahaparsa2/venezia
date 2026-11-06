@@ -84,7 +84,7 @@ const shipCount = (page) => page.evaluate(() => Object.keys(window.venezia.store
   check('clearing it brings the ribbons back', await page.isVisible('.ribbon >> nth=0'));
   await page.locator('.bocca-leave:not(.bocca-busy)').click();
   await page.waitForTimeout(600);
-  check('look around first closes it', await page.evaluate(() => document.querySelector('.bocca').hidden));
+  check('look around first closes it, on the first press', await page.evaluate(() => document.querySelector('.bocca').hidden));
   check('nothing was created', (await shipCount(page)) === 0);
   await shot(page, 'phone-looked-around');
   await page.evaluate(() => window.venezia.store.actions.emit({ type: 'intake' }));

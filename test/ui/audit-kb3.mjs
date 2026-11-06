@@ -123,7 +123,7 @@ console.log('== leaves');
 await page.evaluate(() => venezia.store.view.set({ selectedShip: venezia.store.getLiveState().inbox.length ? null : undefined, panel: 'ship' }));
 await page.evaluate((id) => venezia.store.view.set({ selectedShip: id, panel: 'ship' }), shipId);
 await page.waitForTimeout(300);
-await page.evaluate(() => document.querySelector('.hull-switch').focus());
+await page.evaluate(() => document.querySelector('.foot-key:not([hidden])')?.focus());
 await page.keyboard.press('Enter');
 await page.waitForTimeout(500);
 console.log('fleet leaf open: focus', line(await focusInfo(page)), await page.evaluate(() => { const l = document.querySelector('.leaf'); return l ? { modal: l.getAttribute('aria-modal'), name: l.getAttribute('aria-label') } : null; }));

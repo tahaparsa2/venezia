@@ -498,14 +498,14 @@ scene('Folio', 'folio-proof-failed', 'A failed gate, as evidence.', END, async (
   await settled(page);
   await shot();
 });
-for (const [panel, caption] of [['mosaic', 'The mosaic: gold where proven, dark where it failed.'], ['lessons', 'The Mariegola.'], ['fair', 'The Fair of the Sensa.'], ['treasury', 'The treasury.'], ['settings', 'Settings.']]) {
+for (const [panel, caption] of [['projects', 'Projects: every idea, in plain words.'], ['help', 'Help: everything on screen, on one page.'], ['mosaic', 'Results: gold where proven, dark where it failed.'], ['lessons', 'The Rulebook.'], ['fair', 'Launched.'], ['treasury', 'The treasury.'], ['settings', 'Settings.']]) {
   scene('Folio', `panel-${panel}`, caption, END, async ({ page, shot }) => {
     await ACT.select(page, 'sim-rialto', panel);
     await settled(page);
     await shot();
   });
 }
-for (const [key, id] of [['Publish', 'publish'], ['Refit', 'refit'], ['Rate', 'rate']]) {
+for (const [key, id] of [['Publish', 'publish'], ['Change it', 'refit'], ['Rate', 'rate']]) {
   scene('Folio', `leaf-${id}`, `The ${key} leaf.`, END, async ({ page, shot }) => {
     await ACT.select(page, 'sim-rialto', 'now');
     await settled(page, 700);

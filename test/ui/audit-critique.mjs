@@ -4,6 +4,9 @@ import { launch } from './audit-lib.mjs';
 
 const { page, close, errors } = await launch({ width: 1440, height: 900, query: 'demo=fleet&nosw=1&speed=8' });
 await page.waitForTimeout(1500);
+// The book opens at Projects until someone chooses, so choose: that is what makes it your page.
+await page.evaluate(() => window.venezia.store.view.set({ selectedShip: Object.keys(window.venezia.store.getState().ships)[0] }));
+await page.waitForTimeout(300);
 const shown = () => page.evaluate(() => ({ name: document.querySelector('.hull-name')?.textContent, tab: document.querySelector('.tab-key[aria-selected=true]')?.textContent, selected: window.venezia.store.view.get().selectedShip }));
 console.log('at first', await shown());
 await page.locator('#folio-tab-proof').click();

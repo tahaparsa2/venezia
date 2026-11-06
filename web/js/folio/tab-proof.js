@@ -7,6 +7,7 @@ import { clock, dayMonth, h, plural, setText, shortHash, syncList } from '/js/fo
 import { evidenceFile, evidenceLink, evidenceRun, pictureName, picturesIn, readEvidence } from '/js/folio/evidence.js';
 import { gateRuns } from '/js/folio/shiplog.js';
 import { gateStep, roleWord, TARGET, livePlaces } from '/js/folio/words.js';
+import { shortAddress } from '/js/places.js';
 
 const seconds = (ms) => (!ms ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 
@@ -176,7 +177,7 @@ export function createProofTab(ctx) {
     if (place) {
       setText(liveLine.firstChild, `Live on ${TARGET[place.target]?.name ?? place.target}: `);
       liveLine.lastChild.href = place.url;
-      setText(liveLine.lastChild, place.url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+      setText(liveLine.lastChild, shortAddress(place.url));
     }
     const history = gateRuns(log.events(ship.id));
     const lastRun = history.at(-1);

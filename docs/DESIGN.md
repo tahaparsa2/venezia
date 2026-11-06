@@ -20,7 +20,7 @@ Other colour meaning: vermilion for danger and failure, verdigris for action and
 
 1. **World first, not a dashboard.** The first screen is a place. Every number sits somewhere physical.
 2. **One decision at a time.** The card is the only thing asking for you. Everything else can be ignored safely.
-3. **Plain English in cards.** Fiction in the world, plain words when you must choose.
+3. **Plain words first.** Navigation, page titles and anything you must choose are plain. Fiction follows as a quiet subtitle, and the world keeps its Venetian names beside the plain ones. Every page says in a sentence or two what it is.
 4. **Every state is drawn.** Fog is open questions, smoke is repair, gold is proof, weather is your rate limit. If a state is not drawn, it does not exist.
 5. **The thumb owns the bottom third.** Reach matters more than symmetry on a phone.
 6. **Touch, sound and light together.** iOS has no vibration, so nothing may depend on haptics alone.
@@ -33,15 +33,17 @@ An empty lagoon at night. The lion's mouth, the Bocca, is the only lit thing. "S
 
 ## Layouts
 
-- **Phone, 360 to 480 wide, portrait:** HUD, world, card, deck. Deck is always reachable. Details rise as a vellum sheet above the deck.
-- **Tablet and laptop:** world fills, deck docks bottom-left of world, vellum folio on the right, as in the wide prototype shot.
+The navigation is on screen in every layout, with no project selected, even over the first-run mouth. New idea leads it in verdigris, and it never carries gold.
+
+- **Phone, 360 to 480 wide, portrait:** HUD, world, card, navigation bar, deck. Deck is always reachable. New idea, four pages and More sit in the bar. Details rise as a vellum sheet above it.
+- **Tablet and laptop:** world fills, deck docks bottom-left of world, vellum folio on the right, as in the wide prototype shot, with the navigation as an iron rail at the far right edge. The book opens at Projects.
 - **Ultrawide:** world grows, folio stays at reading width, the mosaic gets its own column.
-- **Phone landscape:** deck on the right edge in a column. The prototype is crowded here, so this needs its own work.
-- **`/deck`:** deck only, full screen, for a phone sitting beside a big screen.
+- **Phone landscape:** deck on the right edge in a column, with the navigation as a column between the world and the deck.
+- **`/deck`:** deck only, full screen, for a phone sitting beside a big screen. Its navigation keys leave for the full app.
 
 ## Accessibility
 
-Canvas is decoration over a real structure. Every hull and station also exists in a visually hidden list in DOM order, and a polite live region announces state changes. Lamp status uses shape and colour together. Full keyboard path, visible focus, `prefers-reduced-motion`, and text contrast of 4.5:1 or better on all readable text. "Plain" switches the fiction words off everywhere.
+Canvas is decoration over a real structure. Every hull and station also exists in a visually hidden list in DOM order, and a polite live region announces state changes. Lamp status uses shape and colour together. Full keyboard path, visible focus, `prefers-reduced-motion`, and text contrast of 4.5:1 or better on all readable text. "Plain words only" hides what fiction is left, such as the Venetian names on the map.
 
 ## Performance
 

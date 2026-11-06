@@ -2,6 +2,21 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Navigation on every screen with no project selected: New idea, Projects, Results, Rulebook, Launched, Budget, Settings and Help. It stays in reach on the first-run screen too, and each page has its own address.
+- A Projects page that lists every project in plain words, grouped by whether it needs you, with its live link and a way in. It is where the app opens.
+- A Help page: the six stations, lamp colours, weather, tiles, and three things to try first.
+- Each page and project tab says what it is for in a line at the top.
+
+### Changed
+
+- The Mosaic is now Results. Tiles are grouped by project and cut with a mark for what they stand for, and choosing one says what it proves and opens the evidence.
+- Plain words first in titles, the top of the map and the ribbons: Usage left, Verified points, Bocca · Intake, "3 questions", "3 finished". Technical words in Proof and Contract are now what a person would say.
+- The deck says so when nothing needs you, and Approve and Reject look unavailable when they are. A project's activity no longer shows full file paths or a loopback address.
+
 ## 0.1.2
 
 ### Added

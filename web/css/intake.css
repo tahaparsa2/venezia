@@ -215,13 +215,12 @@
 :root[data-layout=landscape] .bocca.typing .talk-note{display:none}
 
 /* The navigation stays in reach over the mouth: the lion moves aside for it. On a phone it comes
-   down to the bottom edge, since the deck it normally rests on is covered. While typing, the
-   keyboard has that edge. */
+   down to the bottom edge, since the deck it normally rests on is covered. A keyboard simply
+   covers it, and min() hands its room back then. Nothing here may move on focus or blur: the
+   exits would slide out from under the finger pressing them. */
 :root[data-bocca] #slot-nav{z-index:calc(var(--z-intake) + 1)}
 :root[data-bocca][data-layout=phone] .nav{position:fixed;left:0;right:0;bottom:0;height:calc(var(--nav-h) + var(--safe-b));padding-bottom:calc(3px + var(--safe-b));border-radius:0}
-:root[data-bocca][data-layout=phone] .bocca{height:calc(var(--vv-h,100dvh) - var(--nav-h) - var(--safe-b))}
-:root[data-bocca][data-layout=phone]:has(.bocca.typing) .nav{display:none}
-:root[data-bocca][data-layout=phone]:has(.bocca.typing) .bocca{height:var(--vv-h,100dvh)}
+:root[data-bocca][data-layout=phone] .bocca{height:min(var(--vv-h,100dvh),calc(100dvh - var(--nav-h) - var(--safe-b)))}
 :root[data-bocca][data-layout=landscape] .nav{position:fixed;right:0;top:0;bottom:0;width:var(--nav-col);height:auto}
 :root[data-bocca][data-layout=landscape] .bocca{right:var(--nav-col)}
 :root[data-bocca][data-layout=desk] .bocca,:root[data-bocca][data-layout=ultrawide] .bocca{right:var(--rail-w)}

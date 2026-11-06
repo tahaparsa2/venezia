@@ -26,7 +26,7 @@ console.log('after ArrowRight', line(await focusInfo(page)), await page.evaluate
 
 await page.evaluate(() => window.venezia.store.view.set({ panel: 'ship' }));
 await page.waitForTimeout(300);
-await page.evaluate(() => document.querySelector('.hull-switch').focus());
+await page.evaluate(() => document.querySelector('.foot-key:not([hidden])')?.focus());
 await page.keyboard.press('Enter');
 await page.waitForTimeout(450);
 console.log('leaf focus', line(await focusInfo(page)));

@@ -4,6 +4,7 @@
 import { STATIONS } from '/shared/vocabulary.mjs';
 import { h, pageHead, plural, setText, syncList } from '/js/folio/dom.js';
 import { publicPlaces, statusOf } from '/js/folio/words.js';
+import { shortAddress } from '/js/places.js';
 
 const GROUPS = Object.freeze([
   { id: 'need', name: 'Needs you' },
@@ -18,7 +19,6 @@ function groupOf(status, waiting) {
   return status.tone === 'live' ? 'done' : status.tone;
 }
 
-const bare = (url) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
 export function createProjectsPanel(ctx) {
   const { store } = ctx;
@@ -58,7 +58,7 @@ export function createProjectsPanel(ctx) {
     live.hidden = !place;
     if (place) {
       live.href = place.url;
-      setText(live, bare(place.url));
+      setText(live, shortAddress(place.url));
     }
   }
 
