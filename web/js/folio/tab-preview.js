@@ -6,7 +6,7 @@
 import { cmd } from '/js/commands.js';
 import { h, setText, syncList } from '/js/folio/dom.js';
 import { whyNoPrototype } from '/shared/vocabulary.mjs';
-import { TARGET, livePlaces } from '/js/folio/words.js';
+import { TARGET, livePlaces, noPrototypeWords } from '/js/folio/words.js';
 import { canOpen } from '/js/places.js';
 
 const FRAMES = {
@@ -96,7 +96,7 @@ export function createPreviewTab(ctx) {
       syncList(live, places, (entry) => entry.target, (entry) => h('li', {},
         h('span', { class: 'preview-where', text: TARGET[entry.target]?.name ?? entry.target }),
         h('a', { class: 'stall-link', href: entry.url, target: '_blank', rel: 'noopener', text: entry.url.replace(/^https?:\/\//, '').replace(/\/$/, '') })));
-      const closed = whyNoPrototype(ship);
+      const closed = noPrototypeWords(ship);
       const busy = opening === ship.id;
       const failed = failure?.shipId === ship.id ? failure.text : null;
       setText(none, away ? 'This prototype runs on the Mac, so it opens there and not on this device.'

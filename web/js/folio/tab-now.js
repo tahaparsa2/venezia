@@ -121,7 +121,7 @@ export function createNowTab(ctx) {
       closedAct.onclick = () => act(cmd.resume(ship.id), 'Resumed');
     } else if (failed) {
       setText(closedSay, ship.gate.status === 'failed'
-        ? 'A retry runs one more repair, then the whole gate again.'
+        ? 'Retry makes one more repair, then runs every check again.'
         : 'It stopped here. A retry starts from the same place.');
       setText(closedAct, 'Retry');
       closedAct.onclick = () => act(cmd.retry(ship.id), 'Retrying');

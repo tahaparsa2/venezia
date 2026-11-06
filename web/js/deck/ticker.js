@@ -2,7 +2,7 @@
 // a line too long for the slot rolls past once and stops. Never loops: quiet when calm.
 
 import { h, reducedMotion } from '/js/input/util.js';
-import { readable } from '/js/folio/words.js';
+import { gateStep, readable } from '/js/folio/words.js';
 
 const MIN_SHOW_MS = 1400;
 const ROLL_WAIT_MS = 900;
@@ -90,19 +90,29 @@ export function createTicker(store) {
       const title = ship?.items.find((item) => item.id === id)?.title;
       if (title) text = `${entry.type === 'work.started' ? 'Started' : 'Finished'}: ${title}`;
     }
+    // The tape is for a glance. Which model ran, and what ran unasked, are in the Technical record.
+    if (entry.type === 'worker.started') text = text.replace(/ started on \S+$/, ' started');
+    if (entry.type === 'tool.auto') text = text.replace(/^Ran without asking: /, '');
+    if (entry.type === 'gate.step') text = text.replace(/^Gate step (\S+): (\w+)$/, (_, step, result) => `${gateStep(step).name}: ${result}`);
     if (entry.type === 'preview.up') text = 'Running on your Mac. Open it to try it.';
     if (entry.type === 'preview.down') text = 'Stopped running on your Mac.';
     if (ship?.name && text.startsWith(`${ship.name} `)) text = text.slice(ship.name.length + 1);
     return readable(text);
   }
 
-  /** What a quiet factory says, or null while anything is going on. */
+  /**
+   * What a quiet factory says, or null while anything is going on. A failed project asks nothing,
+   * but it is not fine either, so the tape names it rather than saying nothing needs you.
+   */
   function restLine(state) {
     const ships = Object.values(state.ships);
     if (ships.length === 0 || state.inbox.length > 0) return null;
     if (ships.some((ship) => !AT_REST.has(ship.state))) return null;
     const finished = ships.filter((ship) => ship.state === 'done' || ship.state === 'launched').length;
-    return finished ? `${finished} finished` : 'All quiet';
+    const failed = ships.filter((ship) => ship.state === 'failed');
+    const who = failed.length === 0 ? 'Nothing needs you'
+      : failed.length === 1 ? `${failed[0].name ?? 'One project'} failed` : `${failed.length} failed`;
+    return { who, what: finished ? `${finished} finished` : failed.length ? '' : 'All quiet' };
   }
 
   function latest(state) {
@@ -116,11 +126,12 @@ export function createTicker(store) {
     if (held) return;
     const rest = restLine(state);
     if (rest) {
-      if (rest !== restShown) {
-        restShown = rest;
+      const key = `${rest.who}|${rest.what}`;
+      if (key !== restShown) {
+        restShown = key;
         shownSeq = -1;
-        set('Nothing needs you', rest, false);
-        if (paper.classList.contains('is-over')) set('Nothing needs you', '', false);
+        set(rest.who, rest.what, false);
+        if (paper.classList.contains('is-over')) set(rest.who, '', false);
       }
       return;
     }

@@ -3,7 +3,7 @@
 // tabs. Desktop keeps it open on the right. A phone raises it as a sheet above the deck.
 
 import { cmd } from '/js/commands.js';
-import { PUBLISHABLE, STATIONS } from '/shared/vocabulary.mjs';
+import { PUBLISHABLE, STATIONS, isLive } from '/shared/vocabulary.mjs';
 import { clockSeconds, h, reducedMotion, setText } from '/js/folio/dom.js';
 import { createLeaves } from '/js/folio/leaves.js';
 import { installSheet } from '/js/folio/sheet.js';
@@ -28,7 +28,7 @@ const TAB_IDS = new Set(TABS.map(([id]) => id));
 const TAB_SAY = Object.freeze({
   now: 'Where this project stands, what it is doing, and how to tell it something.',
   contract: 'What done means, agreed before any code. The tests are locked here, so the builder cannot move the goalposts.',
-  proof: 'What Venezia checked itself, with the evidence. This is what counts, not what an AI says.',
+  proof: 'The gate: the checks Venezia runs itself, with the evidence. This is what counts, not what an AI says.',
   preview: 'Try the real thing. It runs on your Mac and nothing is published.',
   chronicle: 'The whole story, in order. Drag back to see the project as it was at any moment.',
 });
@@ -191,7 +191,9 @@ export function mountFolio(el, store) {
     const plain = store.view.get().plain;
     setText(nameLine, ship.name ?? 'Unnamed');
     setText(hullSub, hullLine(ship, plain));
-    const at = STATIONS.findIndex((station) => station.id === ship.station);
+    // A hull that failed its gate has gone on to be written up, but Prove is where it stopped.
+    const stoppedAt = ship.state === 'failed' && ship.gate.status === 'failed' ? 'collaudo' : ship.station;
+    const at = STATIONS.findIndex((station) => station.id === stoppedAt);
     for (const [index, node] of [...ladder.children].entries()) {
       node.dataset.at = index < at ? 'past' : index === at ? 'here' : 'ahead';
       const station = STATIONS[index];
@@ -207,7 +209,9 @@ export function mountFolio(el, store) {
       button.setAttribute('aria-selected', active);
       button.tabIndex = active ? 0 : -1;
     }
-    tabButtons[2].dataset.pip = ship.gate.status === 'failed' ? 'fail' : ship.gate.status === 'passed' ? 'pass' : '';
+    const proved = ship.gate.status === 'passed' && !ship.receipt?.voided;
+    tabButtons[2].dataset.pip = ship.gate.status === 'failed' ? 'fail' : proved ? 'pass' : '';
+    tabButtons[2].title = ship.gate.status === 'failed' ? 'The gate failed' : proved ? 'The gate passed' : '';
 
     for (const [id, surface] of Object.entries(tabs)) {
       const active = id === tab;
@@ -219,6 +223,7 @@ export function mountFolio(el, store) {
     const live = ship.receipt && !ship.receipt.voided;
     // A voided receipt on a ready ship still gets the leaf, which says why it cannot go.
     publishKey.hidden = !(PUBLISHABLE.includes(ship.state) && (live || ship.state === 'ready'));
+    setText(publishKey, isLive(ship) ? 'Publish again' : 'Publish');
     refitKey.hidden = ship.state !== 'done';
     rateKey.hidden = !(done || ['ready', 'launched', 'learning'].includes(ship.state));
     // An empty foot takes no room.

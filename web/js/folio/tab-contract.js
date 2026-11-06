@@ -121,7 +121,7 @@ export function createContractTab(ctx) {
     setText(sealHead, draft ? 'Draft' : 'Locked');
     const rows = artifact
       ? [['Version', `${ship.contractVersion}`], ['Hash', shortHash(artifact.hash)],
-        draft ? ['Status', 'A draft. It is locked once it is approved.'] : ['Held', 'Outside the yard, so no worker can edit it']]
+        draft ? ['Status', 'A draft. It is locked once it is approved.'] : ['Held', 'Outside the project folder, so no worker can edit it']]
       : [['Version', `${ship.contractVersion}`], ['Status', 'Not written yet']];
     syncList(seal, rows.flatMap(([term, value]) => [{ key: `t${term}`, tag: 'dt', text: term }, { key: `d${term}`, tag: 'dd', text: value }]),
       (row) => row.key, (row) => h(row.tag), (node, row) => setText(node, row.text));

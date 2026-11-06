@@ -2,7 +2,7 @@
 // understood without the fiction. `plain` picks the twin words in plain mode.
 
 import { quietLoopback } from '/js/places.js';
-import { LOCAL_TARGETS, TERM, isLive, label } from '/shared/vocabulary.mjs';
+import { LOCAL_TARGETS, RECEIPT_RESTS, TERM, isLive, label, whyNoPrototype } from '/shared/vocabulary.mjs';
 
 const say = (plain, id) => label(id, { plain });
 
@@ -12,15 +12,28 @@ export const publicPlaces = (ship) => Object.values(ship.publishes).filter((entr
 const YARD_PATH = /(?:\/[^\s/:]+)*\/yards\/[^\s/]+\//g;
 const TOOL_WORDS = /\bStructuredOutput\b/g;
 
+/** A tool's own name is not a sentence. A search pattern says nothing to a person, so it goes. */
+const TOOL_SENTENCE = [
+  [/^Read: /, 'Read '],
+  [/^Write: /, 'Wrote '],
+  [/^Edit: /, 'Changed '],
+  [/^Bash: /, 'Ran '],
+  [/^Grep\b[\s\S]*$/, 'Searched the code'],
+  [/^Glob\b[\s\S]*$/, 'Looked through the files'],
+];
+
 /**
  * Activity as a person reads it. A worker's lines are full of paths on the Mac and addresses that
  * only mean something there, so a path loses its yard and a loopback address says where it is.
+ * The Technical depth of the chronicle keeps the raw line.
  * @param {string} text
  */
 export function readable(text) {
-  return quietLoopback(String(text ?? ''))
+  let line = quietLoopback(String(text ?? ''))
     .replace(YARD_PATH, '')
     .replace(TOOL_WORDS, 'Handed in its result');
+  for (const [tool, sentence] of TOOL_SENTENCE) line = line.replace(tool, sentence);
+  return line;
 }
 
 /**
@@ -147,15 +160,25 @@ export function stateSentence(ship, plain = false, pausedBy = null) {
     case 'done': return ship.receipt && !ship.receipt.voided ? 'Finished. You can publish it or change it.' : 'Finished. You can change it.';
     case 'paused': return pausedBy === 'sim' ? 'The demo paused this. It spends nothing until you resume.' : 'Paused by you. It spends nothing until you resume.';
     case 'blocked': return BLOCKED[ship.blockReason] ?? 'Blocked.';
-    case 'failed': return 'Stopped. The lessons are kept, and it can be retried.';
+    case 'failed': return 'Stopped. The lessons are kept, and you can retry it.';
     case 'scuttled': return 'Abandoned for good.';
     default: return state.replaceAll('_', ' ');
   }
 }
 
+/** Why there is nothing to open, with the words of the buttons on this page. */
+export function noPrototypeWords(ship) {
+  const name = ship.name ?? 'This project';
+  if (ship.state === 'scuttled') return `${name} was abandoned, so it has no prototype to open.`;
+  if (RECEIPT_RESTS.includes(ship.state) && ship.receipt?.voided) {
+    return `The code of ${name} changed after it was checked, so its receipt was voided and there is no prototype to open. Press Change it to check it again.`;
+  }
+  return whyNoPrototype(ship);
+}
+
 /** The italic line under a hull's name: what she is and where she has got to. */
 export function hullLine(ship, plain = false) {
-  const size = { gondola: 'small project', galley: 'project', galleass: 'large project' }[ship.size] ?? 'project';
+  const size = { gondola: 'small project', galley: 'normal project', galleass: 'large project' }[ship.size] ?? 'project';
   const fiction = ship.size && !plain ? ` \u00b7 ${say(false, ship.size).toLowerCase()}` : '';
   const article = 'A';
   const where = {

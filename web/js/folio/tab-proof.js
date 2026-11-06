@@ -23,7 +23,7 @@ function stampSvg() {
     <circle class="stamp-disc" cx="60" cy="60" r="56"/>
     <g class="stamp-teeth">${Array.from({ length: 48 }, (_, index) => `<rect x="59.2" y="1.5" width="1.6" height="5" transform="rotate(${index * 7.5} 60 60)"/>`).join('')}</g>
     <circle class="stamp-ring" cx="60" cy="60" r="50"/><circle class="stamp-ring" cx="60" cy="60" r="35"/>
-    <text class="stamp-rim-text"><textPath href="#stamp-rim" startOffset="0">BOLLO · VERIFIED BY THE HOST · VENEZIA ·</textPath></text>
+    <text class="stamp-rim-text"><textPath href="#stamp-rim" startOffset="0">RECEIPT · VERIFIED BY VENEZIA · SIGNED ·</textPath></text>
     <path class="stamp-tick" d="M43 61l12 13 24-29"/><path class="stamp-void" d="M30 90L90 30"/>
   </svg>`;
   return wrap;
@@ -125,7 +125,7 @@ export function createProofTab(ctx) {
     const nextWords = chosen ? '' : repairing
       ? `A ${roleWord('calafato', plain).toLowerCase()} is on it. The fix is a new commit, and the whole gate runs again.`
       : ship.state === 'blocked' ? 'It has stopped, and the card has your options.'
-        : ship.state === 'failed' ? 'A retry runs one more repair, then the whole gate again.' : '';
+        : ship.state === 'failed' ? 'Retry makes one more repair, then runs every check again.' : '';
 
     if (failedStep) {
       const step = gateStep(failedStep.step);
