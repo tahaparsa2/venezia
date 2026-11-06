@@ -1,6 +1,6 @@
 {
   "name": "venezia",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "An agentic factory for one person: idea in, contract, build, proof, launch, lessons.",
   "private": true,
   "type": "module",

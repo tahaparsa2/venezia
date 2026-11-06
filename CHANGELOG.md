@@ -2,7 +2,13 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.1.2
+
+### Added
+
+- A dropped GitHub deploy is sent again automatically, twice, before Venezia stops and says so.
+- A publish that does not go out shows its reason on screen, and stays there until read.
+
 
 ### Added
 
