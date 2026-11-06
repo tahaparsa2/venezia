@@ -4,8 +4,7 @@ The checklist for making this repository public. Git history is permanent, so fi
 
 ## Needed before publication
 
-1. **Choose a licence.** This is the owner's decision and it is still open. The repository can be public without one, but then nobody else may legally reuse the code. There is no `LICENSE` file and no `license` field in `package.json`. Without a licence the code is all rights reserved, so others may read it but have no right to use, copy or change it. Once chosen, add `LICENSE`, set `license` in `package.json`, and replace the Licence section of `README.md`.
-2. **Decide the licence for `docs/research/`.** `01-3dmk.md` draws on CC BY 4.0 material, and its credit must stay whatever the code licence is.
+- `docs/research/01-3dmk.md` draws on CC BY 4.0 material, and its credit must stay with it.
 4. **Turn on private vulnerability reporting** in the repository settings. `SECURITY.md` sends reporters there, and there is no other contact address.
 5. **Use your GitHub noreply address in every commit.** The setting belongs to one clone, so run `git config user.email '<id>+<username>@users.noreply.github.com'` before a clone's first commit. `gh api user --jq .id` prints the id. In GitHub's email settings, turn on **Keep my email addresses private** and **Block command line pushes that expose my email**. A commit with the wrong address must be rewritten before the first push.
 6. **Run the checks below** on the first commit, before any push.
