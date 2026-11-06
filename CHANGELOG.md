@@ -16,6 +16,7 @@ Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver
 - The Mosaic is now Results. Tiles are grouped by project and cut with a mark for what they stand for, and choosing one says what it proves and opens the evidence.
 - Plain words first in titles, the top of the map and the ribbons: Usage left, Verified points, Bocca · Intake, "3 questions", "3 finished". Technical words in Proof and Contract are now what a person would say.
 - The deck says so when nothing needs you, and Approve and Reject look unavailable when they are. A project's activity no longer shows full file paths or a loopback address.
+- The MIT licence.
 
 ## 0.1.2
 

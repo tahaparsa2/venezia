@@ -191,3 +191,9 @@ dependencies are `ws` (MIT), `qrcode-generator` (MIT) and `playwright-core` (Apa
 ## Licence
 
 Not chosen yet, so for now all rights are reserved. See [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
+## Licence
+
+Venezia is under the [MIT licence](LICENSE). Some parts keep their own terms: the fonts in `web/fonts/` are
+under the SIL Open Font License, and `docs/research/01-3dmk.md` draws on CC BY 4.0 material by Nick Olson,
+3dmk.com, so its credit must stay with it.
