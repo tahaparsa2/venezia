@@ -29,7 +29,7 @@ Other colour meaning: vermilion for danger and failure, verdigris for action and
 
 ## First-run moment
 
-An empty lagoon at night. The lion's mouth, the Bocca, is the only lit thing. "Speak an idea into the mouth." Hold to talk or type. Three starter ideas sit below as ribbons, so a new person is never stuck. When the idea goes in, a hull slides out and the water parts. This is the most important 20 seconds in the product.
+An empty lagoon at night. The lion's mouth, the Bocca, is the only lit thing. "Speak an idea into the mouth." Tap or hold to talk, or type. Three starter ideas sit below as ribbons, so a new person is never stuck. When the idea goes in, a hull slides out and the water parts. This is the most important 20 seconds in the product.
 
 ## Layouts
 

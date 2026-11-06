@@ -26,6 +26,7 @@ export function createSlip(store, voice) {
   const reply = h('p', { class: 'slip__reply' });
   const problem = h('p', { class: 'card__problem', role: 'alert', hidden: true });
   const verbs = h('div', { class: 'slip__verbs' });
+  const typeInstead = h('button', { type: 'button', class: 'verb', text: 'Type it instead', on: { click: () => voice.type() } });
   const root = h('section', { class: 'slip', 'aria-label': 'What was understood', hidden: true },
     h('div', { class: 'slip__top' }, heading, shipPick, close),
     heard, words, field, reply, problem, verbs);
@@ -73,8 +74,8 @@ export function createSlip(store, voice) {
   let lastPhase = 'idle';
 
   function draw(value) {
-    const { phase, partial, text, shipId, verb, error, reply: answer, command, action, sentAs, heardAs } = value;
-    const open = ['listening', 'thinking', 'understood', 'typing', 'sent'].includes(phase)
+    const { phase, partial, text, shipId, verb, error, reply: answer, command, action, sentAs, heardAs, trouble } = value;
+    const open = ['listening', 'thinking', 'understood', 'typing', 'sent', 'trouble'].includes(phase)
       && !(phase === 'listening' && !partial);
     root.hidden = !open;
     root.dataset.phase = phase;
@@ -86,13 +87,13 @@ export function createSlip(store, voice) {
     const ship = state.ships[shipId] ?? null;
 
     heading.textContent = {
-      listening: 'Hearing', thinking: 'Hearing', understood: 'Understood', typing: 'Steer', sent: 'Sent',
+      listening: 'Hearing', thinking: 'Hearing', understood: 'Understood', typing: 'Steer', sent: 'Sent', trouble: 'No words came through',
     }[phase];
     const editing = phase === 'typing';
     const settled = phase === 'understood' || editing;
 
-    words.hidden = editing;
     field.hidden = !editing;
+    words.hidden = editing || phase === 'trouble';
     words.textContent = phase === 'sent' ? sentAs : settled ? text : partial;
     heard.hidden = !heardAs;
     heard.textContent = heardAs ? `You said: ${heardAs}` : '';
@@ -101,15 +102,15 @@ export function createSlip(store, voice) {
       field.value = text;
       requestAnimationFrame(() => field.focus());
     }
-    reply.hidden = !answer;
-    reply.textContent = answer ?? '';
+    reply.hidden = !answer && !trouble;
+    reply.textContent = answer ?? trouble ?? '';
     problem.hidden = !error;
     problem.textContent = error ?? '';
 
     shipPick.hidden = true;
     if (settled && document.activeElement !== shipPick) drawShips(state, shipId);
     else if (settled) shipPick.hidden = false;
-    close.hidden = !settled;
+    close.hidden = !settled && phase !== 'trouble';
 
     const buttons = [];
     const hasWords = Boolean(text.trim());
@@ -120,6 +121,7 @@ export function createSlip(store, voice) {
       else if (ship?.state === 'done' && hasWords) buttons.push(refit);
       else if (hasWords) buttons.push(create);
     }
+    if (phase === 'trouble') buttons.push(typeInstead);
     verbs.replaceChildren(...buttons);
     verbs.hidden = buttons.length === 0;
     for (const { id } of STEER_VERBS) {

@@ -75,7 +75,7 @@ const phase = await page.evaluate(async () => {
   const { getVoice } = await import('/js/voice/index.js');
   return getVoice(window.venezia.store).state.get();
 });
-check('voice lands somewhere usable', ['typing', 'idle', 'understood', 'listening', 'thinking'].includes(phase.phase), JSON.stringify(phase));
+check('voice lands somewhere usable', ['typing', 'idle', 'understood', 'listening', 'thinking', 'trouble'].includes(phase.phase), JSON.stringify(phase));
 console.log('voice', phase.phase, phase.via, phase.note);
 
 const say = await page.evaluate(() => fetch('/api/say?text=Aurora%20is%20ready').then((response) => [response.status, response.headers.get('content-type')]));

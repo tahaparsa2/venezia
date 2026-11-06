@@ -417,7 +417,14 @@ await group('talk', { width: 390, height: 844 }, async (page) => {
   await page.mouse.up();
   await page.waitForTimeout(500);
   value = await voiceState(page);
-  check('a single tap explains itself', value.phase === 'idle' && /Hold to talk/.test(value.note ?? ''), JSON.stringify(value));
+  check('a single tap keeps listening', value.phase === 'listening' && value.latched, JSON.stringify(value));
+  check('the key says how to stop', /Tap to stop/.test(await page.locator('.key--talk').textContent()));
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  value = await voiceState(page);
+  check('the next tap ends it', value.phase === 'understood' && !value.latched, JSON.stringify(value));
+  await page.locator('.slip__close').click();
 
   await page.keyboard.press('s');
   await page.waitForTimeout(100);
