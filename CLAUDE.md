@@ -22,4 +22,4 @@ An agentic factory for one person: idea in, contract, build, proof, launch, less
 - Nothing is pushed, and no remote is created, unless the owner says so.
 - Commit under the GitHub noreply address, never a personal email. It is set per clone, so check `git config user.email` first.
 - Never commit anything `.gitignore` covers: `data/`, `yards/`, generated `portolano/` files, secrets, certificates. Never use `git add -f` to get round it.
-- No real paths, account details or usage figures in docs or fixtures. `docs/PUBLISHING.md` has the rules and the pre-publish checklist.
+- No real paths or account details in docs or fixtures. Spend figures for real runs are welcome in the README. `docs/PUBLISHING.md` has the rules and the pre-publish checklist.

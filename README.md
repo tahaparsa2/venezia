@@ -27,22 +27,10 @@ Optional: run `npm link` once in this folder to make plain `vz` work everywhere.
 
 Real projects spend your Claude usage. The demo does not.
 
-### Which Claude account
+### Your own Claude account
 
-Venezia runs the unmodified `claude` command under your own sign-in. Check the terms for your
-account before you run real projects:
-
-- **A Claude subscription** is the default, and the only route tested. Anthropic's
-  [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) bar access by bot or script,
-  unless you use an API key or Anthropic permits it. Its
-  [Claude Code terms](https://code.claude.com/docs/en/legal-and-compliance) allow signing in to the
-  unmodified binary with your own subscription, and say advertised limits assume ordinary, individual
-  use. Neither says whether unattended runs like these are allowed, and Anthropic has not confirmed it.
-- **A Claude Console account** bills by API usage under Anthropic's
-  [Commercial Terms](https://www.anthropic.com/legal/commercial-terms). Sign in with
-  `claude auth login --console`. This has not been tried with Venezia. Cost figures become real
-  charges, and the Treasury panel still describes a subscription. Setting `ANTHROPIC_API_KEY` does
-  not work, because workers get a fixed environment that leaves it out.
+Venezia runs the normal `claude` command on your Mac, under your own sign-in. Nothing here shares an
+account: anyone who runs Venezia uses their own, and your sign-in never leaves your machine.
 
 ## Start it
 
@@ -136,7 +124,7 @@ daily streak and a chime, and it was the first on the current models:
 
 - It ran on opus for contract, build, repair and review, and sonnet for intake and scribe. The session
   logs confirm those models ran, and each run now records them as `ranModels`.
-- It took 12 runs and 25 minutes to `ready`. No run passed 20% of its budget or
+- It took 12 runs, 25 minutes to `ready`, and $6.96 at list price. No run passed 20% of its budget or
   20% of its turn limit, and the ship used under 5% of its budget. The rate limit guard never blocked.
 - The gate passed, then the reviewer rejected it for a `fetch()` in the shipped bundle. A repair fixed
   that, and the whole gate ran again.
@@ -151,7 +139,7 @@ Marea, a tip calculator that splits a bill, came first:
 
 - The gate passed first try, in 6.5 seconds, including its jail and browser checks. The reviewer
   accepted it, and the receipt is valid.
-- It took 35 minutes. The rate limit guard never blocked.
+- It took 35 minutes and $4.88 at list price.
 - A steer landed while it was building, and a refit also ran on real Claude.
 - Its prototype opens from the real server in Chrome, before and after a restart, and works there
   in the frame and in its own tab. `node test/ui/real-prototype.mjs` checks this and spends nothing.

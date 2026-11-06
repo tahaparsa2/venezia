@@ -73,7 +73,12 @@ function api(endpoint, rest) {
     const runs = state.deployRuns ?? [];
     const run = runs.length > 1 ? runs.shift() : runs[0];
     save();
-    return out(run ? `${run.status}\t${run.conclusion ?? ''}` : '');
+    return out(run ? `${run.status}\t${run.conclusion ?? '-'}\t${run.id ?? 1}` : '');
+  }
+  if (tail === 'pages/builds' && method === 'POST') {
+    state.buildRequests = (state.buildRequests ?? 0) + 1;
+    save();
+    return out('{"status":"queued"}');
   }
   if (tail === 'pages/builds/latest') {
     const sequence = state.buildSequence ?? [];

@@ -48,5 +48,5 @@ Replace the placeholders in the `git grep` line with your real name, GitHub user
 ## Rules for later commits
 
 - `portolano/mariegola.md` is tracked as an empty template, so a promoted rule appears as a local change. Do not commit it.
-- Do not add real paths, account details, LAN addresses, session or message IDs, or usage figures to docs or fixtures. Use `$SCRATCH`, `~/project`, `<owner>`, `/Users/x` and made-up private addresses such as `10.20.30.40`. Tests cannot use the `192.0.2.0/24` documentation range, because the local CA only signs private addresses.
+- Do not add real paths, account details, LAN addresses, or session or message IDs to docs or fixtures. Use `$SCRATCH`, `~/project`, `<owner>`, `/Users/x` and made-up private addresses such as `10.20.30.40`. Tests cannot use the `192.0.2.0/24` documentation range, because the local CA only signs private addresses.
 - Keep third-party quotes short and attributed, and keep the 3DMK credit in `README.md` and `docs/research/01-3dmk.md`.

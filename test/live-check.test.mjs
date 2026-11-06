@@ -157,16 +157,29 @@ test('a slow deploy is waited for, whatever the old build record says', async (t
   assert.equal(receipt.url, plan.expectedUrl);
 });
 
-test('a deploy GitHub gave up on says so, and says it is safe to try again', async (t) => {
+test('a deploy GitHub drops is sent again without asking anyone', async (t) => {
   const github = fakeGitHub(t, { pollMs: 1 });
   const made = await passedYard(t);
-  github.setState({ deployRuns: [{ status: 'completed', conclusion: 'failure' }] });
+  github.setState({ deployRuns: [{ status: 'completed', conclusion: 'failure', id: 1 }, { status: 'in_progress', id: 2 }, { status: 'completed', conclusion: 'success', id: 2 }] });
+  const artifact = await github.broker.artifact({ shipId: 's', yard: made.yard, evidenceDir: made.evidenceDir, slug: 'todo' });
+  const plan = await github.broker.plan('github-pages', artifact);
+  await github.broker.preflight(plan);
+  const receipt = await github.broker.apply(plan, github.broker.approve(plan));
+  assert.equal(receipt.url, plan.expectedUrl);
+  assert.equal(github.calls().filter((call) => call.join(' ').includes('pages/builds') && call.includes('POST')).length, 1);
+});
+
+test('a deploy that keeps failing stops, and says the site is not at fault', async (t) => {
+  const github = fakeGitHub(t, { pollMs: 1 });
+  const made = await passedYard(t);
+  const failed = (id) => ({ status: 'completed', conclusion: 'failure', id });
+  github.setState({ deployRuns: [failed(1), failed(2), failed(3)] });
   const artifact = await github.broker.artifact({ shipId: 's', yard: made.yard, evidenceDir: made.evidenceDir, slug: 'todo' });
   const plan = await github.broker.plan('github-pages', artifact);
   await github.broker.preflight(plan);
   const outcome = await github.broker.finish(plan, github.broker.approve(plan));
   assert.notEqual(outcome.status, 'live');
-  assert.match(outcome.reason, /ended as failure.*safe to try again/);
+  assert.match(outcome.reason, /failed 3 times in a row.*Nothing is wrong with the site/);
 });
 
 test('a page that spins after load fails the gate quickly and frees the browser', async (t) => {

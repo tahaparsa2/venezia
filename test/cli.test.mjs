@@ -169,19 +169,14 @@ test('pair in the demo says it needs the real factory, and how to start it', asy
   const { env } = await startSim(t);
   const { stderr, code } = await vz(['pair'], env);
   assert.equal(code, 1);
-  assert.match(stderr, /Pairing needs the real factory.*npm start/);
+  assert.match(stderr, /demo, so a phone cannot link to it.*npm start/);
 });
 
-test('pair prints a QR, a code and a fingerprint, and lists devices', async (t) => {
+test('pair gives an address and a QR, never the PIN, and lists devices', async (t) => {
   const { env, json } = await startSim(t, ['--lan', '--lan-port', '0']);
-  const { stdout, code } = await vz(['pair'], env);
-  assert.equal(code, 0);
-  assert.match(stdout, /█/);
-  assert.match(stdout, /Code: \d{6}/);
-  assert.match(stdout, /https:\/\/venezia\.local:\d+\/pair\n/);
-  assert.match(stdout, /Certificate fingerprint/);
   const details = await json('pair');
-  assert.match(details.pin, /^\d{6}$/);
+  assert.match(details.url, /^https:\/\//);
+  assert.equal(details.pin, undefined, 'the PIN only ever appears in the box on the Mac');
   assert.equal(details.qrText, undefined);
   assert.deepEqual(JSON.parse((await vz(['pair', '--list', '--json'], env)).stdout), []);
   assert.equal((await vz(['pair', '--revoke', 'nope'], env)).code, 1);

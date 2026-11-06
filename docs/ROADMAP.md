@@ -7,11 +7,12 @@ feature that claims otherwise.
 
 - Two small real projects have gone end to end on real Claude (Marea and Gloria). That is thin evidence. Multi-item
   galleys and galleasses are tested on a fake Claude only.
-- No real publish has happened. GitHub Pages has only been rehearsed, inside preflight. `vercel`
-  and `cloudflare` are probes that report what setup is needed, not adapters.
+- GitHub Pages has published a real project live (Gloria). `vercel` and `cloudflare` are probes that
+  report what setup is needed, not adapters.
 - Pairing and phone access are tested over real HTTPS with Chrome acting as the phone. No physical
   phone has been through it, so the iPhone and Android steps and the trust check on Safari are unproven.
-- Voice is tested with a fake speech helper and a fake microphone. Real speech quality is unmeasured.
+- Voice is tested with real speech through Chrome's audio capture and the real speech helper. A physical
+  microphone, the first-time permission prompt and Bluetooth headsets are still to be confirmed.
 
 ## The factory
 
@@ -48,3 +49,9 @@ feature that claims otherwise.
 
 - macOS only for the sandbox and voice helper. Voice typing needs macOS 26.
 - One person, one machine. There are no accounts, and a paired device can approve anything.
+
+## Bring your own model
+
+- API key support: let a person run Venezia on their own Anthropic API key. Workers leave `ANTHROPIC_API_KEY`
+  out of their environment today, so this needs a deliberate change and a real test.
+- Other providers: Venezia is built around Claude Code, so supporting other models means a worker adapter.

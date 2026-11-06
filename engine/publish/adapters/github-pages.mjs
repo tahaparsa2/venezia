@@ -28,15 +28,22 @@ async function commitSite({ tools, work, slug, payload, message, firstTime }) {
 
 /** How many polls an `errored` build record must survive with no deploy run to explain it. */
 const ERRORED_POLLS = 6;
-const RUN_FIELDS = '.workflow_runs | map(select(.name == "pages build and deployment")) | first | select(.) | [.status, .conclusion // ""] | @tsv';
+const RUN_FIELDS = '.workflow_runs | map(select(.name == "pages build and deployment")) | first | select(.) | [.status, .conclusion // "-", .id] | @tsv';
+/** GitHub's own deploy step sometimes ends "try again later", through no fault of the site. */
+const DEPLOY_RETRIES = 2;
+const RETRY_WAIT_POLLS = 12;
 
 /** The Pages deploy for one commit, or null if GitHub has not started one. */
 async function deployRun(tools, owner, repo, commit) {
   const asked = await tools.exec(tools.ghArgv('api', `repos/${owner}/${repo}/actions/runs?head_sha=${commit}&per_page=10`, '--jq', RUN_FIELDS));
   const line = asked.ok ? asked.stdout.trim() : '';
   if (!line) return null;
-  const [status, conclusion] = line.split('\t');
-  return { status, conclusion };
+  const [status, conclusion, id] = line.split('\t');
+  return { status, conclusion, id };
+}
+
+async function requestBuild(tools, owner, repo) {
+  await tools.must(tools.ghArgv('api', '-X', 'POST', `repos/${owner}/${repo}/pages/builds`), { what: 'Asking GitHub to deploy again' });
 }
 
 const headOf = async (tools, work) => {
@@ -193,13 +200,22 @@ export const githubPages = {
       const tip = await headOf(ctx.tools, work);
       const buildStatus = tools.ghArgv('api', `repos/${owner}/${repo}/pages/builds/latest`, ...BUILD_FIELDS);
       const deadline = ctx.now() + ctx.pagesBuildTimeoutMs;
+      let retries = 0;
+      let gaveUpOn = null;
       for (let polls = 1; ; polls += 1) {
         // The Actions run for this commit is the honest record. `pages/builds` can say errored
         // while the deploy is still going, and a deploy can take minutes. Slow is not failed.
         const run = await deployRun(ctx.tools, owner, repo, tip);
-        if (run?.status === 'completed') {
+        if (run?.status === 'completed' && run.id !== gaveUpOn) {
           if (run.conclusion === 'success') break;
-          throw new Error(`GitHub's deploy ended as ${run.conclusion}. Nothing was wrong with the site, so it is safe to try again.`);
+          if (retries >= DEPLOY_RETRIES) {
+            throw new Error(`GitHub's deploy failed ${retries + 1} times in a row (${run.conclusion}). Nothing is wrong with the site. GitHub Pages is having trouble, so try again later.`);
+          }
+          // Asking for a new build sends the same commit again, with no new ceremony.
+          retries += 1;
+          gaveUpOn = run.id;
+          await ctx.sleep(ctx.pollMs * RETRY_WAIT_POLLS);
+          await requestBuild(ctx.tools, owner, repo);
         }
         if (!run) {
           const [status, built] = (await tools.must(buildStatus, { what: 'Checking the Pages build' })).stdout.trim().split('\t');
