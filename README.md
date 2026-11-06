@@ -71,7 +71,7 @@ Settings on this Mac and press **Link a phone**, or run:
 That one press does everything on the Mac. Phone access turns on with no restart, the panel shows
 numbered steps and a QR code, and a box opens on this Mac with a 6-digit PIN. Then, on the phone:
 
-1. Scan the QR code, or type the address under it, which looks like `https://10.0.0.40:8443`.
+1. Scan the QR code, or type the address under it, which looks like `https://192.168.1.20:8443`.
 2. The phone warns that the connection is not private. That is expected. On iPhone tap Show Details,
    visit this website, Visit Website. On Android tap Advanced, then Proceed.
 3. Enter the PIN from the box. Venezia opens on the phone, the box closes by itself, and Settings on
@@ -119,7 +119,7 @@ or a failed one has nothing to open.
 
 ## What is proven, and what is not
 
-Two real projects have gone from idea to `done` on real Claude. The second, Gloria, is a focus timer with a
+Three real projects have gone from idea to `done` on real Claude, and two are live on the public web. The second, Gloria, is a focus timer with a
 daily streak and a chime, and it was the first on the current models:
 
 - It ran on opus for contract, build, repair and review, and sonnet for intake and scribe. The session
@@ -158,8 +158,8 @@ Not proven:
 
 - Two small projects are two small projects. Larger ships (galleys with many items, galleasses) have not been
   run on real Claude from start to finish.
-- Nothing has been published to the internet from a real run. Both launches were local, and the GitHub
-  Pages path was only rehearsed.
+- Publishing has run for real to GitHub Pages: Gloria and Tiziano are live. The automatic retry for a
+  dropped GitHub deploy has only been tested against a simulated GitHub.
 - Marea's reviewer also raised a real flaw: on a phone the result sits below the fold. It was
   accepted and not fixed.
 

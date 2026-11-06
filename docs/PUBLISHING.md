@@ -4,9 +4,8 @@ The checklist for making this repository public. Git history is permanent, so fi
 
 ## Needed before publication
 
-1. **Choose a licence.** This is the owner's decision and it is still open. There is no `LICENSE` file and no `license` field in `package.json`. Without a licence the code is all rights reserved, so others may read it but have no right to use, copy or change it. Once chosen, add `LICENSE`, set `license` in `package.json`, and replace the Licence section of `README.md`.
+1. **Choose a licence.** This is the owner's decision and it is still open. The repository can be public without one, but then nobody else may legally reuse the code. There is no `LICENSE` file and no `license` field in `package.json`. Without a licence the code is all rights reserved, so others may read it but have no right to use, copy or change it. Once chosen, add `LICENSE`, set `license` in `package.json`, and replace the Licence section of `README.md`.
 2. **Decide the licence for `docs/research/`.** `01-3dmk.md` draws on CC BY 4.0 material, and its credit must stay whatever the code licence is.
-3. **Ask Anthropic whether the subscription route is allowed.** This is the owner's job and it is still open. The Consumer Terms bar access by script unless it is through an API key or Anthropic permits it, and the Claude Code terms say plan limits assume ordinary, individual use. Signing in to the unmodified `claude` with your own subscription is allowed, but neither says whether unattended factory runs fit. The Claude Code terms send such questions to [Anthropic sales](https://www.anthropic.com/contact-sales). `README.md` gives the terms and the Console route in the meantime.
 4. **Turn on private vulnerability reporting** in the repository settings. `SECURITY.md` sends reporters there, and there is no other contact address.
 5. **Use your GitHub noreply address in every commit.** The setting belongs to one clone, so run `git config user.email '<id>+<username>@users.noreply.github.com'` before a clone's first commit. `gh api user --jq .id` prints the id. In GitHub's email settings, turn on **Keep my email addresses private** and **Block command line pushes that expose my email**. A commit with the wrong address must be rewritten before the first push.
 6. **Run the checks below** on the first commit, before any push.
@@ -22,7 +21,6 @@ The checklist for making this repository public. Git history is permanent, so fi
 | README screenshots | No image is linked yet. Four small shots in `docs/shots/` are tracked. The two large desktop shots (7.6 MB) are ignored, so compress one first if the README should show the desktop view |
 | Hardware notes | The docs mention an 8 GB MacBook as the test machine. They were kept because they explain design limits |
 | Branch protection | Available on `main` once the repository is public |
-| Gloria | If it is published first, update the "Nothing has been published" line in `README.md` and in `CHANGELOG.md` |
 
 ## CI is deferred
 

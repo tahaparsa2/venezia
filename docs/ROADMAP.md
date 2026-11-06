@@ -5,12 +5,12 @@ feature that claims otherwise.
 
 ## Proof
 
-- Two small real projects have gone end to end on real Claude (Marea and Gloria). That is thin evidence. Multi-item
+- Three small real projects have gone end to end on real Claude (Marea, Gloria and Tiziano). That is thin evidence. Multi-item
   galleys and galleasses are tested on a fake Claude only.
-- GitHub Pages has published a real project live (Gloria). `vercel` and `cloudflare` are probes that
+- GitHub Pages has published real projects live (Gloria and Tiziano). `vercel` and `cloudflare` are probes that
   report what setup is needed, not adapters.
-- Pairing and phone access are tested over real HTTPS with Chrome acting as the phone. No physical
-  phone has been through it, so the iPhone and Android steps and the trust check on Safari are unproven.
+- A real iPhone has linked and used Venezia. Android, and installing the certificate for the phone's
+  microphone, are still untried.
 - Voice is tested with real speech through Chrome's audio capture and the real speech helper. A physical
   microphone, the first-time permission prompt and Bluetooth headsets are still to be confirmed.
 
