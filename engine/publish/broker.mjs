@@ -63,7 +63,7 @@ export function createBroker({
   config, store, secret, previews, adapters = ADAPTERS, ghBin = 'gh', gitBin = 'git', env = process.env,
   remoteUrl, siteUrl = (owner, repo, slug) => `https://${owner}.github.io/${repo}/${slug}/`,
   browserLock, checkUrl = gateCheckUrl, proveHost = gateProveHost,
-  pollMs = 5000, pagesBuildTimeoutMs = 10 * 60 * 1000, verifyAttempts = 3, now = Date.now,
+  pollMs = 5000, pagesBuildTimeoutMs = 15 * 60 * 1000, verifyAttempts = 8, now = Date.now,
   sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); }),
 }) {
   const base = path.join(config.dataDir, 'publish');
@@ -130,7 +130,7 @@ export function createBroker({
         if (shuttingDown) return { ok: false, hostFault: true, problems: ['The host is shutting down'] };
         result = await checkUrl({ url: receipt.url, contract, evidenceDir, label: 'live', browserLock, config, manifest });
         if (result.ok || result.hostFault) break;
-        if (attempt < verifyAttempts) await sleep(pollMs);
+        if (attempt < verifyAttempts) await sleep(pollMs * 3); // a CDN can hold an old 404 for a minute
       }
       return shuttingDown && !result.ok ? { ok: false, hostFault: true, problems: ['The host is shutting down'] } : result;
     },

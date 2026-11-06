@@ -639,7 +639,7 @@ describe('tier 3: GitHub Pages', pool, () => {
 
   test('a Pages build that errors after the push also rolls back', async (t) => {
     const github = fakeGitHub(t);
-    github.setState({ buildSequence: ['building', 'errored'] });
+    github.setState({ buildSequence: ['building', ...Array(8).fill('errored')] });
     const made = await passedYard(t);
     const result = await publishSite(github, made);
     assert.equal(result.status, 'rolled_back');

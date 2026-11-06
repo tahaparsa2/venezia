@@ -64,10 +64,17 @@ function api(endpoint, rest) {
   if (tail === 'pages' && rest.includes('-X') && method === 'POST') {
     const input = fs.readFileSync(0, 'utf8');
     if (JSON.parse(input).source.branch !== 'gh-pages') die('wrong source');
+    if (state.autoPages) { repo.pages = true; save(); return die('unexpected end of JSON input'); }
     repo.pages = true;
     return save();
   }
   if (tail === 'pages') return repo.pages ? out('{}') : die('HTTP 404: Not Found');
+  if (tail.startsWith('actions/runs')) {
+    const runs = state.deployRuns ?? [];
+    const run = runs.length > 1 ? runs.shift() : runs[0];
+    save();
+    return out(run ? `${run.status}\t${run.conclusion ?? ''}` : '');
+  }
   if (tail === 'pages/builds/latest') {
     const sequence = state.buildSequence ?? [];
     const status = sequence.length ? sequence.shift() : state.buildStatus;

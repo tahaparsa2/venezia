@@ -131,7 +131,42 @@ test('the wait for a Pages build ignores the build before this push', async (t) 
   await github.broker.preflight(plan);
   const outcome = await github.broker.finish(plan, github.broker.approve(plan));
   assert.notEqual(outcome.status, 'live');
-  assert.match(outcome.reason, /did not finish building/);
+  assert.match(outcome.reason, /still deploying/);
+});
+
+test('Pages turned on by the push itself is not a failure', async (t) => {
+  const github = fakeGitHub(t, { pollMs: 1 });
+  const made = await passedYard(t);
+  github.setState({ autoPages: true, deployRuns: [{ status: 'completed', conclusion: 'success' }] });
+  const artifact = await github.broker.artifact({ shipId: 's', yard: made.yard, evidenceDir: made.evidenceDir, slug: 'todo' });
+  const plan = await github.broker.plan('github-pages', artifact);
+  await github.broker.preflight(plan);
+  const receipt = await github.broker.apply(plan, github.broker.approve(plan));
+  assert.equal(receipt.url, plan.expectedUrl);
+});
+
+test('a slow deploy is waited for, whatever the old build record says', async (t) => {
+  const github = fakeGitHub(t, { pollMs: 1 });
+  const made = await passedYard(t);
+  const going = { status: 'in_progress' };
+  github.setState({ buildStatus: 'errored', deployRuns: [going, going, going, going, going, going, going, going, { status: 'completed', conclusion: 'success' }] });
+  const artifact = await github.broker.artifact({ shipId: 's', yard: made.yard, evidenceDir: made.evidenceDir, slug: 'todo' });
+  const plan = await github.broker.plan('github-pages', artifact);
+  await github.broker.preflight(plan);
+  const receipt = await github.broker.apply(plan, github.broker.approve(plan));
+  assert.equal(receipt.url, plan.expectedUrl);
+});
+
+test('a deploy GitHub gave up on says so, and says it is safe to try again', async (t) => {
+  const github = fakeGitHub(t, { pollMs: 1 });
+  const made = await passedYard(t);
+  github.setState({ deployRuns: [{ status: 'completed', conclusion: 'failure' }] });
+  const artifact = await github.broker.artifact({ shipId: 's', yard: made.yard, evidenceDir: made.evidenceDir, slug: 'todo' });
+  const plan = await github.broker.plan('github-pages', artifact);
+  await github.broker.preflight(plan);
+  const outcome = await github.broker.finish(plan, github.broker.approve(plan));
+  assert.notEqual(outcome.status, 'live');
+  assert.match(outcome.reason, /ended as failure.*safe to try again/);
 });
 
 test('a page that spins after load fails the gate quickly and frees the browser', async (t) => {

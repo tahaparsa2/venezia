@@ -567,8 +567,9 @@ const verifiedPublish = patchPublish('verified', (entry, data) => ({ live: !LOCA
  * only a rollback that left nothing there takes that away.
  */
 const rolledBackPublish = patchPublish('rolledback', (entry, data) => {
-  if (!data.stillOut) return { live: false };
-  return entry.live ? { status: 'verified' } : {};
+  const reason = { reason: data.reason ?? null };
+  if (!data.stillOut) return { live: false, ...reason };
+  return entry.live ? { status: 'verified', ...reason } : reason;
 });
 
 const liveTiles = (state, shipId, dimmed) => ({

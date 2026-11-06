@@ -89,7 +89,7 @@ export function stateSentence(ship, plain = false, pausedBy = null) {
     case 'repairing': return `The gate failed. A ${repairer} is on it, with fresh eyes.`;
     case 'reviewing': return 'An independent reviewer is checking it against the contract.';
     case 'ready': return 'Passed and running locally. Publishing is your call.';
-    case 'publishing': return 'The publish broker is at work, and will check the live page after.';
+    case 'publishing': return 'Publishing now. GitHub usually takes 1 to 6 minutes, and it then checks the live page. You can leave this running.';
     case 'launched': return 'Live, and the live check passed.';
     case 'learning': return 'The scribe is writing it up and drafting lessons.';
     case 'done': return ship.receipt && !ship.receipt.voided ? 'Finished. It can be published or refit.' : 'Finished. It can be refit.';
