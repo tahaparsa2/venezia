@@ -2,6 +2,19 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- Linking a phone is one button. Link a phone in Settings starts phone access, shows numbered steps and a QR code, and opens one box on the Mac with the PIN, which closes itself once the phone is linked. `./vz pair` does the same, and waits to say how it ended.
+- The PIN only ever appears in that box, never over HTTP. The typed Mac code is gone, for linking and for turning off, listing and removing devices.
+- The QR and the first address use the Mac's IP address, with `venezia.local` as the alternative.
+- The phone page asks for the PIN and opens the app. The certificate is never required first, and is offered afterwards in one line. The check for a trusted certificate, and its second listener, are gone.
+
+### Fixed
+
+- The panel and the phone page explain that 127.0.0.1 only means the device itself, and the panel says what to check for a different Wi-Fi, a guest network, a VPN, the firewall or no network address.
+
 ## 0.1.1 - 2026-11-05
 
 ### Added

@@ -74,41 +74,43 @@ If a command says Venezia is not running, it also gives the exact line to start 
 ## Use it from your phone
 
 Your phone must be on the same Wi-Fi as your Mac. With Venezia running from a plain `npm start`, open
-Settings on this Mac and press **Show a pairing code**, or run:
+Settings on this Mac and press **Link a phone**, or run:
 
 ```
 ./vz pair
 ```
 
-Say yes in the box on your Mac. The first time in a browser, a box also shows a code to type into
-the page, because a page cannot otherwise show that you are the one using it. Phone access turns on
-with no restart, and you get a QR code and a PIN. It was off until then, and only this Mac could reach Venezia. Settings shows **Phone access is
-on** with a **Turn off** button, and `./vz pair --off` does the same. Turning it off closes the
-network listener and disconnects every device, but they stay paired. A restart leaves it off, unless
-you start with `./vz serve --lan`.
+That one press does everything on the Mac. Phone access turns on with no restart, the panel shows
+numbered steps and a QR code, and a box opens on this Mac with a 6-digit PIN. Then, on the phone:
 
-The first time on a phone, it has to learn to trust your Mac. The panel, `./vz pair` and the page on
-the phone all list these steps in order:
+1. Scan the QR code, or type the address under it, which looks like `https://10.0.0.40:8443`.
+2. The phone warns that the connection is not private. That is expected. On iPhone tap Show Details,
+   visit this website, Visit Website. On Android tap Advanced, then Proceed.
+3. Enter the PIN from the box. Venezia opens on the phone, the box closes by itself, and Settings on
+   the Mac says **Linked: iPhone**.
 
-1. **On the Mac:** if it asks whether node may accept incoming network connections, click Allow.
-2. Scan the QR code and open it in Safari.
-3. Safari warns "This Connection Is Not Private". Tap Show Details, visit this website, Visit Website.
-4. Download the profile, then tap Allow.
-5. Settings, Profile Downloaded, Install.
-6. Settings, General, About, Certificate Trust Settings, and turn on full trust for Venezia Local Root.
-7. Go back to Safari. The page sees the certificate is trusted, and asks for the code on your Mac.
+Press Cancel in the box and everything closes again. An address starting `127.0.0.1` or `localhost`
+only ever means the device you are holding, so the link your Mac's browser uses cannot work on a
+phone. `venezia.local` is shown as an alternative address.
 
-If the phone cannot find `venezia.local`, use the IP address shown beside the QR code. Android has its
-own steps, in the same places.
+If the phone cannot open the address, the panel lists what to check: the same Wi-Fi on both, a guest
+network that keeps devices apart, a VPN, and the macOS firewall.
 
-A paired phone can approve anything you can. `./vz pair --list` shows paired devices, and
+Nothing has to be installed on the phone. Linked, the app works after tapping past the warning, and
+if live updates are blocked it falls back to a slower connection by itself. Afterwards it offers one
+optional extra: install the certificate to use your microphone and add Venezia to your Home Screen.
+
+Settings shows **Phone access is on** with a **Turn off** button, and `./vz pair --off` does the
+same. Turning it off closes the network listener and disconnects every device, but they stay linked.
+A restart leaves it off, unless you start with `./vz serve --lan`. A phone stays linked to the
+address it linked on, so if your Mac's address changes, press Link a phone again.
+
+A linked phone can approve anything you can. `./vz pair --list` shows linked devices, and
 `./vz pair --revoke <id>` removes one.
 
-**This has not been tried on a real phone.** It is tested over real HTTPS in Chrome, with a browser
-acting as the phone, but not on an iPhone or an Android phone. The steps come from Apple and Google
-documentation. Whether iOS accepts a certificate limited to local addresses, and whether the page's
-trust check behaves on Safari as it does on Chrome, are unproven, and the page says so. If the check
-gets it wrong, **Pair anyway** on that page still works, with less protection.
+**This has not been tried on a real phone.** The whole path is walked by `test/ui/phone-walk.mjs`, on
+this Mac's real network address, with Chrome acting as an iPhone. Whether a real iPhone behaves the
+same way, and whether its microphone needs the certificate, are unproven.
 
 On the phone, hold Talk and speak. What it heard sits on a chip until you choose Nudge (fold it
 in), Next (after this job) or Now (change course), so a mishearing costs one tap.
