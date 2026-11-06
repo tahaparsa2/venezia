@@ -20,7 +20,9 @@
 .w[data-chart=low] .w-hud::before{display:none}
 /* Words on a pale sky need the night brought with them: an engraved band, not a glow. */
 .w.is-day .w-hud::before{opacity:.92;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(239,228,203,.035) 3px 4px),linear-gradient(180deg,var(--lagoon-deep) calc(100% - 6px),transparent)}
-.w.is-day .w-weather{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 88%,transparent)}
+.w.is-day .w-weather,.w-weather.is-plated{padding:2px 7px 3px;background:color-mix(in srgb,var(--lagoon-deep) 88%,transparent)}
+/* When a card lifts the water, the weather would slide under the HUD. The HUD still shows the limit. */
+.w.is-lifted .w-weather{opacity:0;pointer-events:none;transition-duration:.2s}
 
 /* -------------------------------------------------------------------------- the lion */
 

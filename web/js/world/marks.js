@@ -386,7 +386,13 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
       bocca.style.setProperty('--night', `translate(${Math.round(L.night.x - size / 2)}px,${Math.round(L.night.y - size / 2)}px) scale(${big.toFixed(3)})`);
       root.style.setProperty('--lion-b', `${Math.round(L.night.y + L.night.d * 0.52)}px`);
       if (L.name === 'low') weatherNote.style.transform = 'translate(112px,calc(var(--safe-t) + 8px))';
-      else weatherNote.style.transform = `translate(${Math.round(L.wind[0] + (L.wide ? 44 : 20))}px,${Math.round(L.wind[1] - (L.wide ? 38 : 30))}px)`;
+      else {
+        // A shallow sky puts the wind head up beside the HUD, and the HUD's band would cover it.
+        const wanted = Math.round(L.wind[1] - (L.wide ? 38 : 30));
+        const clear = Math.ceil(Math.max(purse.getBoundingClientRect().bottom, fame.getBoundingClientRect().bottom) - root.getBoundingClientRect().top) + 2;
+        weatherNote.style.transform = `translate(${Math.round(L.wind[0] + (L.wide ? 44 : 20))}px,${Math.max(wanted, clear)}px)`;
+        weatherNote.classList.toggle('is-plated', wanted < clear);
+      }
       wordPlaques();
       first.textContent = plain() ? 'Say or type an idea.' : 'Speak an idea into the mouth.';
 

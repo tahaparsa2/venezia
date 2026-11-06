@@ -80,7 +80,10 @@
 .tab-say{flex:none;padding-top:var(--s2);font:italic 400 var(--fs-small)/1.3 var(--serif);color:var(--ink-muted)}
 .tab-host[hidden],.tab[hidden]{display:none}
 .tab{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-.tab-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s3) 2px var(--s3) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
+/* What runs off the foot of a page fades out, so a cut line reads as "more below", and the padding
+   lets the last line clear the fade at the end of the scroll. */
+.tab-body,.panel-body{--fade:22px;-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade)),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade)),transparent)}
+.tab-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s3) 2px calc(var(--s3) + var(--fade)) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
 .tab-body[hidden]{display:none}
 .tab-lead{font:400 var(--fs-read)/1.3 var(--serif);color:var(--ink);margin-bottom:var(--s3)}
 .rub{font:400 var(--fs-label)/1 var(--serif);letter-spacing:.2em;text-transform:uppercase;color:var(--ink-muted);margin:var(--s4) 0 var(--s2)}
@@ -339,7 +342,7 @@
 .panel-title:focus-visible,.hull-name:focus-visible{outline:none}
 :root[data-layout=desk] .panel-title,:root[data-layout=ultrawide] .panel-title{font-size:2rem}
 .panel-say{margin-top:var(--s1);font:italic 400 var(--fs-body)/1.3 var(--serif);color:var(--ink-soft)}
-.panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px var(--s4) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
+.panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px calc(var(--s4) + var(--fade)) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
 .panel-note{font:italic 400 var(--fs-small)/1.3 var(--serif);color:var(--ink-soft);margin-bottom:var(--s3)}
 .panel-note a{position:relative;color:var(--verdigris-ink)}
 .panel-note a::after{content:'';position:absolute;inset:-12px -6px}
@@ -617,6 +620,7 @@
 .help-list{display:flex;flex-direction:column;gap:4px;font:400 var(--fs-small)/1.25 var(--serif);color:var(--ink-soft)}
 .help-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px var(--s3)}
 .help-pair li{align-items:center}
+.help-terms li{align-items:flex-start}
 .help-list li{display:flex;align-items:flex-start;gap:var(--s2)}
 .help-list b{color:var(--ink)}
 .help-num{flex:none;width:24px;font:700 var(--fs-label)/1.5 var(--serif);font-style:normal;color:var(--vermilion-ink)}
