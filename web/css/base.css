@@ -119,6 +119,17 @@ canvas,svg,img{display:block}
   :root.only-deck #slot-cards{width:100%;max-width:calc(1120px + 20px);justify-self:center}
 }
 
+/* A big screen has height to spare but the deck takes it, so a card goes beside the deck and
+   keeps its full height. Every answer stays in reach, however long the card is. */
+@media (min-width:1600px) and (min-height:520px){
+  :root.only-deck #app:has(#slot-cards .card){grid-template-columns:minmax(0,560px) minmax(0,1120px);justify-content:center;
+    grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"cards deck" "nav nav";column-gap:var(--s4)}
+  :root.only-deck #app:has(#slot-cards .card) #slot-cards{align-self:center;justify-self:stretch;max-height:100%;padding:var(--s4) 0;overflow:auto}
+  :root.only-deck #app:has(#slot-cards .card) .cards{max-height:none}
+  :root.only-deck #app:has(#slot-cards .card) #slot-deck{align-self:center;height:auto;max-height:100%}
+  :root.only-deck #slot-nav{width:min(100%,760px);justify-self:center}
+}
+
 /* A phone on its side beside a screen: the card takes the left, and only if one is up. */
 @media (orientation:landscape) and (max-height:519px){
   :root.only-deck #app{grid-template-columns:minmax(0,auto) minmax(0,1fr) var(--nav-col);grid-template-rows:minmax(0,1fr);grid-template-areas:"cards deck nav"}

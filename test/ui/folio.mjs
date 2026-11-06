@@ -145,7 +145,7 @@ async function desk() {
   await settle(page, 200);
   await shot(page, 'laptop-settings-pair');
   const pairing = (await page.textContent('.pair')).trim();
-  check('the demo says pairing needs the real factory, and to run npm start', pairing === 'Pairing needs the real factory. Stop the demo, then run: npm start', pairing);
+  check('the demo says a phone cannot link, and to run npm start', pairing === 'This is the demo, so a phone cannot link to it. To link a phone, stop the demo, then run: npm start', pairing);
   await page.click('.switch >> nth=0');
   await settle(page, 300);
   check('plain mode reaches the page', await page.evaluate(() => document.documentElement.hasAttribute('data-plain')));

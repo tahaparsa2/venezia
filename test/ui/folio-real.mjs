@@ -74,6 +74,9 @@ try {
   await page.evaluate((id) => window.venezia.store.view.set({ selectedShip: id, panel: 'proof' }), open.id);
   await page.waitForTimeout(500);
 
+  // The picture is lazy, so it only loads once a person has scrolled to it.
+  await page.locator('.shot img').scrollIntoViewIfNeeded().catch(() => {});
+  await page.waitForFunction(() => document.querySelector('.shot img')?.complete, null, { timeout: 4000 }).catch(() => {});
   const image = await page.$eval('.shot img', (node) => ({ src: node.src, width: node.naturalWidth })).catch(() => null);
   check('the screenshot comes from /evidence', image?.width > 0, JSON.stringify(image));
   const record = await page.$eval('.proof-links a', (node) => node.href).catch(() => null);
@@ -107,7 +110,7 @@ try {
   await page.click('.page-settings .act-now');
   await page.waitForTimeout(500);
   const said = await page.textContent('.pair');
-  check('pairing in the demo says it needs the real factory, in one line', said.trim() === 'Pairing needs the real factory. Stop the demo, then run: npm start', said);
+  check('pairing in the demo says what to do, in one line', said.trim() === 'This is the demo, so a phone cannot link to it. To link a phone, stop the demo, then run: npm start', said);
   await page.screenshot({ path: path.join(SHOTS, 'folio-real-settings.png') });
 
   const noise = errors.filter((text) => !/status of 40[0-9]|409/.test(text));
