@@ -4,6 +4,7 @@
 import { createSim } from '../shared/sim.mjs';
 import { createDirector } from '../web/js/demo/director.js';
 import { loadConfig } from './config.mjs';
+import { showOnThisMac } from './net/confirm.mjs';
 import { createStore } from './store.mjs';
 
 /**
@@ -15,9 +16,10 @@ import { createStore } from './store.mjs';
  * @param {boolean} [options.ambient] keep launching small ships
  * @param {boolean} [options.autostart] run on timers straight away
  * @param {Record<string, any>} [options.config] overrides for `loadConfig`
+ * @param {typeof showOnThisMac} [options.showOnMac] how a demo with --lan shows a PIN
  */
 export function createSimEngine({
-  speed = 1, fastForward = 0, seed, autopilot = false, ambient = true, autostart = true, config = {},
+  speed = 1, fastForward = 0, seed, autopilot = false, ambient = true, autostart = true, config = {}, showOnMac = showOnThisMac,
 } = {}) {
   const resolved = loadConfig(config);
   const raw = createSim({
@@ -51,6 +53,7 @@ export function createSimEngine({
     beginHold: () => ({ ok: true, holdId: 'sim', holdMs: 0 }),
     signApproval: () => ({ ok: true, token: 'sim' }),
     confirmHuman: async () => ({ ok: true }),
+    showOnMac,
 
     start: (options) => raw.start(options),
     stop: () => raw.stop(),

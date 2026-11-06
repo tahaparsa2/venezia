@@ -15,11 +15,11 @@ import WebSocket from 'ws';
 import { checkHeaders, createPairing, readCookie } from '../engine/net/auth.mjs';
 import { ensureCertificates, mobileConfig } from '../engine/net/certs.mjs';
 import { readSurfaceKey } from '../engine/net/client.mjs';
-import { LAN_NAME, lanAddresses, publishName } from '../engine/net/mdns.mjs';
+import { LAN_NAME, lanAddresses, publishName, vpnActive } from '../engine/net/mdns.mjs';
 import { qrSvg, qrTerminal } from '../engine/net/qr.mjs';
 import { createSimEngine } from '../engine/sim-engine.mjs';
 import { REPO, testDir } from './helpers.mjs';
-import { raw, serve, ship, stubEngine } from './net.helpers.mjs';
+import { fakeBox, raw, serve, ship, stubEngine } from './net.helpers.mjs';
 import { until } from './worker-support.mjs';
 
 const run = promisify(execFile);
@@ -244,10 +244,19 @@ test('addresses are private IPv4, Wi-Fi first', () => {
   assert.deepEqual(lanAddresses({
     lo0: [ip('127.0.0.1', { internal: true })],
     utun3: [ip('100.64.1.1'), ip('10.8.0.2')],
+    bridge100: [ip('192.168.64.1')],
     en1: [ip('172.20.0.4'), { address: 'fe80::1', family: 'IPv6', internal: false }],
     en0: [ip('192.168.1.20')],
     en5: [ip('8.8.8.8'), ip('172.32.0.1')],
-  }), ['192.168.1.20', '172.20.0.4', '10.8.0.2']);
+  }), ['192.168.1.20', '172.20.0.4', '192.168.64.1'], 'a tunnel address means nothing to a phone');
+});
+
+test('a VPN is told from the idle tunnels macOS keeps around', () => {
+  const v4 = { address: '10.8.0.2', family: 'IPv4', internal: false };
+  const v6 = { address: 'fe80::1', family: 'IPv6', internal: false };
+  assert.equal(vpnActive({ en0: [v4], utun0: [v6], utun1: [v6] }), false);
+  assert.equal(vpnActive({ en0: [v4], utun4: [v4] }), true);
+  assert.equal(vpnActive({ en0: [v4], ppp0: [v4] }), true);
 });
 
 test('dns-sd runs with the exact arguments, restarts, moves, and stops', async () => {
@@ -398,9 +407,9 @@ test('nothing but the pairing pages answers without a paired device', async (t) 
 test('pair by PIN: the cookie opens everything, and only over HTTPS', async (t) => {
   const engine = stubEngine(t);
   const { ask, server, lanPort } = await lanServer(t, { engine });
-  const { url, ipUrl, pin, fingerprint, qrSvg: svg, qrText } = server.startPairing();
-  assert.equal(url, `https://venezia.local:${lanPort}/pair`);
-  assert.equal(ipUrl, `https://10.1.2.3:${lanPort}/pair`);
+  const { url, altUrl, pin, fingerprint, qrSvg: svg, qrText } = server.startPairing();
+  assert.equal(url, `https://10.1.2.3:${lanPort}`);
+  assert.equal(altUrl, `https://venezia.local:${lanPort}`);
   assert.match(pin, /^\d{6}$/);
   assert.match(fingerprint, /^[0-9A-F:]+$/);
   assert.match(svg, /<svg/);
@@ -511,11 +520,12 @@ test('pairing starts from the Mac over loopback, and devices are managed there',
   const cli = { 'x-venezia-surface': 'cli', 'x-venezia-key': readSurfaceKey(engine.config) };
   const started = await raw({ port, path: '/api/pair/start', method: 'POST', headers: cli });
   assert.equal(started.status, 200);
+  assert.equal(started.json.pin, undefined);
   const claim = await ask({
     path: '/api/pair/claim',
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: `https://${LAN_NAME}:${lanPort}` },
-    body: JSON.stringify({ pin: started.json.pin, name: 'Pixel' }),
+    body: JSON.stringify({ pin: engine.boxes.at(-1).pin, name: 'Pixel' }),
   });
   assert.equal(claim.status, 200);
   const devices = (await raw({ port, path: '/api/devices', headers: cli })).json;
@@ -607,13 +617,14 @@ test('a session ends after its year, whatever the cookie says', (t) => {
 test('a device paired in a demo is written apart, and the real server has never heard of it', async (t) => {
   const dir = testDir(t);
   const config = { root: dir, port: 0 };
-  const demo = createSimEngine({ autostart: false, ambient: false, config });
+  const box = fakeBox();
+  const demo = createSimEngine({ autostart: false, ambient: false, config, showOnMac: box.showOnMac });
   t.after(() => demo.close());
   const { port, ask, server: demoServer, lanPort } = await lanServer(t, { engine: demo });
   const started = await raw({ port, path: '/api/pair/start', method: 'POST', headers: { origin: `http://127.0.0.1:${port}` } });
   assert.equal(started.status, 200);
   const origin = `https://${LAN_NAME}:${lanPort}`;
-  const claim = await ask({ path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin: started.json.pin, name: 'Demo phone' }) });
+  const claim = await ask({ path: '/api/pair/claim', method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ pin: box.boxes.at(-1).pin, name: 'Demo phone' }) });
   assert.equal(claim.status, 200);
   const cookie = claim.headers['set-cookie'][0].split(';')[0];
   const secret = cookie.split('=')[1];
@@ -640,6 +651,7 @@ test('an address change reissues the leaf and republishes the name, with no rest
     port: lanPort, secure: true, ca: server.lanCa, servername: LAN_NAME, path: '/pair', headers: { host: `10.9.9.9:${lanPort}` },
   });
   assert.equal(page.status, 200);
+  assert.equal(server.startPairing().url, `https://10.9.9.9:${lanPort}`, 'and the QR follows it');
   const peer = await new Promise((resolve, reject) => {
     const socket = tls.connect({ host: '127.0.0.1', port: lanPort, ca: server.lanCa, servername: LAN_NAME }, () => {
       resolve(socket.getPeerX509Certificate());

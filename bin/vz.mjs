@@ -7,7 +7,9 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { COMMAND_TYPES, COMMANDS } from '../shared/commands.mjs';
-import { NOT_TRIED, SETUP_STEPS } from '../shared/pairing.mjs';
+import {
+  LINK_CHECKS, LINK_STEPS, LOOPBACK_NOTE, NOT_TRIED, VPN_WARNING,
+} from '../shared/pairing.mjs';
 import { initialState, reduce } from '../shared/reducer.mjs';
 import { PUBLISH_TARGETS, SIZES } from '../shared/vocabulary.mjs';
 import { REPO_ROOT, loadConfig } from '../engine/config.mjs';
@@ -61,6 +63,7 @@ const print = (flags, json, text) => console.log(flags.json ? JSON.stringify(jso
 
 /** How long a stop may take before the process leaves anyway. */
 const STOP_LIMIT_MS = 20_000;
+const PAIR_WATCH_MS = 1500;
 const config = loadConfig(process.env.VENEZIA_ROOT ? { root: process.env.VENEZIA_ROOT } : {});
 /** The CLI proves itself with the running server's key. MCP claims nothing, and gets the least. */
 const clientFor = (flags, surface = 'cli') => createClient({ url: resolveUrl({ url: flags.url, config }), surface, ...(surface === 'cli' ? { key: readSurfaceKey(config) } : {}) });
@@ -334,8 +337,6 @@ async function lessons(args) {
   print(flags, found, lines.length ? lines.join('\n') : 'No lessons yet');
 }
 
-const stepLines = (steps) => steps.map((step, index) => `  ${index + 1}. ${step.where}: ${step.text}`);
-
 async function pair(args) {
   const { flags } = parse(args, {
     list: { type: 'boolean' }, revoke: { type: 'string' }, off: { type: 'boolean' }, status: { type: 'boolean' },
@@ -364,30 +365,36 @@ async function pair(args) {
     print(flags, result, 'Phone access is off. Paired devices stay paired, and reconnect when it is on again.');
     return;
   }
-  if (!flags.json) console.error('Say yes in the box on your Mac.');
   const result = await client.pairStart();
   if (result.ok === false) throw new ClientError(result.error);
-  const { qrText, ...details } = result;
-  const expires = new Date(result.expiresAt).toLocaleTimeString();
+  const { qrText, qrSvg, ...details } = result;
   print(flags, details, [
     qrText,
     '',
-    ...(result.warning ? [result.warning, ''] : []),
-    'Phone access is on. Turn it off with: ./vz pair --off',
-    'Scan this with your phone, or open the address. Type the code only when the page asks for it.',
-    `Address: ${result.url}`,
-    ...(result.ipUrl ? [`If the phone cannot find venezia.local: ${result.ipUrl}`] : []),
-    `Code: ${result.pin}, works once, until ${expires}`,
-    `Certificate fingerprint: ${result.fingerprint}`,
+    ...(result.vpn ? [VPN_WARNING, ''] : []),
+    `Open on your phone: ${result.url}`,
+    ...(result.altUrl ? [`Or try: ${result.altUrl}`] : []),
+    `The PIN is only in the box on this Mac. It stops working at ${new Date(result.expiresAt).toLocaleTimeString()}.`,
     '',
-    'First time on an iPhone or iPad:',
-    ...stepLines(SETUP_STEPS.iphone),
+    ...LINK_STEPS.map((step, index) => `  ${index + 1}. ${step}`),
     '',
-    'First time on Android:',
-    ...stepLines(SETUP_STEPS.android),
+    'If the phone cannot open the address, check these:',
+    ...LINK_CHECKS.map((check) => `  ${check.what}: ${check.text}`),
+    `  Address: ${LOOPBACK_NOTE}`,
     '',
     NOT_TRIED,
+    '',
+    'Waiting for the phone. Press Cancel in the box on this Mac to stop.',
   ].join('\n'));
+  if (flags.json) return;
+  for (;;) {
+    await new Promise((resolve) => { setTimeout(resolve, PAIR_WATCH_MS); });
+    const { link } = await client.phoneAccess();
+    if (link?.state === 'waiting' || link?.state === 'starting') continue;
+    console.log(link?.say ?? 'The link stopped.');
+    if (link?.state !== 'linked') process.exitCode = 1;
+    return;
+  }
 }
 
 async function doctor(args) {

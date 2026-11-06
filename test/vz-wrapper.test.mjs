@@ -11,7 +11,7 @@ import { DEMO_PAIRING } from '../shared/pairing.mjs';
 import { readSurfaceKey } from '../engine/net/client.mjs';
 import { LAN_NAME } from '../engine/net/mdns.mjs';
 import { REPO, testDir } from './helpers.mjs';
-import { serve, stubEngine } from './net.helpers.mjs';
+import { raw, serve, stubEngine } from './net.helpers.mjs';
 
 const WRAPPER = path.join(REPO, 'vz');
 
@@ -102,16 +102,25 @@ test('./vz pair turns phone access on against a server that was started without 
   assert.match(off.stdout, /Phone access is off/);
   assert.equal(server.lanUrl, null);
 
-  const { stdout, stderr, code } = await run('./vz', ['pair'], { env });
+  const waiting = run('./vz', ['pair'], { env });
+  for (let i = 0; i < 1000 && !engine.boxes.length; i++) await new Promise((resolve) => { setTimeout(resolve, 10); });
+  const pin = engine.boxes[0].pin;
+  const claim = await raw({
+    port: server.lanPort, path: '/api/pair/claim', method: 'POST', secure: true, ca: server.lanCa, servername: LAN_NAME,
+    headers: { host: `${LAN_NAME}:${server.lanPort}`, origin: `https://${LAN_NAME}:${server.lanPort}`, 'content-type': 'application/json' }, body: JSON.stringify({ pin, name: 'Pixel' }),
+  });
+  assert.equal(claim.status, 200);
+  const { stdout, stderr, code } = await waiting;
   assert.equal(code, 0, stderr);
-  assert.match(stderr, /Say yes in the box on your Mac/);
   assert.match(stdout, /█/);
-  assert.match(stdout, new RegExp(`https://${LAN_NAME.replace('.', '\\.')}:\\d+/pair\\n`));
-  assert.match(stdout, /If the phone cannot find venezia\.local: https:\/\/192\.168\.1\.20:\d+\/pair/);
-  assert.match(stdout, /Code: \d{6}/);
-  for (const words of ['accept incoming network connections', 'Profile Downloaded', 'Certificate Trust Settings', 'CA certificate', 'Not yet tried on a real iPhone']) {
+  assert.match(stdout, /Open on your phone: https:\/\/192\.168\.1\.20:\d+\n/);
+  assert.match(stdout, new RegExp(`Or try: https://${LAN_NAME.replace('.', '\\.')}:\\d+\\n`));
+  assert.ok(!stdout.includes(pin), 'the PIN is only in the box');
+  assert.match(stdout, /The PIN is only in the box on this Mac/);
+  for (const words of ['accept incoming connections', 'Show Details', 'Guest Wi-Fi', 'only ever means the device you are holding', 'Not yet tried on a real iPhone']) {
     assert.ok(stdout.includes(words), words);
   }
+  assert.match(stdout, /Linked: Pixel\n$/);
   assert.ok(readSurfaceKey(engine.config));
   assert.match((await run('./vz', ['pair', '--status'], { env })).stdout, /Phone access is on at https:\/\/192\.168\.1\.20/);
 
@@ -135,7 +144,7 @@ test('serve --lan on a busy port is one plain sentence, not a stack trace', asyn
 
 test('the demo line is one line, and says what to run', () => {
   assert.doesNotMatch(DEMO_PAIRING, /\n/);
-  assert.match(DEMO_PAIRING, /real factory/);
+  assert.match(DEMO_PAIRING, /the demo/);
   assert.match(DEMO_PAIRING, /npm start/);
 });
 

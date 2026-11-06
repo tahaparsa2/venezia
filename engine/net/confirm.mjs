@@ -29,3 +29,40 @@ export function askOnThisMac({ title, plain, ok = 'Approve' }, { bin = '/usr/bin
     });
   });
 }
+
+const quoted = (text) => `"${String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
+/**
+ * Show something only a person at this Mac should read. The words go in on stdin, never in the
+ * arguments, because anything on this machine can read the arguments of a process with `ps`.
+ * The box has one button, closes itself after `seconds`, and closes when `close` kills it.
+ * @param {{title: string, text: string, seconds: number}} box
+ * @param {{bin?: string}} [options]
+ * @returns {{closed: Promise<'cancelled'|'timed-out'|'closed'|'failed'>, close: () => void}}
+ */
+export function showOnThisMac({ title, text, seconds }, { bin = '/usr/bin/osascript' } = {}) {
+  const script = [
+    'activate',
+    `display dialog ${quoted(text)} with title ${quoted(title)} buttons {"Cancel"} default button "Cancel" cancel button "Cancel" with icon note giving up after ${Math.ceil(seconds)}`,
+    'return "gave up"',
+  ].join('\n');
+  let closing = false;
+  let child;
+  const closed = new Promise((resolve) => {
+    child = execFile(bin, [], { timeout: (Math.ceil(seconds) + 10) * 1000 }, (error, stdout, stderr) => {
+      if (closing) resolve('closed');
+      else if (!error) resolve('timed-out');
+      else if (/-128/.test(`${stderr}${error.message}`)) resolve('cancelled');
+      else resolve(error.killed ? 'timed-out' : 'failed');
+    });
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(script);
+  });
+  return {
+    closed,
+    close() {
+      closing = true;
+      child.kill();
+    },
+  };
+}

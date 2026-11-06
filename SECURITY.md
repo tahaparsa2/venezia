@@ -25,17 +25,17 @@ Venezia is a local tool for one person on one Mac. It has not had an outside sec
 
 ## Phone access and pairing
 
-Phone access is off until you ask. Say yes in the box on your Mac after pressing Show a pairing code or running `./vz pair`, or start with `./vz serve --lan`. It then listens on port 8443 by default, over HTTPS only, plus a second free port that answers one word and is how the pairing page checks the certificate. Turn it off in Settings or with `./vz pair --off`: that closes both listeners and disconnects every device. It is off again after a restart without `--lan`.
+Phone access is off until you ask. Press Link a phone in Settings, run `./vz pair`, or start with `./vz serve --lan`. It then listens on port 8443 by default, over HTTPS only. Turn it off in Settings or with `./vz pair --off`: that closes the listener and disconnects every device. It is off again after a restart without `--lan`.
 
 - HTTPS uses a local certificate authority that Venezia creates in `data/net/`. Its root is name-constrained to `.local`, `localhost` and private addresses, so a stolen key cannot intercept public sites. Installing that root on a phone is still a real trust decision.
-- `./vz pair` and the Show a pairing code button need your yes on the Mac, then give a QR code and a PIN. The QR holds only the address. The PIN works once and expires after 5 minutes, allows 5 tries, and wrong tries are also limited per address.
-- A browser on the Mac has to show that a person is using it before it can list or remove devices, turn phone access off or start a pairing, because anything on the Mac can send the headers a browser sends. The host shows a code in a box on the screen, and you type it into the page. It never crosses HTTP, so saying yes gives whatever raised the box nothing. Only one box shows at a time, and three in ten minutes. `./vz` proves itself with its key file.
+- Link a phone gives a QR code that holds only an address. The PIN appears in one place: a box on the Mac, shown by the host. It is in no HTTP answer, and it reaches the box on stdin, so it is not in the process list either. That is the whole check: anything local that sends a browser's headers can start a link, but it learns nothing, and a person has to carry the PIN to a device.
+- The PIN works once, expires after 5 minutes, allows 5 tries, and wrong tries are also limited per address. Only one box shows at a time, and six in ten minutes. Cancel closes the box and puts phone access back as it was.
+- Turning phone access off, listing devices and removing a device need no proof, because they only look or take access away. So a local process that forges a browser can disconnect your phone. It cannot let anything in.
 - Before pairing, the LAN can reach only the pairing page, the claim endpoint and the certificate downloads.
 - **A paired device can approve anything you can**, for up to a year, until revoked. Removing a device cuts every connection it has open. Turning phone access off does not unpair anything. List devices with `./vz pair --list` and remove one with `./vz pair --revoke <id>`.
-- A phone that has not trusted your certificate cannot tell who it is talking to, so nothing secret goes in the QR, and the real page asks for the PIN only once the phone trusts your Mac. **Pair anyway** skips that wait, and should only be used on your own Wi-Fi.
-- That leaves one gap: before trust, a fake page at the same address could still ask for the PIN. Type it only when the page says this phone trusts your Mac, or after you chose Pair anyway.
+- A phone that has not installed your certificate cannot tell who it is talking to, so nothing secret goes in the QR. That leaves one gap: on a hostile network, a fake page at the same address could ask for the PIN. Link on your own Wi-Fi. To be sure, compare the fingerprint under Check this is your Mac on both screens. A PIN taken that way still works only once and only while the box is open.
 - A device paired in the demo is kept apart, and cannot open the real factory.
-- Pairing is tested against the real server, but not yet on a physical phone.
+- Linking is tested against the real server on a real network address, but not yet on a physical phone.
 
 ## Publishing
 
