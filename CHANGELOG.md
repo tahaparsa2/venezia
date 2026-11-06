@@ -2,7 +2,7 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.1.1 - 2026-11-05
 
 ### Added
 
@@ -14,6 +14,23 @@ Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver
 ### Changed
 
 - Every hint now gives a command that works. When the server is not running, the message gives the exact line, including the `cd`.
+- The pairing QR holds only the address, and the phone types the PIN from the Mac. The first time in a browser, listing or removing devices, turning phone access off and starting a pairing also take a code from a box on the Mac.
+
+### Fixed
+
+- A QR no longer carries a pairing secret. An impostor at the address could read it once the certificate warning was tapped through.
+- An `Origin` header no longer passes for a person. Any local process could list and revoke devices, turn phone access off, and raise dialogs until one gave it a PIN. Boxes on the Mac are now capped.
+- Removing a device cuts every connection it has open: live updates, voice and any held request.
+- A device paired in the demo is kept apart from the real factory's. A demo with `--lan` still asks nobody, since nothing real is behind it.
+- Turn off wins over a yes that was still waiting, and a session ends after a year on the server, as the docs always said.
+- A crash after a GitHub Pages push no longer loses the publish. The restart adopts what landed, and a rollback goes back to the true state before the push, which is now journalled first. A failed resume rolls back or says the site may be out.
+- Publishing a version that is already out says it sends nothing, and a failed live check no longer tears a checked site down.
+- A rollback reports what is still out, and the status, chronicle and Atlas follow it. A live tile dims if its site is gone, and lights again when it is checked live again.
+- A local tarball or preview no longer reads as launched or live in a bell, the chronicle, the Atlas or the Fair.
+- The receipt is checked after planning, before anything leaves and by the host's recheck during `publishing`, so a commit landing in that gap stops the publish.
+- The live check and host simulator run by the contract locked outside the yard, so an edit in the yard cannot weaken them.
+- An approval runs from the moment of the yes and spends once, so a yes that has run out of time is asked for again.
+- A torn journal line can no longer swallow the entry written after it.
 
 ## 0.1.0 - 2026-11-05
 
