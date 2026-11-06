@@ -298,7 +298,7 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
     }
     const shown = tesserae.slice(-MAX_TILES);
     const nextTiles = shown.map((tile) => `${tile.seq}${tile.gold ? 'g' : 'd'}${tile.dimmed ? 'x' : ''}`).join();
-    tally.textContent = tesserae.length > MAX_TILES ? String(tesserae.length) : '';
+    tally.textContent = tesserae.length > MAX_TILES ? `${tesserae.filter((tile) => tile.gold && !tile.dimmed).length} gold` : '';
     if (nextTiles !== tilesKey) {
       const known = new Set(tilesKey.split(',').map((text) => Number.parseInt(text, 10)));
       const fresh = tilesKey !== '';

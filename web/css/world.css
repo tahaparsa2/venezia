@@ -143,7 +143,8 @@
 .w-tally:empty{display:none}
 .w-tiles i{width:9px;height:9px;display:block;background:var(--gold-face);box-shadow:0 0 0 .5px var(--gold-wire);transform:rotate(var(--r,0deg))}
 .w-tiles i.is-dull{background:linear-gradient(135deg,var(--tile-dark-edge),var(--tile-dark));box-shadow:0 0 0 .5px var(--tile-dark-edge)}
-.w-tiles i.is-dim{opacity:.35;filter:saturate(.3)}
+/* A voided tile has lost its gold: only the outline of where it was. */
+.w-tiles i.is-dim{background:none;box-shadow:inset 0 0 0 1px var(--tile-dark-edge)}
 .w-tiles i.is-new{animation:w-set 1.1s cubic-bezier(.2,1.5,.3,1) both}
 @keyframes w-set{from{transform:scale(3.2) rotate(30deg);opacity:0}to{transform:scale(1) rotate(var(--r,0deg));opacity:1}}
 

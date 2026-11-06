@@ -188,13 +188,14 @@ function cutSprites(size) {
   const tarnish = Array.from({ length: 2 }, () => {
     const canvas = canvasOf(size);
     const c = canvas.getContext('2d');
-    // A voided tile is the shape of the gold that was there: an empty outline, and a scar.
+    // A voided tile is the shape of the gold that was there: an empty outline in dull glass, and
+    // a scar. No gold is left in it, because nothing here stands as verified any more.
     cutTile(c, size, random);
     c.lineWidth = Math.max(1, size * 0.07);
-    c.strokeStyle = colours.deep;
+    c.strokeStyle = colours.edge;
     c.stroke();
     c.lineWidth = Math.max(1, size * 0.09);
-    c.strokeStyle = colours.deep;
+    c.strokeStyle = colours.edge;
     c.beginPath();
     c.moveTo(size * 0.22, size * (0.72 + random() * 0.1));
     c.lineTo(size * 0.78, size * (0.2 + random() * 0.1));
@@ -504,7 +505,8 @@ function rankWords(state, plain) {
 }
 
 const POINTS_LINE = `A gate passed first try is worth ${RENOWN_AWARDS.firstPassGate} points, a launch ${RENOWN_AWARDS.launch}, a confirmed rule ${RENOWN_AWARDS.law}. Nothing else counts.`;
-const KEY_WORDS = { gate: 'Gate passed', receipt: 'Receipt issued', live: 'Live check passed', law: 'Rule confirmed', dark: 'Check failed' };
+/** A tile's name, the same in the wall's legend and in Help. */
+export const KEY_WORDS = { gate: 'Gate passed', receipt: 'Receipt issued', live: 'Live check passed', law: 'Rule confirmed', dark: 'Check failed', voided: 'Receipt voided' };
 
 /** Tiles by project, newest project first. Rules confirmed on their own form the last group. */
 function groupsOf(state) {
@@ -546,7 +548,7 @@ export function createMosaicPanel(ctx, { column = false } = {}) {
 
   const legend = h('ul', { class: 'wall-legend', 'aria-label': 'What the tiles mean' }, [...TESSERA_KINDS.map((kind) => kind.id), 'voided'].map((id) => {
     const sample = h('canvas', { class: 'legend-tile', 'aria-hidden': 'true' });
-    return h('li', { data: { kind: id } }, sample, h('span', { class: 'legend-word', text: id === 'voided' ? 'Receipt voided' : KEY_WORDS[id] }), h('span', { class: 'legend-n' }));
+    return h('li', { data: { kind: id } }, sample, h('span', { class: 'legend-word', text: KEY_WORDS[id] }), h('span', { class: 'legend-n' }));
   }));
   let legendPainted = false;
 
@@ -572,7 +574,7 @@ export function createMosaicPanel(ctx, { column = false } = {}) {
     const state = store.getState();
     const name = state.ships[tile.shipId]?.name ?? null;
     tileSay.hidden = false;
-    setText(tileWordEl, tile.dimmed ? 'Receipt voided' : KEY_WORDS[tile.kind] ?? TESSERA_KIND[tile.kind]?.plain ?? tile.kind);
+    setText(tileWordEl, tile.dimmed ? KEY_WORDS.voided : KEY_WORDS[tile.kind] ?? TESSERA_KIND[tile.kind]?.plain ?? tile.kind);
     setText(tileWhen, `${name ? `${name}, ` : ''}${dayMonth(tile.ts)} ${clock(tile.ts)}`);
     setText(tileMeans, tile.dimmed ? TILE_MEANS.voided : TILE_MEANS[tile.kind] ?? '');
     setText(tileOpen, tile.kind === 'law' || !tile.shipId ? 'Open the Rulebook' : 'Open the evidence');
