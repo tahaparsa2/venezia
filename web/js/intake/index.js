@@ -592,6 +592,7 @@ export function mountIntake(el, store) {
   const offs = [
     store.actions.on((action) => {
       if (action.type === 'intake') show();
+      else if (action.type === 'intake-leave' && open) close();
       else if (action.type === 'escape' && open) close();
     }),
     store.connection.subscribe(checkFirstRun),

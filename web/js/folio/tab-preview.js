@@ -7,14 +7,7 @@ import { cmd } from '/js/commands.js';
 import { h, setText, syncList } from '/js/folio/dom.js';
 import { whyNoPrototype } from '/shared/vocabulary.mjs';
 import { TARGET, livePlaces } from '/js/folio/words.js';
-
-const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/;
-
-/** A preview bound to the Mac cannot be reached from a phone on the network. */
-function unreachable(url) {
-  const target = new URL(url, location.href);
-  return LOOPBACK.test(target.hostname) && !LOOPBACK.test(location.hostname);
-}
+import { canOpen } from '/js/places.js';
 
 const FRAMES = {
   phone: { width: 390, height: 844, label: 'Phone' },
@@ -88,7 +81,7 @@ export function createPreviewTab(ctx) {
 
   function update(ship) {
     const given = ship.preview?.url ?? null;
-    const away = Boolean(given) && !store.demo && unreachable(given);
+    const away = Boolean(given) && !store.demo && !canOpen(given);
     const url = away ? null : given;
     bar.hidden = !url;
     stage.hidden = !url;

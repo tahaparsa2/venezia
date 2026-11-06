@@ -2,7 +2,7 @@
 // window, so it says what the numbers are, what they are not, and what happens at each one.
 
 import { WEATHER } from '/shared/vocabulary.mjs';
-import { clock, h, plural, setText, span, syncList, usd } from '/js/folio/dom.js';
+import { clock, h, pageHead, plural, setText, span, syncList, usd } from '/js/folio/dom.js';
 import { roleWord } from '/js/folio/words.js';
 
 /** `resetsAt` arrives in seconds from the rate-limit event. Tolerate milliseconds and dates. */
@@ -36,7 +36,7 @@ function windowMeter(name, blurb) {
 
 export function createTreasuryPanel(ctx) {
   const { store } = ctx;
-  const title = h('h2', { class: 'panel-title' });
+  const head = pageHead('Budget', 'the Treasury', 'How much of your Claude limit is left, and what each project would have cost at list price. Nothing here is a bill. If a limit fills up, new work waits for it to refill.');
   const weather = h('p', { class: 'weather' }, h('b'), h('span'));
   const five = windowMeter('Five-hour window', 'The short limit. It fills as work runs, and empties when it resets.');
   const seven = windowMeter('Seven-day window', 'The long limit, the same way, over a week. It moves slowly and resets rarely.');
@@ -47,7 +47,7 @@ export function createTreasuryPanel(ctx) {
   const ledger = h('ul', { class: 'ledger' });
   const empty = h('p', { class: 'panel-note', text: 'Nothing spent yet.' });
   const el = h('section', { class: 'page page-treasury', 'aria-label': 'Budget' },
-    h('header', { class: 'panel-head' }, title, weather),
+    h('header', { class: 'panel-head' }, head.title, head.say, weather),
     h('div', { class: 'panel-body' },
       five.el, seven.el, reset,
       h('h3', { class: 'rub', text: 'What these numbers are' }),
@@ -63,10 +63,10 @@ export function createTreasuryPanel(ctx) {
   function update(state) {
     const { treasury } = state;
     const plain = store.view.get().plain;
-    setText(title, plain ? 'Budget' : 'Treasury');
+    head.sync(plain);
     const band = WEATHER.find((entry) => entry.id === treasury.weather) ?? WEATHER[0];
-    setText(weather.firstChild, plain ? band.plain : band.fiction);
-    setText(weather.lastChild, plain ? '' : band.plain);
+    setText(weather.firstChild, band.plain);
+    setText(weather.lastChild, plain ? '' : `weather: ${band.fiction.toLowerCase()}`);
     weather.dataset.weather = band.id;
     five.set(treasury.fiveHour);
     seven.set(treasury.sevenDay);

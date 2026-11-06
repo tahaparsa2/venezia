@@ -1,0 +1,64 @@
+/* The way around. Iron, because it belongs to the machine and not to the page, with engraved
+   glyphs in the same line as the deck's plate. Verdigris for the one action. No gold: going
+   somewhere proves nothing. */
+
+.nav{--nav-fill:var(--iron-lo);position:relative;display:flex;align-items:stretch;gap:2px;height:100%;box-sizing:border-box;
+  padding:4px calc(6px + var(--safe-r)) 3px calc(6px + var(--safe-l));
+  background:linear-gradient(180deg,var(--iron),var(--iron-lo));
+  box-shadow:inset 0 1px 0 var(--iron-rim),inset 0 -1px 0 var(--iron-engrave)}
+
+.nav-key{position:relative;flex:1 1 0;min-width:44px;min-height:var(--tap);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:3px 0 2px;border-radius:6px;
+  color:var(--text-on-night-soft);font:500 var(--fs-micro)/1.15 var(--mono);letter-spacing:-.01em;white-space:nowrap;
+  transition:color var(--t-quick),background var(--t-quick),transform var(--t-key) var(--ease-key)}
+.nav-key[hidden]{display:none}
+.nav-key .glyph{display:block;width:21px;height:21px}
+.nav-key svg{width:100%;height:100%}
+.nav-key:active{transform:translateY(1px)}
+@media (hover:hover){.nav-key:hover{color:var(--vellum);background:color-mix(in srgb,var(--iron-hi) 60%,transparent)}}
+.nav-key[aria-current=page],.nav-key.is-here{--nav-fill:var(--iron-well);color:var(--vellum);background:var(--iron-well);box-shadow:inset 0 -2px 0 var(--verdigris-light)}
+
+/* The one action. Enamel, cut from the same plate as Approve. */
+.nav-new{--nav-fill:var(--enamel-approve);flex:1.3 1 0;color:var(--vellum-warm);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--enamel-approve) 90%,var(--vellum)),var(--enamel-approve));
+  box-shadow:0 2px 0 var(--enamel-approve-skirt),inset 0 1px 0 color-mix(in srgb,var(--vellum) 40%,transparent)}
+@media (hover:hover){.nav-new:hover{color:var(--vellum-warm);background:var(--enamel-approve)}}
+
+/* Waiting on you: amber, the only colour that means it. */
+.nav-pip{position:absolute;right:calc(50% - 19px);top:1px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;display:grid;place-items:center;background:var(--amber);color:var(--iron-well);font:500 var(--fs-micro)/1 var(--mono)}
+.nav-pip[hidden]{display:none}
+
+.nav-menu{position:absolute;right:calc(6px + var(--safe-r));bottom:calc(100% + 6px);z-index:2;width:176px;padding:4px;display:flex;flex-direction:column;gap:2px;border-radius:9px;
+  background:var(--iron-lo);box-shadow:inset 0 0 0 1px var(--iron-rim),var(--lift-dock)}
+.nav-menu[hidden]{display:none}
+.nav-menu .nav-key{flex:none;flex-direction:row;justify-content:flex-start;gap:var(--s3);padding:0 var(--s3);font-size:var(--fs-label);width:100%}
+
+/* ---------------------------------------- on the phone, the bar is the top of the deck itself */
+
+:root[data-layout=phone] #slot-nav{height:var(--nav-h)}
+:root[data-layout=phone] .nav{border-radius:12px 12px 0 0}
+:root[data-layout=phone] .deck{border-radius:0}
+:root.only-deck .nav{height:auto;border-radius:12px 12px 0 0}
+:root.only-deck .deck{border-radius:0}
+
+/* --------------------------------------------- a rail, wherever there is more height than width */
+
+:root[data-layout=landscape] .nav,:root[data-layout=desk] .nav,:root[data-layout=ultrawide] .nav{flex-direction:column;padding:6px 3px;overflow-y:auto;scrollbar-width:none;border-radius:0;
+  box-shadow:inset 1px 0 0 var(--iron-rim),inset -1px 0 0 var(--iron-well)}
+:root[data-layout=desk] .nav-key,:root[data-layout=ultrawide] .nav-key{flex:none;min-height:58px;gap:3px}
+:root[data-layout=desk] .nav-new,:root[data-layout=ultrawide] .nav-new{margin-bottom:var(--s2)}
+:root[data-layout=desk] .nav-key[data-page=settings],:root[data-layout=ultrawide] .nav-key[data-page=settings]{margin-top:auto}
+:root[data-layout=landscape] .nav-key{flex:1 0 auto;min-height:44px;padding:1px 0}
+:root[data-layout=landscape] .nav-key .glyph{width:18px;height:18px}
+:root[data-layout=landscape] .nav{overflow:visible}
+:root[data-layout=landscape] .nav-menu{right:calc(100% + 6px);bottom:6px}
+:root[data-layout=landscape] .nav-pip{right:calc(50% - 20px)}
+
+/* /deck on its side: the rail down the outer edge, the deck beside it. */
+@media (orientation:landscape) and (max-height:519px){
+  :root.only-deck .nav{height:100%;flex-direction:column;padding:6px 3px;border-radius:0}
+  :root.only-deck .nav-key{flex:1 0 auto;min-height:44px;padding:1px 0}
+  :root.only-deck .nav-key .glyph{width:18px;height:18px}
+  :root.only-deck .nav-menu{left:calc(100% + 6px);right:auto;bottom:6px}
+}
+
+@media (prefers-reduced-motion:reduce){.nav-key{transition:none}}

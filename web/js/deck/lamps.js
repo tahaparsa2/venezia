@@ -18,7 +18,8 @@ const SHAPES = Object.freeze({
 const STRUCK_MS = 1200;
 
 export function createLamps(store, audio) {
-  const root = h('div', { class: 'lamps', role: 'group', 'aria-label': 'One lamp per project' });
+  const root = h('div', { class: 'lamps', role: 'group', 'aria-label': 'One lamp per active project' });
+  const note = h('p', { class: 'lamps__note', text: 'Active projects light up here', hidden: true });
   const slots = [];
   const detach = [];
 
@@ -29,8 +30,8 @@ export function createLamps(store, audio) {
     const { selectedShip, panel } = store.view.get();
     const sheet = ['phone', 'landscape'].includes(store.layout.get().mode);
     const waiting = state.inbox.some((entry) => state.decisions[entry].shipId === id);
-    if (selectedShip !== id) store.view.set({ selectedShip: id });
-    else if (sheet && !waiting) store.view.set({ panel: panel ? null : 'ship' });
+    if (sheet && !waiting) store.view.set({ selectedShip: id, panel: selectedShip === id && panel ? null : 'ship' });
+    else if (selectedShip !== id) store.view.set({ selectedShip: id });
     store.actions.emit({ type: 'lamp-pressed', shipId: id });
     if (state.lampColours[slot] === 'green') store.send(cmd.read(id));
   }
@@ -67,9 +68,12 @@ export function createLamps(store, audio) {
     }));
   }
 
+  root.append(note);
+
   /** @param {any} state */
   function draw(state) {
     const selected = store.view.get().selectedShip;
+    note.hidden = state.lamps.some(Boolean);
     state.lamps.forEach((id, slot) => {
       const entry = slots[slot];
       const colour = state.lampColours[slot] ?? 'off';

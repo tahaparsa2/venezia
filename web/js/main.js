@@ -3,6 +3,7 @@
 
 import { installA11y } from '/js/a11y.js';
 import { createLayout } from '/js/layout.js';
+import { PAGE, pageForPath } from '/js/nav/pages.js';
 import { createStore } from '/js/store.js';
 import { createDemoTransport, createTransport } from '/js/transport.js';
 import { PROFILE_LINE } from '/shared/pairing.mjs';
@@ -15,6 +16,7 @@ const SURFACES = deckOnly
   ? [
     { slot: 'slot-cards', module: '/js/cards/index.js', mount: 'mountCards' },
     { slot: 'slot-deck', module: '/js/deck/index.js', mount: 'mountDeck' },
+    { slot: 'slot-nav', module: '/js/nav/index.js', mount: 'mountNav' },
   ]
   : [
     { slot: 'slot-world', module: '/js/world/index.js', mount: 'mountWorld' },
@@ -22,6 +24,7 @@ const SURFACES = deckOnly
     { slot: 'slot-cards', module: '/js/cards/index.js', mount: 'mountCards' },
     { slot: 'slot-deck', module: '/js/deck/index.js', mount: 'mountDeck' },
     { slot: 'slot-intake', module: '/js/intake/index.js', mount: 'mountIntake' },
+    { slot: 'slot-nav', module: '/js/nav/index.js', mount: 'mountNav' },
   ];
 
 async function mountSurface(store, { slot, module, mount }) {
@@ -179,7 +182,14 @@ function installLampKeys(store) {
   });
 }
 
-/** `/ships/:id` is a real address: a reload lands on the same ship. */
+/** `/new` is where `/deck` sends you for a new idea. It is an action, so the address does not stay. */
+function followNew(store) {
+  if (deckOnly || !/^\/new\/?$/.test(location.pathname)) return;
+  history.replaceState(null, '', `/${location.search}`);
+  store.actions.emit({ type: 'intake' });
+}
+
+/** `/ships/:id` and each page are real addresses: a reload lands in the same place. */
 function installRoutes(store) {
   const read = () => {
     const match = /^\/ships\/([^/]+)\/?$/.exec(location.pathname);
@@ -187,10 +197,11 @@ function installRoutes(store) {
   };
   const initial = read();
   if (initial) store.view.set({ selectedShip: initial });
-  store.view.subscribe(({ selectedShip }) => {
-    if (selectedShip === read()) return;
-    const path = selectedShip ? `/ships/${encodeURIComponent(selectedShip)}` : '/';
-    history.replaceState(null, '', `${path}${location.search}`);
+  const initialPage = pageForPath(location.pathname);
+  if (initialPage) store.view.set({ panel: initialPage });
+  store.view.subscribe(({ selectedShip, panel }) => {
+    const path = PAGE[panel]?.route ?? (selectedShip ? `/ships/${encodeURIComponent(selectedShip)}` : '/');
+    if (path !== location.pathname) history.replaceState(null, '', `${path}${location.search}`);
   });
   /* A demo keeps nothing across a reload, so an old address must not point at a ship that is gone. */
   return () => {
@@ -243,6 +254,7 @@ async function boot() {
   checkRoute();
   const surfaces = await Promise.all(SURFACES.map((surface) => mountSurface(store, surface)));
   explainFailure(surfaces, store);
+  followNew(store);
   document.documentElement.dataset.booted = '';
   registerWorker();
   if (store.demoMode === 'fleet' && !params.has('ff')) {

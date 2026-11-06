@@ -1,9 +1,56 @@
 // What the folio says. Plain English first, since anything that affects a choice must be
 // understood without the fiction. `plain` picks the twin words in plain mode.
 
-import { LOCAL_TARGETS, TERM, label } from '/shared/vocabulary.mjs';
+import { quietLoopback } from '/js/places.js';
+import { LOCAL_TARGETS, TERM, isLive, label } from '/shared/vocabulary.mjs';
 
 const say = (plain, id) => label(id, { plain });
+
+/** Anywhere a project can be reached from outside this computer. */
+export const publicPlaces = (ship) => Object.values(ship.publishes).filter((entry) => entry.url && entry.live && !LOCAL_TARGETS.includes(entry.target));
+
+const YARD_PATH = /(?:\/[^\s/:]+)*\/yards\/[^\s/]+\//g;
+const TOOL_WORDS = /\bStructuredOutput\b/g;
+
+/**
+ * Activity as a person reads it. A worker's lines are full of paths on the Mac and addresses that
+ * only mean something there, so a path loses its yard and a loopback address says where it is.
+ * @param {string} text
+ */
+export function readable(text) {
+  return quietLoopback(String(text ?? ''))
+    .replace(YARD_PATH, '')
+    .replace(TOOL_WORDS, 'Handed in its result');
+}
+
+/**
+ * A project's standing in a few plain words, for lists.
+ * @param {any} ship
+ * @param {boolean} [waiting] a decision is open for it
+ * @returns {{word: string, tone: 'need'|'work'|'ready'|'done'|'live'|'stop'}}
+ */
+export function statusOf(ship, waiting = false) {
+  const { hull: progress, state } = ship;
+  if (waiting || state === 'awaiting_answers' || state === 'awaiting_contract') return { word: 'Waiting on you', tone: 'need' };
+  switch (state) {
+    case 'intake': return { word: 'Reading the idea', tone: 'work' };
+    case 'contracting': return { word: 'Writing the contract', tone: 'work' };
+    case 'building': return { word: `Building, ${progress.done} of ${progress.total} done`, tone: 'work' };
+    case 'proving': return { word: 'Being checked', tone: 'work' };
+    case 'repairing': return { word: 'Failed a check, being repaired', tone: 'work' };
+    case 'reviewing': return { word: 'Being reviewed', tone: 'work' };
+    case 'ready': return { word: 'Passed, ready to publish', tone: 'ready' };
+    case 'publishing': return { word: 'Publishing', tone: 'work' };
+    case 'launched': return { word: 'Live', tone: 'live' };
+    case 'learning': return { word: 'Writing up what it learned', tone: 'work' };
+    case 'done': return isLive(ship) ? { word: 'Finished and live', tone: 'live' } : { word: 'Finished', tone: 'done' };
+    case 'paused': return { word: 'Paused', tone: 'stop' };
+    case 'blocked': return ship.blockReason === 'rate_limited' ? { word: 'Waiting for usage to refill', tone: 'work' } : { word: 'Stuck, needs you', tone: 'need' };
+    case 'failed': return { word: 'Failed', tone: 'stop' };
+    case 'scuttled': return { word: 'Abandoned', tone: 'stop' };
+    default: return { word: state.replaceAll('_', ' '), tone: 'work' };
+  }
+}
 
 /** Publish targets in the order of how far they reach. SPEC 9. */
 /** Where a ship can really be opened now. A local publish lives and dies with its preview. */
@@ -85,14 +132,14 @@ export function stateSentence(ship, plain = false, pausedBy = null) {
     case 'building': return active
       ? `Building ${progress.done + 1} of ${progress.total}: ${active.title ?? active.id}.`
       : `Built ${progress.done} of ${progress.total}.`;
-    case 'proving': return 'The host is running the gate. No model is involved.';
-    case 'repairing': return `The gate failed. A ${repairer} is on it, with fresh eyes.`;
+    case 'proving': return 'Venezia is checking it. No AI is involved in this step.';
+    case 'repairing': return `A check failed. A ${repairer} is on it, with fresh eyes.`;
     case 'reviewing': return 'An independent reviewer is checking it against the contract.';
-    case 'ready': return 'Passed and running locally. Publishing is your call.';
+    case 'ready': return 'Passed its checks and running on your Mac. Publishing is your call.';
     case 'publishing': return 'Publishing now. GitHub usually takes 1 to 6 minutes, and it then checks the live page. You can leave this running.';
     case 'launched': return 'Live, and the live check passed.';
     case 'learning': return 'The scribe is writing it up and drafting lessons.';
-    case 'done': return ship.receipt && !ship.receipt.voided ? 'Finished. It can be published or refit.' : 'Finished. It can be refit.';
+    case 'done': return ship.receipt && !ship.receipt.voided ? 'Finished. You can publish it or change it.' : 'Finished. You can change it.';
     case 'paused': return pausedBy === 'sim' ? 'The demo paused this. It spends nothing until you resume.' : 'Paused by you. It spends nothing until you resume.';
     case 'blocked': return BLOCKED[ship.blockReason] ?? 'Blocked.';
     case 'failed': return 'Stopped. The lessons are kept, and it can be retried.';
@@ -103,19 +150,20 @@ export function stateSentence(ship, plain = false, pausedBy = null) {
 
 /** The italic line under a hull's name: what she is and where she has got to. */
 export function hullLine(ship, plain = false) {
-  const kind = ship.size ? say(plain, ship.size) : say(plain, 'ship');
-  const article = /^[aeiou]/i.test(kind) ? 'An' : 'A';
+  const size = { gondola: 'small project', galley: 'project', galleass: 'large project' }[ship.size] ?? 'project';
+  const fiction = ship.size && !plain ? ` \u00b7 ${say(false, ship.size).toLowerCase()}` : '';
+  const article = 'A';
   const where = {
-    bocca: plain ? 'just come in' : 'just in at the mouth',
-    disegno: plain ? 'being specified' : 'at the drawing table',
-    cantiere: plain ? 'being built' : 'in the yard',
-    collaudo: plain ? 'being proved' : 'on trial',
-    varo: plain ? 'ready to launch' : 'towed to the launch',
-    portolano: plain ? 'being written up' : 'home, and in the log',
+    bocca: 'just come in',
+    disegno: 'being specified',
+    cantiere: 'being built',
+    collaudo: 'being proved',
+    varo: 'ready to launch',
+    portolano: 'finished',
   }[ship.station] ?? '';
-  if (ship.state === 'failed') return `${article} ${kind.toLowerCase()}, stopped`;
-  if (ship.state === 'scuttled') return `${article} ${kind.toLowerCase()}, scuttled`;
-  return `${article} ${kind.toLowerCase()}, ${where}`;
+  if (ship.state === 'failed') return `${article} ${size}, stopped${fiction}`;
+  if (ship.state === 'scuttled') return `${article} ${size}, abandoned${fiction}`;
+  return `${article} ${size}, ${where}${fiction}`;
 }
 
 export const roleWord = (role, plain) => (TERM[role] ? say(plain, role) : role);
@@ -149,7 +197,7 @@ export function technicalLine({ type, data }) {
     case 'receipt.issued': return `receipt ${String(data.commit).slice(0, 12)}`;
     case 'receipt.voided': return `receipt voided${data.reason ? `: ${data.reason}` : ''}`;
     case 'review.finished': return `review ${data.verdict}, ${data.findings?.length ?? 0} findings`;
-    case 'preview.up': return `preview ${data.url}`;
+    case 'preview.up': return quietLoopback(`preview ${data.url}`);
     case 'preview.down': return 'preview down';
     case 'publish.planned': case 'publish.applied': case 'publish.verified': case 'publish.rolledback':
       return `publish ${type.split('.')[1]} ${data.target}`;

@@ -3,13 +3,13 @@
 // is only ever live. Plain Node serves this with ETags, so network first is cheap, and a
 // reload never mixes old and new modules.
 
-const VERSION = 'venezia-shell-v3';
+const VERSION = 'venezia-shell-v4';
 const NETWORK_WAIT_MS = 2500;
 
 const SHELL = [
   '/', '/index.html', '/deck.html', '/manifest.webmanifest',
-  '/css/tokens.css', '/css/base.css', '/css/world.css', '/css/folio.css', '/css/cards.css', '/css/deck.css', '/css/intake.css',
-  '/js/main.js', '/js/a11y.js', '/js/commands.js', '/js/layout.js', '/js/store.js', '/js/transport.js',
+  '/css/tokens.css', '/css/base.css', '/css/world.css', '/css/folio.css', '/css/cards.css', '/css/deck.css', '/css/intake.css', '/css/nav.css',
+  '/js/main.js', '/js/a11y.js', '/js/commands.js', '/js/layout.js', '/js/store.js', '/js/transport.js', '/js/nav/index.js', '/js/nav/pages.js', '/js/places.js',
   '/js/world/index.js', '/js/folio/index.js', '/js/cards/index.js', '/js/deck/index.js', '/js/intake/index.js',
   '/shared/commands.mjs', '/shared/names.mjs', '/shared/pairing.mjs', '/shared/reducer.mjs', '/shared/sim.mjs', '/shared/vocabulary.mjs',
   '/fonts/cardo-latin-400-normal.woff2', '/fonts/cardo-latin-400-italic.woff2', '/fonts/cardo-latin-700-normal.woff2',
@@ -19,7 +19,7 @@ const SHELL = [
 
 /** Only these are the shell. Anything else, the API above all, is left to the network. */
 const SHELL_PATHS = /^\/(?:$|index\.html$|deck\.html$|manifest\.webmanifest$|(?:css|js|fonts|icons|shared)\/)/;
-const CLIENT_ROUTES = /^\/(?:deck|ships)(?:\/|$)/;
+const CLIENT_ROUTES = /^\/(?:deck|ships|projects|results|rulebook|launched|budget|settings|help|new)(?:\/|$)/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

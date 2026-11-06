@@ -32,6 +32,10 @@
 .lamp[data-colour=amber]{--c:var(--lamp-amber);--lit:1}
 .lamp[data-colour=red]{--c:var(--lamp-red);--lit:1}
 .lamp.is-empty{cursor:default}
+/* With no lamp lit, one line says what the row is for. It sits where the names would. */
+.lamps{position:relative}
+.lamps__note{position:absolute;left:0;right:0;bottom:0;height:16px;font:400 var(--fs-micro)/16px var(--mono);color:var(--text-on-night-soft);text-align:center;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lamps__note[hidden]{display:none}
 
 /* A pocket milled into the plate. The glass sits down in it. */
 .lamp__well{position:relative;display:block;padding:3px 3px 6px;border-radius:9px;background:var(--iron-well);
@@ -187,10 +191,16 @@
 .key[data-lit=false]{--cap-top:var(--iron);--cap:var(--iron-lo);--skirt:var(--iron-well);--word:var(--text-on-night-soft)}
 .key[data-lit=false]:not(.key--talk) .key__cap{box-shadow:0 3px 0 var(--iron-well),inset 0 1px 0 var(--iron-rim)}
 .key[data-lit=false]:not(.key--talk) .key__cap::before{border-color:var(--iron-rim)}
-.key[data-lit=false]:not(.key--talk) .key__word{font-weight:400;font-size:var(--fs-small);opacity:.75}
+.key[data-lit=false]:not(.key--talk) .key__word{font-weight:400;font-size:var(--fs-small);opacity:.8}
+/* Unavailable has to read as unavailable: flat, no skirt, an outline where the cap would be. */
+.key[data-lit=false]:not(.key--talk){cursor:not-allowed}
+.key[data-lit=false]:not(.key--talk) .key__well{opacity:.55}
+.key[data-lit=false]:not(.key--talk) .key__cap{--cap-top:transparent;--cap:transparent;background:none;box-shadow:inset 0 0 0 1px var(--iron-rim)}
+.key[data-lit=false]:not(.key--talk) .key__cap::before{display:none}
+.key[data-lit=false]:not(.key--talk) .key__sub{font-size:var(--fs-micro);opacity:.85;white-space:normal;text-align:center}
+.mini[data-idle=true]{color:var(--text-on-night-soft);opacity:.72}
 .key[data-lit=true] .key__light{opacity:.55}
 /* An empty lagoon has no decisions at all: the keys are simply off. */
-.deck[data-empty=true] .key[data-lit=false]:not(.key--talk) .key__legend{visibility:hidden}
 .deck[data-empty=true] .key[data-lit=false]:not(.key--talk) .key__light{opacity:0}
 
 .key--talk{grid-column:1/-1;--cap-top:var(--vellum-warm);--cap:var(--vellum-edge);--skirt:var(--ink-muted);--word:var(--ink);--glow:var(--verdigris-light)}

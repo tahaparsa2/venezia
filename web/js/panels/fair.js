@@ -1,7 +1,7 @@
 // The Fair of the Sensa: everything launched, with links that go there. Only a ship whose live
 // check passed appears: a rolled-back publish is not a launch.
 
-import { dayMonth, h, plural, setText, syncList } from '/js/folio/dom.js';
+import { dayMonth, h, pageHead, plural, setText, syncList } from '/js/folio/dom.js';
 import { evidenceFile, evidenceRun, picturesIn, readEvidence } from '/js/folio/evidence.js';
 import { TARGET } from '/js/folio/words.js';
 
@@ -72,16 +72,15 @@ function busiest(rows) {
 
 export function createFairPanel(ctx) {
   const { store } = ctx;
-  const title = h('h2', { class: 'panel-title' });
-  const say = h('p', { class: 'panel-say' });
+  const head = pageHead('Launched', 'the Fair of the Sensa');
   const grid = h('ul', { class: 'fair' });
   const empty = h('div', { class: 'fair-empty', hidden: true },
-    h('p', { class: 'folio-empty-big', text: 'The stalls are empty.' }),
-    h('p', { class: 'folio-empty-say', text: 'A project appears here once it is live and the live check has passed.' }));
+    h('p', { class: 'folio-empty-big', text: 'Nothing launched yet.' }),
+    h('p', { class: 'folio-empty-say', text: 'Publish a finished project, and it appears here once Venezia has checked the live page.' }));
   const yardstick = h('p', { class: 'yardstick' });
   const demoNote = h('p', { class: 'panel-note', hidden: !store.demo, text: 'Scripted demo: these addresses are made up, and go nowhere.' });
   const el = h('section', { class: 'page page-fair', 'aria-label': 'Launched projects' },
-    h('header', { class: 'panel-head' }, title, say),
+    h('header', { class: 'panel-head' }, head.title, head.say),
     h('div', { class: 'panel-body' }, grid, empty, demoNote, yardstick));
 
   const plates = new Map();
@@ -99,10 +98,11 @@ export function createFairPanel(ctx) {
   }
 
   function update(state) {
-    const plain = store.view.get().plain;
-    setText(title, plain ? 'Launched' : 'Fair of the Sensa');
+    head.sync(store.view.get().plain);
     const rows = launches(state);
-    setText(say, rows.length ? `${plural(rows.length, 'launch', 'launches')} that passed the live check.` : 'Everything you have launched, in one place.');
+    head.tell(rows.length
+      ? `What you have put out in the world, with its address. ${plural(rows.length, 'launch', 'launches')}, each opened and checked by Venezia.`
+      : 'What you have put out in the world will be listed here, with its address.');
     empty.hidden = rows.length > 0;
     syncList(grid, rows, (row) => row.key, (row) => {
       const node = h('li', { class: 'stall' },

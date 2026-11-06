@@ -2,6 +2,7 @@
 // a line too long for the slot rolls past once and stops. Never loops: quiet when calm.
 
 import { h, reducedMotion } from '/js/input/util.js';
+import { readable } from '/js/folio/words.js';
 
 const MIN_SHOW_MS = 1400;
 const ROLL_WAIT_MS = 900;
@@ -10,6 +11,9 @@ const REST_AT_END_MS = 1500;
 
 /** Lines that are real but say nothing to a person watching. */
 const SKIP = new Set(['lamp.assigned', 'steer.state', 'tessera.set', 'renown.changed']);
+
+/** A ship in one of these needs nothing, and nothing is happening to it. */
+const AT_REST = new Set(['ready', 'launched', 'done', 'failed', 'scuttled', 'paused']);
 
 const VOICE_WORDS = Object.freeze({
   starting: 'Opening the microphone',
@@ -32,6 +36,7 @@ export function createTicker(store) {
   let roll = null;
   let rollTimer = 0;
   let looking = false;
+  let restShown = null;
 
   function set(name, text, animate = true) {
     who.textContent = name ?? '';
@@ -85,8 +90,19 @@ export function createTicker(store) {
       const title = ship?.items.find((item) => item.id === id)?.title;
       if (title) text = `${entry.type === 'work.started' ? 'Started' : 'Finished'}: ${title}`;
     }
+    if (entry.type === 'preview.up') text = 'Running on your Mac. Open it to try it.';
+    if (entry.type === 'preview.down') text = 'Stopped running on your Mac.';
     if (ship?.name && text.startsWith(`${ship.name} `)) text = text.slice(ship.name.length + 1);
-    return text;
+    return readable(text);
+  }
+
+  /** What a quiet factory says, or null while anything is going on. */
+  function restLine(state) {
+    const ships = Object.values(state.ships);
+    if (ships.length === 0 || state.inbox.length > 0) return null;
+    if (ships.some((ship) => !AT_REST.has(ship.state))) return null;
+    const finished = ships.filter((ship) => ship.state === 'done' || ship.state === 'launched').length;
+    return finished ? `${finished} finished, nothing running` : 'Nothing running';
   }
 
   function latest(state) {
@@ -98,12 +114,22 @@ export function createTicker(store) {
 
   function draw(state) {
     if (held) return;
+    const rest = restLine(state);
+    if (rest) {
+      if (rest !== restShown) {
+        restShown = rest;
+        shownSeq = -1;
+        set('Nothing needs you', rest, false);
+      }
+      return;
+    }
+    restShown = null;
     const entry = latest(state);
     if (!entry) {
       // An empty tape looks broken. An empty factory is just waiting.
       if (!shownAt) {
         shownAt = 1;
-        set(null, 'Waiting for the first idea', false);
+        set(null, 'Waiting for your first idea', false);
       }
       return;
     }
@@ -141,6 +167,7 @@ export function createTicker(store) {
         held = null;
         shownSeq = -1;
         shownAt = 0;
+        restShown = null;
         draw(store.getState());
       }
     },
@@ -155,6 +182,7 @@ export function createTicker(store) {
         held = null;
         shownSeq = -1;
         shownAt = 0;
+        restShown = null;
         draw(store.getState());
       }
     },

@@ -4,7 +4,7 @@
 import { cmd } from '/js/commands.js';
 import { STATE } from '/shared/vocabulary.mjs';
 import { clock, h, setText, syncList, usd } from '/js/folio/dom.js';
-import { TARGET, roleWord, stateSentence, livePlaces } from '/js/folio/words.js';
+import { TARGET, readable, roleWord, stateSentence, livePlaces } from '/js/folio/words.js';
 
 const VERB_TIP = {
   nudge: 'Nudge: applied at its next step. "Also make it dark."',
@@ -12,7 +12,7 @@ const VERB_TIP = {
   now: 'Now: stops what it is doing and changes course. "Stop that, do this."',
 };
 const EMPTY_TIP = 'Type a message, then pick when it lands: Nudge at its next step, Next when this step ends, Now straight away.';
-const ACTIVITY_WORDS = (line) => line.replace(/\bFolding in:/, 'Taking in your message:');
+const ACTIVITY_WORDS = (line) => readable(line).replace(/\bFolding in:/, 'Taking in your message:');
 const STEER_MARK = { sent: 'sent', queued: 'waiting', started: 'folding in', completed: 'taken', cancelled: 'dropped' };
 
 export function createNowTab(ctx) {

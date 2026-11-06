@@ -22,12 +22,14 @@
 <link rel="stylesheet" href="/css/folio.css">
 <link rel="stylesheet" href="/css/cards.css">
 <link rel="stylesheet" href="/css/deck.css">
+<link rel="stylesheet" href="/css/nav.css">
 <link rel="stylesheet" href="/css/intake.css">
 <title>Venezia</title>
 </head>
 <body>
 <h1 class="sr-only">Venezia</h1>
 <nav class="skips" aria-label="Skip to">
+  <a class="skip" href="#slot-nav">Skip to the navigation</a>
   <a class="skip" href="#slot-cards">Skip to the decision</a>
   <a class="skip" href="#slot-deck">Skip to the deck</a>
   <a class="skip" href="#slot-folio">Skip to the details</a>
@@ -41,6 +43,7 @@
     <section id="slot-deck" tabindex="-1" aria-label="Control deck"></section>
   </div>
   <div id="slot-intake"></div>
+  <nav id="slot-nav" tabindex="-1" aria-label="Pages"></nav>
 </div>
 <div id="structure" aria-label="All projects and stations" role="region"></div>
 <div id="announce-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>

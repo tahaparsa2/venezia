@@ -31,8 +31,8 @@ canvas,svg,img{display:block}
 /* ---------------------------------------------------------- phone: world, card, deck */
 
 #app{position:fixed;inset:0;height:100dvh;overflow:clip;display:grid;
-  grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;
-  grid-template-areas:"world" "deck"}
+  grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;
+  grid-template-areas:"world" "nav" "deck"}
 
 #slot-world{grid-area:world;position:relative;min-width:0;min-height:0;overflow:hidden;z-index:var(--z-world);
   background:var(--lagoon);transition:filter 1.2s ease}
@@ -50,7 +50,7 @@ canvas,svg,img{display:block}
 
 /* Details rise as a vellum sheet above the deck. Closed, it leaves the tab order. */
 #slot-folio{grid-area:world;align-self:end;position:relative;z-index:var(--z-sheet);min-width:0;min-height:0;
-  max-height:min(76%,calc(100dvh - var(--deck-h) - var(--safe-t) - 44px));display:flex;flex-direction:column;overflow:hidden;
+  max-height:min(100%,calc(100dvh - var(--deck-h) - var(--nav-h) - var(--safe-t) - 6px));display:flex;flex-direction:column;overflow:hidden;
   color:var(--ink);background:var(--vellum-sheet);box-shadow:var(--lift-sheet);container:folio/inline-size;
   padding-bottom:var(--card-h);
   visibility:hidden;transform:translateY(102%);
@@ -58,6 +58,9 @@ canvas,svg,img{display:block}
 :root[data-panel] #slot-folio{visibility:visible;transform:none;transition:transform var(--t-sheet) var(--ease-out),visibility 0s}
 
 #slot-mosaic{display:none}
+
+/* The way round. Always on screen, whatever is selected. web/css/nav.css draws what is inside. */
+#slot-nav{grid-area:nav;position:relative;z-index:var(--z-nav);min-width:0;min-height:0}
 
 /* Over everything but the deck on a phone: the first-run mouth and hold-to-talk. Empty, it
    lets every touch through. */
@@ -67,8 +70,8 @@ canvas,svg,img{display:block}
 /* ---------------------------------- phone landscape: world left, deck on the right edge */
 
 @media (orientation:landscape) and (max-height:519px){
-  #app{grid-template-columns:minmax(0,1fr) calc(var(--deck-col) + var(--safe-r));
-    grid-template-rows:minmax(0,1fr);grid-template-areas:"world deck"}
+  #app{grid-template-columns:minmax(0,1fr) var(--nav-col) calc(var(--deck-col) + var(--safe-r));
+    grid-template-rows:minmax(0,1fr);grid-template-areas:"world nav deck"}
   #slot-deck{height:100dvh;padding-right:var(--safe-r);overflow:hidden}
   #slot-cards{padding:0 8px 0 max(8px,var(--safe-l))}
   #slot-folio{justify-self:start;width:min(440px,100%);max-height:100%;height:100%;
@@ -78,8 +81,8 @@ canvas,svg,img{display:block}
 /* ------------------------- tablet and laptop: world fills, deck docks, folio on the right */
 
 @media (min-width:700px) and (min-height:520px){
-  #app{grid-template-columns:minmax(0,1fr) var(--folio-w);grid-template-rows:minmax(0,1fr);
-    grid-template-areas:"world folio"}
+  #app{grid-template-columns:minmax(0,1fr) var(--folio-w) var(--rail-w);grid-template-rows:minmax(0,1fr);
+    grid-template-areas:"world folio nav"}
 
   .dock{grid-area:world;align-self:end;justify-self:start;display:flex;flex-direction:column;align-items:stretch;
     position:relative;z-index:var(--z-deck);min-width:0;
@@ -97,15 +100,15 @@ canvas,svg,img{display:block}
 /* ------------------ ultrawide: world grows, folio keeps reading width, mosaic gets a column */
 
 @media (min-width:1800px) and (min-height:520px){
-  #app{grid-template-columns:minmax(0,1fr) var(--mosaic-w) 400px;grid-template-areas:"world mosaic folio"}
+  #app{grid-template-columns:minmax(0,1fr) var(--mosaic-w) 400px var(--rail-w);grid-template-areas:"world mosaic folio nav"}
   #slot-mosaic{grid-area:mosaic;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;overflow:hidden;
     background:var(--ink);box-shadow:inset 1px 0 0 rgba(239,228,203,.08);container:mosaic/inline-size}
 }
 
 /* ---------------------------------------- /deck: the deck alone, for a phone beside a screen */
 
-:root.only-deck #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
-  grid-template-areas:"cards" "deck";background:var(--iron-lo)}
+:root.only-deck #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"cards" "deck" "nav";background:var(--iron-lo)}
 :root.only-deck .dock{display:contents}
 :root.only-deck #slot-cards{grid-area:cards;align-self:stretch;padding:calc(var(--safe-t) + 8px) 10px 0;margin:0;max-width:none;max-height:none;z-index:1}
 :root.only-deck #slot-deck{grid-area:deck;height:100%;width:auto;padding:0;box-shadow:none;overflow:hidden}
@@ -118,7 +121,7 @@ canvas,svg,img{display:block}
 
 /* A phone on its side beside a screen: the card takes the left, and only if one is up. */
 @media (orientation:landscape) and (max-height:519px){
-  :root.only-deck #app{grid-template-columns:minmax(0,auto) minmax(0,1fr);grid-template-rows:minmax(0,1fr);grid-template-areas:"cards deck"}
+  :root.only-deck #app{grid-template-columns:minmax(0,auto) minmax(0,1fr) var(--nav-col);grid-template-rows:minmax(0,1fr);grid-template-areas:"cards deck nav"}
   :root.only-deck #slot-cards{align-self:center;width:fit-content;max-width:46vw;max-height:100dvh;overflow:auto;
     padding:8px 8px 8px max(8px,var(--safe-l));container-type:normal}
   :root.only-deck #slot-deck{height:100dvh}
@@ -128,7 +131,7 @@ canvas,svg,img{display:block}
    keys, so while one is up the whole screen is the card, and the deck comes back after. */
 @media (max-height:340px) and (orientation:landscape){
   :root:has(#slot-cards .card) #app{grid-template-columns:minmax(0,1fr);grid-template-areas:"world"}
-  :root:has(#slot-cards .card) #slot-deck{display:none}
+  :root:has(#slot-cards .card) #slot-deck,:root:has(#slot-cards .card) #slot-nav{display:none}
 }
 
 /* ---------------------------------------------------------- states the shell itself draws */
@@ -171,9 +174,9 @@ canvas,svg,img{display:block}
 #link[data-tone=notice] span{white-space:normal}
 #link{max-width:min(calc(100vw - 24px),640px)}
 /* The ribbon hangs inside the world and never crosses into the folio or the deck column. */
-:root[data-layout=landscape] #link{left:calc((100vw - var(--deck-col))/2);max-width:calc(100vw - var(--deck-col) - 16px)}
-:root[data-layout=desk] #link,:root[data-layout=ultrawide] #link{left:calc((100vw - var(--folio-w))/2);top:calc(var(--safe-t) + 72px);max-width:calc(100vw - var(--folio-w) - 40px)}
-:root[data-layout=ultrawide] #link{left:calc((100vw - 700px)/2)}
+:root[data-layout=landscape] #link{left:calc((100vw - var(--deck-col) - var(--nav-col))/2);max-width:calc(100vw - var(--deck-col) - var(--nav-col) - 16px)}
+:root[data-layout=desk] #link,:root[data-layout=ultrawide] #link{left:calc((100vw - var(--folio-w) - var(--rail-w))/2);top:calc(var(--safe-t) + 72px);max-width:calc(100vw - var(--folio-w) - var(--rail-w) - 40px)}
+:root[data-layout=ultrawide] #link{left:calc((100vw - 700px - var(--rail-w))/2)}
 @media (max-width:374px){#link{gap:var(--s2);padding:0 20px}#link span{display:none}#link[data-tone=notice] span,#link[data-tone=alarm] span{display:inline;white-space:normal}}
 
 /* An honest label: the demo is a scripted fleet, so nothing on screen is real work. Set up the

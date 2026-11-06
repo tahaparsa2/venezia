@@ -1,15 +1,36 @@
-// The mosaic wall. Real smalti are set a little out of true, so each tile catches the light on
-// its own, and that is what shimmers: not an animation but a light moved by your hand or your
-// scrolling. It rests when you do. Gold only where the host saw proof. A failed gate is a dull
-// glass tile, kept honest, and a voided receipt visibly loses its gold.
+// The mosaic wall: every result Venezia checked for itself, set in gold, grouped by project, each
+// tile cut with a mark for what it stands for. Real smalti are set a little out of true, so each
+// tile catches the light on its own, and that is what shimmers: not an animation but a light moved
+// by your hand or your scrolling. It rests when you do. Gold only where the host saw proof. A
+// failed gate is a dull glass tile, kept honest, and a voided receipt visibly loses its gold.
 
-import { RANKS, TESSERA_KIND, rankFor } from '/shared/vocabulary.mjs';
-import { clock, dayMonth, h, plural, reducedMotion, setText, token } from '/js/folio/dom.js';
+import { RANKS, RENOWN_AWARDS, TESSERA_KIND, TESSERA_KINDS, rankFor } from '/shared/vocabulary.mjs';
+import { clock, dayMonth, h, pageHead, plural, reducedMotion, setText, syncList, token } from '/js/folio/dom.js';
 
 const SHEEN_FALLOFF = 2.6;
 const EASE = 0.14;
 const VARIANTS = 6;
 const PASS_MS = 1500;
+const TILE_PX = 42;
+
+/** What each tile proves, in words. Marks are drawn in a 24 box, cut into the glass. */
+export const TILE_MEANS = Object.freeze({
+  gate: 'Venezia installed and built this project itself, then ran its tests in a real browser. All of it passed.',
+  receipt: 'Venezia signed this exact version of the code after it passed. If the code changes, the receipt is voided.',
+  live: 'Venezia opened the published address itself, and the page really worked.',
+  law: 'A lesson earned a good record on real projects, and you confirmed it as a rule.',
+  dark: 'Venezia ran the checks and they failed. The tile stays on the wall, so the record stays honest.',
+  voided: 'This receipt was voided, usually because the code changed after the check. The gold is gone until it is proved again.',
+});
+
+const MARKS = Object.freeze({
+  gate: 'M6 12.6l4.2 4.2L18 7.6',
+  receipt: 'M12 4.5a5.6 5.6 0 1 0 0 11.2 5.6 5.6 0 0 0 0-11.2ZM8.8 15l-1.2 5 4.4-2 4.4 2-1.2-5',
+  live: 'M12 4.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15ZM4.5 12h15M12 4.5c3.4 3.5 3.4 11.5 0 15-3.4-3.5-3.4-11.5 0-15Z',
+  law: 'M12 7.4C10.2 5.9 7.4 5.6 5 6.2v11c2.4-.6 5.2-.3 7 1.2 1.8-1.5 4.6-1.8 7-1.2v-11c-2.4-.6-5.2-.3-7 1.2ZM12 7.4v11',
+  dark: 'M7.5 7.5l9 9M16.5 7.5l-9 9',
+});
+const tileMark = (tile) => (tile.dimmed ? null : MARKS[tile.kind] ?? null);
 
 function mulberry(seed) {
   let value = seed >>> 0;
@@ -40,6 +61,51 @@ function canvasOf(size) {
   canvas.width = size;
   canvas.height = size;
   return canvas;
+}
+
+const spriteCache = new Map();
+
+/** Every wall of one size shares its tiles. */
+function spritesFor(size) {
+  if (!spriteCache.has(size)) spriteCache.set(size, cutSprites(size));
+  return spriteCache.get(size);
+}
+
+/** The mark for what a tile stands for, cut into its face. */
+function cutMark(c, tile, x, y, size) {
+  const mark = tileMark(tile);
+  if (!mark) return;
+  const scale = size / 24;
+  c.save();
+  c.translate(x, y);
+  c.scale(scale, scale);
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.lineWidth = 1.7;
+  c.strokeStyle = tile.gold ? token('--gold-wire') : token('--text-on-night-soft');
+  c.stroke(new Path2D(mark));
+  c.restore();
+}
+
+/**
+ * One tile on its own, for a legend.
+ * @param {HTMLCanvasElement} canvas
+ * @param {string} kind a tessera kind, or `voided`
+ */
+export function paintTileSample(canvas, kind) {
+  const ratio = Math.min(2, devicePixelRatio || 1);
+  const box = 26;
+  const size = Math.round(box * ratio);
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.width = `${box}px`;
+  canvas.style.height = `${box}px`;
+  const c = canvas.getContext('2d');
+  const sprites = spritesFor(size);
+  const tile = kind === 'voided' ? { kind: 'receipt', gold: true, dimmed: true } : { kind, gold: kind !== 'dark', dimmed: false };
+  const set = tile.dimmed ? sprites.tarnish : tile.gold ? sprites.gold : sprites.dull;
+  c.drawImage(set[0], 0, 0, size, size);
+  cutMark(c, tile, 0, 0, size);
 }
 
 /** Pre-cut every kind of tile once. A wall is then only a few hundred drawImage calls. */
@@ -168,11 +234,12 @@ const tileWord = (tile) => (tile.dimmed ? 'Receipt voided' : TESSERA_KIND[tile.k
  * @param {any} options.store
  * @param {HTMLElement} options.host
  * @param {boolean} [options.compact] the folio's strip: small, newest tiles, no keys of its own
+ * @param {(state: any) => any[]} [options.pick] which tiles this wall shows
  * @param {((tile: any) => void)|null} [options.onTile]
  * @param {((tile: any|null) => void)} [options.onHover]
  * @param {HTMLElement} [options.scroller] whose scrolling moves the light
  */
-export function createWall({ store, host, compact = false, onTile = null, onHover, scroller = null }) {
+export function createWall({ store, host, compact = false, pick = (state) => state.tesserae, onTile = null, onHover, scroller = null }) {
   const canvas = h('canvas', { class: 'wall-canvas', 'aria-hidden': 'true' });
   const keys = compact ? null : h('div', { class: 'wall-keys' });
   const box = h('div', { class: 'wall' }, canvas, keys);
@@ -186,7 +253,8 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
   let ratio = 1;
   let placed = [];
   let lastKey = '';
-  let hoverShip = null;
+  let hoverSeq = null;
+  let pickedSeq = null;
   let frame = 0;
   let flashes = [];
   let sweep = 0;
@@ -207,16 +275,15 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
       cell = width / cols;
       rows = Math.max(2, Math.round((box.clientHeight || 44) / cell));
     } else {
-      const ideal = width < 340 ? 22 : 26;
-      cols = Math.max(8, Math.floor(width / ideal));
+      cols = Math.max(5, Math.floor(width / TILE_PX));
       cell = width / cols;
-      // A lifetime wall, sized to what has been earned plus a row or two still to fill.
-      rows = Math.max(3, Math.ceil(placed.length / cols) + 2);
+      // Sized to what this project has earned, with the last row left open.
+      rows = Math.max(1, Math.ceil(placed.length / cols));
     }
     ratio = Math.min(2, devicePixelRatio || 1);
     const pixels = Math.ceil(cell * ratio);
     if (pixels !== spritePx) {
-      sprites = cutSprites(pixels);
+      sprites = spritesFor(pixels);
       spritePx = pixels;
     }
     const height = Math.round(rows * cell);
@@ -259,6 +326,7 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
       const set = tile.dimmed ? sprites.tarnish : shining ? sprites.gold : sprites.dull;
       c.globalAlpha = 1;
       c.drawImage(set[lean.variant % set.length], x, y, size, size);
+      if (!compact) cutMark(c, tile, x, y, size);
       if (shining) {
         const cx = (index % cols + 0.5) * cell + lean.x * cell * 3.2;
         const cy = (Math.floor(index / cols) + 0.5) * cell + lean.y * cell * 3.2;
@@ -275,10 +343,10 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
           c.globalCompositeOperation = 'source-over';
         }
       }
-      if (hoverShip && tile.shipId === hoverShip) {
+      if (hoverSeq === tile.seq || pickedSeq === tile.seq) {
         c.globalAlpha = 0.9;
         c.strokeStyle = token('--vellum');
-        c.lineWidth = Math.max(1, ratio);
+        c.lineWidth = Math.max(1, ratio * (pickedSeq === tile.seq ? 1.5 : 1));
         c.strokeRect(x + 1, y + 1, size - 2, size - 2);
       }
     });
@@ -356,10 +424,10 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
   }
 
   function focusTile(tile) {
-    const next = tile?.shipId ?? null;
+    const next = tile?.seq ?? null;
     onHover?.(tile);
-    if (next === hoverShip) return;
-    hoverShip = next;
+    if (next === hoverSeq) return;
+    hoverSeq = next;
     paint();
   }
 
@@ -377,12 +445,12 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
       key.onfocus = () => focusTile(tile);
       key.style.cssText = `left:${(index % cols) * cell}px;top:${Math.floor(index / cols) * cell}px;width:${cell}px;height:${cell}px`;
       const name = state.ships[tile.shipId]?.name ?? 'Unknown project';
-      key.setAttribute('aria-label', `${name}: ${tileWord(tile)}, ${dayMonth(tile.ts)} ${clock(tile.ts)}. Open its proof.`);
+      key.setAttribute('aria-label', `${name}: ${tileWord(tile)}, ${dayMonth(tile.ts)} ${clock(tile.ts)}. Say what it proves.`);
     });
   }
 
   function update(state, { fresh = [] } = {}) {
-    placed = placedFrom(state.tesserae);
+    placed = placedFrom(pick(state));
     const key = `${box.clientWidth}|${host.clientHeight}|${placed.length}|${placed.filter((tile) => tile.dimmed).length}|${placed.at(-1)?.seq ?? 0}`;
     if (key === lastKey && !fresh.length) return;
     lastKey = key;
@@ -405,6 +473,12 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
   return {
     update,
     pass,
+    /** @param {number|null} seq the tile whose meaning is on show */
+    mark(seq) {
+      if (seq === pickedSeq) return;
+      pickedSeq = seq;
+      paint();
+    },
     destroy() {
       watcher.disconnect();
       cancelAnimationFrame(frame);
@@ -415,16 +489,34 @@ export function createWall({ store, host, compact = false, onTile = null, onHove
   };
 }
 
-function rankLine(state, plain) {
+function rankWords(state, plain) {
   const { total } = state.renown;
   const id = rankFor(total);
   const index = RANKS.findIndex((rank) => rank.id === id);
   const next = RANKS[index + 1];
-  const name = (rank) => (plain ? rank.plain : rank.fiction);
+  const rank = RANKS[index];
+  const name = (entry) => entry.plain;
+  const here = plain || rank.plain === rank.fiction ? rank.plain : `${rank.plain} · ${rank.fiction}`;
   return {
-    rank: name(RANKS[index]),
-    next: next ? `${next.threshold - total} to ${name(next)}` : 'The highest rank there is',
+    rank: here,
+    line: `${plural(total, 'point')}, earned only from verified results. ${next ? `${next.threshold - total} more to the next rank, ${name(next)}.` : 'That is the highest rank there is.'}`,
   };
+}
+
+const POINTS_LINE = `A gate passed first try is worth ${RENOWN_AWARDS.firstPassGate} points, a launch ${RENOWN_AWARDS.launch}, a confirmed rule ${RENOWN_AWARDS.law}. Nothing else counts.`;
+const KEY_WORDS = { gate: 'Gate passed', receipt: 'Receipt issued', live: 'Live check passed', law: 'Rule confirmed', dark: 'Check failed' };
+
+/** Tiles by project, newest project first. Rules confirmed on their own form the last group. */
+function groupsOf(state) {
+  const byShip = new Map();
+  for (const tile of state.tesserae) {
+    const key = tile.shipId ?? 'rules';
+    if (!byShip.has(key)) byShip.set(key, []);
+    byShip.get(key).push(tile);
+  }
+  return [...byShip.entries()]
+    .map(([id, tiles]) => ({ id, tiles, last: tiles.at(-1).seq }))
+    .sort((a, b) => (a.id === 'rules') - (b.id === 'rules') || b.last - a.last);
 }
 
 /**
@@ -433,52 +525,124 @@ function rankLine(state, plain) {
  */
 export function createMosaicPanel(ctx, { column = false } = {}) {
   const { store } = ctx;
-  const title = h('h2', { class: 'panel-title' });
-  const renown = h('p', { class: 'renown' }, h('b'), h('span'));
-  const say = h('p', { class: 'panel-say' });
-  const body = h('div', { class: 'panel-body wall-body' });
-  const caption = h('p', { class: 'wall-cap', 'aria-hidden': 'true' });
-  const legend = h('ul', { class: 'wall-legend' },
-    h('li', {}, h('i', { class: 'swatch swatch-gold' }), 'Proof the host saw'),
-    h('li', {}, h('i', { class: 'swatch swatch-dull' }), 'A failed gate, kept honest'),
-    h('li', {}, h('i', { class: 'swatch swatch-tarnish' }), 'A voided receipt, gold gone'));
-  const el = h('section', { class: `page page-mosaic${column ? ' mosaic-column' : ''}`, 'aria-label': 'Mosaic' },
-    h('header', { class: 'panel-head' }, title, renown, say), body, caption, legend);
+  const head = pageHead('Results', 'the Mosaic', 'Every gold tile is something Venezia checked itself, not something an AI claimed. Tap a tile to see what it proves.');
+  const points = h('p', { class: 'renown' }, h('b'), h('span'));
+  const pointsWhy = h('p', { class: 'panel-note renown-why', text: POINTS_LINE });
+  const walls = h('div', { class: 'wall-groups' });
+  const body = h('div', { class: 'panel-body wall-scroll' }, walls);
+  const empty = h('div', { class: 'wall-empty', hidden: true },
+    h('p', { class: 'folio-empty-big', text: 'No tiles yet.' }),
+    h('p', { class: 'folio-empty-say', text: 'Start a project, and when it passes its first check Venezia sets the first gold tile here.' }),
+    h('button', { type: 'button', class: 'act act-now', text: 'New idea', onclick: () => store.actions.emit({ type: 'intake' }) }));
+  body.append(empty);
 
-  const showTile = (tile) => {
+  const tileWordEl = h('b', { class: 'tile-kind' });
+  const tileWhen = h('span', { class: 'tile-when' });
+  const tileMeans = h('p', { class: 'tile-means' });
+  const tileOpen = h('button', { type: 'button', class: 'act act-now tile-open', onclick: () => openPicked() });
+  const tileSay = h('div', { class: 'tile-say', 'aria-live': 'polite', hidden: true },
+    h('p', { class: 'tile-head' }, tileWordEl, tileWhen), tileMeans, tileOpen);
+
+  const legend = h('ul', { class: 'wall-legend', 'aria-label': 'What the tiles mean' }, [...TESSERA_KINDS.map((kind) => kind.id), 'voided'].map((id) => {
+    const sample = h('canvas', { class: 'legend-tile', 'aria-hidden': 'true' });
+    return h('li', { data: { kind: id } }, sample, h('span', { class: 'legend-word', text: id === 'voided' ? 'Receipt voided' : KEY_WORDS[id] }), h('span', { class: 'legend-n' }));
+  }));
+  let legendPainted = false;
+
+  const el = h('section', { class: `page page-mosaic${column ? ' mosaic-column' : ''}`, 'aria-label': 'Results' },
+    h('header', { class: 'panel-head' }, head.title, head.say, points), body, tileSay, legend, pointsWhy);
+
+  /** @type {Map<string, {el: HTMLElement, wall: any, count: HTMLElement, name: HTMLElement}>} */
+  const blocks = new Map();
+  let picked = null;
+
+  function openPicked() {
+    if (!picked) return;
+    if (picked.kind === 'law' || !picked.shipId) store.view.set({ panel: 'lessons' });
+    else ctx.openProof(picked.shipId, picked.seq);
+  }
+
+  function describe(tile) {
     if (!tile) {
-      setText(caption, '');
+      if (picked) describe(picked);
+      else tileSay.hidden = true;
       return;
     }
-    const name = store.getState().ships[tile.shipId]?.name ?? '';
-    setText(caption, `${name}  ${tileWord(tile)}  ${dayMonth(tile.ts)}, ${clock(tile.ts)}`);
-  };
-  const wall = createWall({
-    store, host: body, scroller: body, onHover: showTile, onTile: (tile) => (tile.shipId ? ctx.openProof(tile.shipId, tile.seq) : store.view.set({ panel: 'lessons' })),
-  });
+    const state = store.getState();
+    const name = state.ships[tile.shipId]?.name ?? null;
+    tileSay.hidden = false;
+    setText(tileWordEl, tile.dimmed ? 'Receipt voided' : KEY_WORDS[tile.kind] ?? TESSERA_KIND[tile.kind]?.plain ?? tile.kind);
+    setText(tileWhen, `${name ? `${name}, ` : ''}${dayMonth(tile.ts)} ${clock(tile.ts)}`);
+    setText(tileMeans, tile.dimmed ? TILE_MEANS.voided : TILE_MEANS[tile.kind] ?? '');
+    setText(tileOpen, tile.kind === 'law' || !tile.shipId ? 'Open the Rulebook' : 'Open the evidence');
+    tileOpen.hidden = tile !== picked;
+  }
+
+  function pick(tile) {
+    picked = tile;
+    for (const block of blocks.values()) block.wall.mark(tile.seq);
+    describe(tile);
+  }
+
+  function blockFor(group) {
+    let block = blocks.get(group.id);
+    if (block) return block;
+    const name = h('button', { type: 'button', class: 'wall-name', onclick: () => (group.id === 'rules' ? store.view.set({ panel: 'lessons' }) : ctx.select(group.id)) });
+    const count = h('span', { class: 'wall-count' });
+    const host = h('div', { class: 'wall-body' });
+    const wall = createWall({
+      store, host, scroller: body, onHover: describe, onTile: pick, pick: (state) => groupsOf(state).find((entry) => entry.id === group.id)?.tiles ?? [],
+    });
+    block = { el: h('section', { class: 'wall-group' }, h('header', { class: 'wall-head' }, name, count), host), wall, count, name };
+    blocks.set(group.id, block);
+    return block;
+  }
 
   let known = -1;
   let wasHidden = true;
 
   function update(state) {
-    const plain = store.view.get().plain;
+    const { plain } = store.view.get();
     const opening = wasHidden && !el.hidden;
     wasHidden = el.hidden;
-    setText(title, plain ? 'Verified results' : 'Mosaic');
-    const line = rankLine(state, plain);
-    setText(renown.firstChild, `${state.renown.total.toLocaleString()} renown`);
-    setText(renown.lastChild, `${line.rank}. ${line.next}`);
-    const gold = state.tesserae.filter((tile) => tile.gold && !tile.dimmed).length;
-    const dull = state.tesserae.filter((tile) => !tile.gold).length;
-    setText(say, state.tesserae.length === 0
-      ? 'An empty wall. A tile is only ever set by the host, on real evidence.'
-      : `${plural(gold, 'gold tile')}, ${plural(dull, 'dark tile')}. Each one opens its proof.`);
-    const fresh = known >= 0 && state.tesserae.length > known && store.timeline().live ? state.tesserae.slice(known) : [];
-    known = state.tesserae.length;
-    wall.update(state, { fresh });
-    if (opening) wall.pass();
+    head.sync(plain);
+    const words = rankWords(state, plain);
+    setText(points.firstChild, words.line);
+    setText(points.lastChild, `Rank: ${words.rank}`);
+    const tiles = state.tesserae;
+    const none = tiles.length === 0;
+    empty.hidden = !none;
+    walls.hidden = none;
+    pointsWhy.hidden = none;
+    if (!legendPainted && !el.hidden) {
+      legendPainted = true;
+      for (const row of legend.children) paintTileSample(row.firstChild, row.dataset.kind);
+    }
+    for (const row of legend.children) {
+      const { kind } = row.dataset;
+      const count = kind === 'voided' ? tiles.filter((tile) => tile.dimmed).length : tiles.filter((tile) => tile.kind === kind && !tile.dimmed).length;
+      setText(row.lastChild, count ? String(count) : '');
+      row.dataset.none = String(count === 0);
+    }
+    const fresh = known >= 0 && tiles.length > known && store.timeline().live ? tiles.slice(known) : [];
+    known = tiles.length;
+    const groups = groupsOf(state);
+    for (const [id, block] of blocks) {
+      if (groups.some((group) => group.id === id)) continue;
+      block.wall.destroy();
+      block.el.remove();
+      blocks.delete(id);
+    }
+    syncList(walls, groups, (group) => group.id, (group) => blockFor(group).el, (node, group) => {
+      const block = blockFor(group);
+      const gold = group.tiles.filter((tile) => tile.gold && !tile.dimmed).length;
+      const dark = group.tiles.filter((tile) => !tile.gold).length;
+      setText(block.name, group.id === 'rules' ? 'Rules' : state.ships[group.id]?.name ?? 'A project');
+      setText(block.count, [gold ? `${gold} gold` : '', dark ? `${dark} dark` : ''].filter(Boolean).join(', '));
+      block.wall.update(state, { fresh: fresh.filter((tile) => group.tiles.includes(tile)) });
+      if (opening) block.wall.pass();
+    });
   }
 
-  return { el, update, destroy: () => wall.destroy() };
+  return { el, update, destroy: () => blocks.forEach((block) => block.wall.destroy()) };
 }
-

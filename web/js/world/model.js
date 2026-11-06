@@ -55,20 +55,20 @@ const DECISION_BADGE = Object.freeze({
 /** The short status on a hull's ribbon. A label as well as a colour, always in plain words. */
 function badgeOf(ship, voided) {
   if (ship.state === 'failed') return 'failed';
-  if (ship.fog > 0) return `${ship.fog}?`;
+  if (ship.fog > 0) return ship.fog === 1 ? '1 question' : `${ship.fog} questions`;
   if (ship.openDecisions.length > 0) return DECISION_BADGE[ship.openDecisions[0].kind] ?? 'needs you';
   if (ship.state === 'repairing') return 'in repair';
-  if (ship.leak) return 'gate ×';
-  if (ship.state === 'blocked') return ship.blockReason === 'rate_limited' ? 'waits' : 'blocked';
+  if (ship.leak) return 'check failed';
+  if (ship.state === 'blocked') return ship.blockReason === 'rate_limited' ? 'waiting' : 'stuck';
   if (ship.state === 'paused') return 'paused';
   if (voided) return 'voided';
   if (ship.state === 'publishing') return 'publishing';
   if (ship.state === 'launched') return isLive(ship) ? 'live' : 'saved';
   if (ship.state === 'done') return ship.unread ? 'done' : '';
   if (ship.receipt) return 'proved';
-  if (ship.state === 'building' && ship.hull.total > 0) return `${ship.hull.done}/${ship.hull.total}`;
-  if (ship.state === 'proving') return 'gate';
-  if (ship.state === 'reviewing') return 'review';
+  if (ship.state === 'building' && ship.hull.total > 0) return `${ship.hull.done} of ${ship.hull.total}`;
+  if (ship.state === 'proving') return 'checking';
+  if (ship.state === 'reviewing') return 'in review';
   return '';
 }
 

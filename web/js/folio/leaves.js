@@ -1,4 +1,4 @@
-// Actions on a hull that need a moment's thought: Publish, Refit, Rate, and the list of hulls.
+// Actions on a hull that need a moment's thought: Publish, Refit and Rate.
 // Each is a loose leaf slid into the folio over the page it was opened from.
 
 import { cmd } from '/js/commands.js';
@@ -153,26 +153,7 @@ function rateLeaf(ctx, ship, close) {
   stones, said, note, error, h('div', { class: 'leaf-row' }, go)));
 }
 
-function fleetLeaf(ctx, ship, close) {
-  const { store } = ctx;
-  const state = store.getState();
-  const ships = Object.values(state.ships).filter((entry) => entry.state !== 'scuttled').sort((a, b) => b.updatedAt - a.updatedAt);
-  const list = h('ul', { class: 'fleet' });
-  syncList(list, ships, (entry) => entry.id, (entry) => h('li', {}, h('button', {
-    type: 'button',
-    class: 'fleet-row',
-    'aria-current': entry.id === ship?.id ? 'true' : null,
-    onclick: () => {
-      close();
-      store.view.set({ selectedShip: entry.id, panel: 'ship' });
-    },
-  }, h('b', { text: entry.name ?? entry.id }), h('span', { text: entry.state.replaceAll('_', ' ') }))));
-  return leafShell(store.view.get().plain ? 'All projects' : 'All hulls', close,
-    ships.length ? list : h('p', { class: 'leaf-say', text: 'Nothing on the water yet.' }),
-    h('button', { type: 'button', class: 'act act-now fleet-new', text: 'Speak a new idea', onclick: () => { close(); store.actions.emit({ type: 'intake' }); } }));
-}
-
-const BUILD = { publish: publishLeaf, refit: refitLeaf, rate: rateLeaf, fleet: fleetLeaf };
+const BUILD = { publish: publishLeaf, refit: refitLeaf, rate: rateLeaf };
 
 export function createLeaves(ctx, host) {
   let open = null;

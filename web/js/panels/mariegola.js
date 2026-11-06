@@ -2,7 +2,7 @@
 // only ever added to. Candidates are hints with a record. Only you turn one into law.
 
 import { cmd } from '/js/commands.js';
-import { h, dayMonth, setText, syncList } from '/js/folio/dom.js';
+import { h, dayMonth, pageHead, setText, syncList } from '/js/folio/dom.js';
 
 const KIND_WORD = { hazard: 'Hazard', shoal: 'Shoal', technique: 'Technique', preference: 'Preference' };
 const KIND_PLAIN = { hazard: 'Danger', shoal: 'Trap', technique: 'Technique', preference: 'Your taste' };
@@ -16,8 +16,7 @@ const BURN_ASK_MS = 4000;
 
 export function createMariegolaPanel(ctx) {
   const { store } = ctx;
-  const title = h('h2', { class: 'panel-title' });
-  const say = h('p', { class: 'panel-say' });
+  const head = pageHead('Rulebook', 'the Mariegola', 'What Venezia has learned from your projects. Hints are tried on later projects and earn a record. Confirm the good ones as laws, and burn the bad ones.');
   const laws = h('ol', { class: 'laws' });
   const lawsEmpty = h('p', { class: 'panel-note', text: 'No laws yet. A hint with a good record will ask to become one.' });
   const hints = h('ul', { class: 'hints' });
@@ -26,11 +25,13 @@ export function createMariegolaPanel(ctx) {
   const burnedList = h('ul', { class: 'burned' });
   const burned = h('details', { class: 'burned-box', hidden: true }, burnedHead, burnedList);
   const el = h('section', { class: 'page page-lessons', 'aria-label': 'Rulebook' },
-    h('header', { class: 'panel-head' }, title, say),
+    h('header', { class: 'panel-head' }, head.title, head.say),
     h('div', { class: 'panel-body' },
-      h('h3', { class: 'rub', text: 'Laws' }), laws, lawsEmpty,
+      h('h3', { class: 'rub', text: 'Laws' }),
+      h('p', { class: 'panel-note', text: 'Every new project follows these. A law is added with its date and never edited.' }),
+      laws, lawsEmpty,
       h('h3', { class: 'rub', text: 'Hints' }),
-      h('p', { class: 'panel-note', text: 'Used on later runs, marked as unconfirmed. A win is a project that passes the gate first try with the hint in hand. Three uses above 66% asks you to confirm, and below 34% it burns itself.' }),
+      h('p', { class: 'panel-note', text: 'Later projects try these, marked as unconfirmed. A hint wins when a project passes its checks first try with the hint in hand. After three uses, above 66% it asks you to confirm it, and below 34% it burns itself.' }),
       hints, hintsEmpty, burned));
 
   async function act(command, done) {
@@ -80,12 +81,11 @@ export function createMariegolaPanel(ctx) {
 
   function update(state) {
     const plain = store.view.get().plain;
-    setText(title, plain ? 'Rulebook' : 'Mariegola');
+    head.sync(plain);
     const lessons = Object.values(state.lessons);
     const lawList = lessons.filter((lesson) => lesson.status === 'law').sort((a, b) => a.confirmedAt - b.confirmedAt);
     const hintList = lessons.filter((lesson) => lesson.status === 'candidate').sort((a, b) => (rate(b) ?? -1) - (rate(a) ?? -1) || b.uses - a.uses);
     const burnedLessons = lessons.filter((lesson) => lesson.status === 'burned');
-    setText(say, 'What the factory has learned. Laws are added with the date and never edited.');
 
     lawsEmpty.hidden = lawList.length > 0;
     syncList(laws, lawList, (lesson) => lesson.id, () => h('li', { class: 'law' }, h('p', { class: 'law-text' }), h('p', { class: 'law-meta' })), (node, lesson) => {

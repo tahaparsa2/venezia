@@ -25,6 +25,9 @@ const CONSOLE_MIN_W = 720;
 const CONSOLE_RATIO = 1.4;
 const STACK_MIN_H = 580;
 
+/** Nothing can be steered once it has stopped working. */
+const STEERABLE_NOT = new Set(['done', 'failed', 'scuttled']);
+
 const VOICE_LEGEND = Object.freeze({
   idle: ['Talk', 'Tap or hold'],
   starting: ['Listening', ''],
@@ -168,6 +171,11 @@ export function mountDeck(el, store) {
         stepLamp(action.delta);
         break;
       case 'steer': {
+        const why = steerBlocked();
+        if (why) {
+          store.notify(why, { title: 'Nothing to steer', ms: 7000 });
+          return;
+        }
         // One place to steer from: the folio where it is always open, or its own raised sheet,
         // and otherwise the slip above the deck.
         const { folio } = store.layout.get();
@@ -183,6 +191,15 @@ export function mountDeck(el, store) {
         break;
     }
   });
+
+  /** Why Steer cannot do anything right now, in words, or null when it can. */
+  function steerBlocked() {
+    const ships = Object.values(store.getState().ships);
+    if (ships.length === 0) return 'Steering tells a running project something. Press New idea to start one.';
+    const target = store.selectedShip();
+    if (target && !STEERABLE_NOT.has(target.state)) return null;
+    return 'Steering tells a running project something, and none is running. Open one from Projects, or press New idea.';
+  }
 
   const emit = (type, phase) => store.actions.emit({ type, phase });
   /** A hold started by a click with no pointer, as a screen reader sends: the card it is for. */
@@ -218,7 +235,8 @@ export function mountDeck(el, store) {
     // The key says exactly what the card says, in every layout.
     approve.main.textContent = yes?.label ?? 'Approve';
     reject.main.textContent = no?.label ?? 'Reject';
-    approve.sub.textContent = hold;
+    approve.sub.textContent = yes ? hold : 'Nothing to approve';
+    reject.sub.textContent = no ? '' : 'Nothing to reject';
     const long = (approve.main.textContent.length > LONG_LEGEND) || (reject.main.textContent.length > LONG_LEGEND);
     approve.button.classList.toggle('is-long', long);
     reject.button.classList.toggle('is-long', long);
@@ -263,6 +281,9 @@ export function mountDeck(el, store) {
     lamps.draw(state);
     dial.draw();
     ticker.draw(state);
+    const stuck = steerBlocked();
+    steer.dataset.idle = String(Boolean(stuck));
+    steer.setAttribute('aria-label', stuck ? 'Steer. Nothing is running to steer.' : 'Steer the selected project');
   };
 
   const offState = store.subscribe((state, events, meta) => {

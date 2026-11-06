@@ -22,6 +22,12 @@
 
 .run-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding-bottom:var(--s2);border-bottom:.5px solid var(--rule);font:italic 400 var(--fs-small)/1 var(--serif);color:var(--ink-soft)}
 .run-title{flex:1}
+.run-title[hidden]{display:none}
+.run-back{position:relative;display:inline-flex;align-items:center;gap:6px;font:500 var(--fs-label)/1 var(--mono);color:var(--verdigris-ink);text-decoration:underline;text-underline-offset:3px}
+.run-back[hidden]{display:none}
+.run-back::before{content:'';width:7px;height:7px;border:solid currentColor;border-width:0 0 1.5px 1.5px;transform:rotate(45deg)}
+.run-back::after{content:'';position:absolute;inset:-14px -8px}
+.run-head:has(.run-back:not([hidden])){justify-content:space-between}
 .x{min-width:var(--tap);min-height:var(--tap);margin:-14px -12px -14px 0;font:400 22px/1 var(--serif);color:var(--ink-soft)}
 .folio-close{display:none}
 :root[data-layout=phone] .folio-close,:root[data-layout=landscape] .folio-close{display:block}
@@ -35,9 +41,6 @@
 
 .folio-head{padding:var(--s3) 0 var(--s1)}
 .hull-line{display:flex;align-items:baseline;gap:var(--s2);margin:0 0 2px}
-.hull-switch{position:relative;flex:none;width:18px;height:18px}
-.hull-switch::after{content:'';position:absolute;inset:-13px}
-.hull-caret{display:block;width:8px;height:8px;margin:3px auto 0;border:solid var(--ink-muted);border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
 .hull-name{min-width:0;font:400 var(--fs-display)/1 var(--serif);letter-spacing:-.01em;overflow-wrap:anywhere}
 /* The drop cap is ink. Red is spent only on a failed hull, so it can still mean something. */
 .hull-name::first-letter{color:var(--ink);font-weight:700}
@@ -48,12 +51,14 @@
 :root[data-layout=phone] .folio-head{padding-top:var(--s2)}
 
 /* The water street: where she has got to, drawn as six windows on one line. */
-.street{display:flex;align-items:center;height:14px;margin-top:var(--s2)}
-.street li{flex:1 1 0;position:relative;height:100%}
+.street{display:flex;align-items:flex-start;height:auto;margin-top:var(--s2);padding-right:34px}
+.street li{flex:1 1 0;position:relative;height:30px}
 .street li:last-child{flex:0 0 9px}
-.street li::before{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--rule-soft)}
+.street-word{position:absolute;left:-1px;top:15px;font:400 var(--fs-micro)/1.2 var(--mono);letter-spacing:-.02em;color:var(--ink-muted);white-space:nowrap}
+.street li[data-at=here] .street-word{color:var(--ink);font-weight:500}
+.street li::before{content:'';position:absolute;left:0;right:0;top:6px;height:1px;background:var(--rule-soft)}
 .street li:last-child::before{display:none}
-.street li::after{content:'';position:absolute;left:0;top:50%;width:9px;height:9px;margin-top:-4.5px;transform:rotate(45deg);background:var(--vellum);box-shadow:inset 0 0 0 1px var(--ink-muted)}
+.street li::after{content:'';position:absolute;left:0;top:6px;width:9px;height:9px;margin-top:-4.5px;transform:rotate(45deg);background:var(--vellum);box-shadow:inset 0 0 0 1px var(--ink-muted)}
 .street li[data-at=past]::before{background:var(--ink-muted)}
 .street li[data-at=past]::after{background:var(--ink-muted)}
 .street li[data-at=here]::after{background:var(--verdigris-ink);box-shadow:0 0 0 2px var(--vellum),0 0 0 3px var(--verdigris-ink)}
@@ -70,6 +75,7 @@
 .tab-key[data-pip=fail]::before{background:var(--vermilion-ink)}
 .tab-key[data-pip=pass]::before{background:var(--gold-deep)}
 .tab-host{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.tab-say{flex:none;padding-top:var(--s2);font:italic 400 var(--fs-small)/1.3 var(--serif);color:var(--ink-muted)}
 .tab-host[hidden],.tab[hidden]{display:none}
 .tab{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 .tab-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s3) 2px var(--s3) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
@@ -272,9 +278,7 @@
 
 .folio-foot{flex:none;display:flex;align-items:center;gap:var(--s4);border-top:.5px solid var(--rule);margin-top:var(--s1)}
 .folio-foot[hidden]{display:none}
-.head-new{display:none}
 .foot-key{min-width:44px;min-height:var(--tap);color:var(--verdigris-ink);font:500 var(--fs-label)/1 var(--mono);text-decoration:underline;text-underline-offset:3px}
-.foot-new{margin-left:auto}
 
 .leaf-host{position:absolute;left:0;right:0;bottom:0;z-index:5;pointer-events:none}
 .leaf{pointer-events:auto;max-height:min(84dvh,calc(100dvh - var(--deck-h) - 80px));display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s4) var(--s6);background:var(--laid-lines),var(--vellum-shade);box-shadow:0 -8px 20px rgba(27,26,23,.3),0 -1px 0 var(--vellum-edge);animation:leaf-in var(--t-sheet) var(--ease-out) both}
@@ -315,12 +319,6 @@
 .stone.lit::after{background:var(--ink-soft)}
 .rate-word{min-height:1.4em;margin:var(--s1) 0 var(--s2);font:italic 400 var(--fs-body)/1.3 var(--serif);color:var(--ink-soft)}
 
-.fleet{display:flex;flex-direction:column;margin-bottom:var(--s3)}
-.fleet-row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);width:100%;min-height:var(--tap);padding:var(--s2) 0;text-align:left;border-top:.5px solid var(--rule-soft)}
-.fleet-row b{font:italic 700 var(--fs-read)/1.1 var(--serif)}
-.fleet-row span{font:400 var(--fs-micro)/1 var(--mono);color:var(--ink-muted)}
-.fleet-row[aria-current=true] b{text-decoration:underline;text-underline-offset:3px}
-.fleet-new{width:100%}
 
 .folio-empty{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:var(--s2);padding-bottom:var(--s8)}
 .folio-empty[hidden]{display:none}
@@ -328,23 +326,15 @@
 .folio-empty-big::first-letter{font-weight:700}
 .folio-empty-say{font:italic 400 var(--fs-read)/1.3 var(--serif);color:var(--ink-soft);margin-bottom:var(--s3)}
 
-/* --------------------------------------------------- the fore-edge: the book's thumb index */
 
-.fore-edge{flex:none;width:34px;display:flex;flex-direction:column;background:linear-gradient(90deg,var(--vellum-edge),var(--vellum-shade) 40%);box-shadow:inset 1px 0 0 var(--rule-soft);overflow:hidden}
-.edge-key{position:relative;flex:0 1 auto;min-height:var(--tap);padding:var(--s3) 0;writing-mode:vertical-rl;text-align:center;font:400 var(--fs-label)/34px var(--serif);letter-spacing:.09em;color:var(--ink-muted);white-space:nowrap;border-bottom:.5px solid var(--rule-soft)}
-.edge-key::before{content:'';position:absolute;top:0;bottom:0;left:-12px;right:0}
-.edge-key[aria-current=page]{color:var(--ink);background:var(--vellum);box-shadow:inset 2px 0 0 var(--vellum),-1px 0 0 var(--vellum);font-style:italic}
-.edge-key[hidden]{display:none}
-:root[data-layout=desk] .edge-key,:root[data-layout=ultrawide] .edge-key{flex:0 0 auto}
-:root[data-layout=phone] .edge-key,:root[data-layout=landscape] .edge-key{flex:1 1 0;padding:0;overflow:hidden}
-:root[data-layout=phone] .fore-edge{padding-bottom:var(--safe-b)}
 
 /* ------------------------------------------------------------------------------- panels */
 
 .panel-head{flex:none;padding:var(--s3) 0 var(--s3)}
 .panel-title{font:400 var(--fs-head)/1.05 var(--serif);letter-spacing:-.005em}
-:root[data-layout=desk] .panel-title,:root[data-layout=ultrawide] .panel-title{font-size:2.25rem}
-.panel-title::first-letter{color:var(--ink);font-weight:700}
+.panel-name{font-weight:700}
+.panel-aside{margin-left:.35em;font:italic 400 var(--fs-body)/1 var(--serif);letter-spacing:0;color:var(--ink-muted);white-space:nowrap}
+:root[data-layout=desk] .panel-title,:root[data-layout=ultrawide] .panel-title{font-size:2rem}
 .panel-say{margin-top:var(--s1);font:italic 400 var(--fs-body)/1.3 var(--serif);color:var(--ink-soft)}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 2px var(--s4) 0;scrollbar-width:thin;scrollbar-color:var(--rule-soft) transparent}
 .panel-note{font:italic 400 var(--fs-small)/1.3 var(--serif);color:var(--ink-soft);margin-bottom:var(--s3)}
@@ -353,22 +343,37 @@
 .panel-para{font:400 var(--fs-body)/1.34 var(--serif);margin-bottom:var(--s3)}
 
 /* Mosaic: the bed is black, and the book is opened to a plate. */
-.renown{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px var(--s2);margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--ink)}
-.renown b{font:400 var(--fs-title)/1 var(--serif);color:var(--gold-light)}
+.renown{display:flex;flex-direction:column;gap:3px;margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--ink)}
+.renown b{font:400 var(--fs-body)/1.25 var(--serif);color:var(--gold-light)}
 .renown span{font:400 var(--fs-micro)/1.3 var(--mono);color:var(--text-on-night-soft)}
+.wall-scroll{padding-top:var(--s1)}
+.wall-group+.wall-group{margin-top:var(--s3)}
+.wall-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s1)}
+.wall-name{position:relative;font:italic 700 var(--fs-read)/1.2 var(--serif);color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule-soft);text-underline-offset:3px}
+.wall-name::after{content:'';position:absolute;inset:-11px -4px}
+.wall-count{font:400 var(--fs-micro)/1.2 var(--mono);color:var(--ink-muted)}
+.wall-empty{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);padding:var(--s4) 0}
+.wall-empty[hidden]{display:none}
 .wall-body{flex:0 1 auto;padding:7px;background:linear-gradient(160deg,var(--iron),var(--iron-lo));box-shadow:inset 0 0 0 1px var(--iron-rim);border-radius:0}
 .wall{position:relative;width:100%}
 .wall-canvas{display:block;width:100%}
 .wall-keys{position:absolute;inset:0}
 .wall-key{position:absolute;display:block;min-width:24px;min-height:24px;cursor:pointer}
 .wall-key:focus-visible{outline:2px solid var(--vellum)!important;outline-offset:-1px}
-.wall-cap{flex:none;min-height:1.6em;margin-top:var(--s2);font:400 var(--fs-micro)/1.5 var(--mono);color:var(--ink-soft);white-space:pre-wrap}
-.wall-legend{flex:none;display:flex;flex-direction:column;gap:2px;padding-bottom:var(--s1);font:400 var(--fs-micro)/1.4 var(--mono);color:var(--ink-muted)}
-.wall-legend li{display:flex;align-items:center;gap:var(--s2)}
-.swatch{flex:none;width:11px;height:11px}
-.swatch-gold{background:var(--gold-face)}
-.swatch-dull{background:var(--tile-dark);box-shadow:inset 0 0 0 1px var(--tile-dark-edge)}
-.swatch-tarnish{background:linear-gradient(135deg,transparent 44%,var(--gold-deep) 44% 56%,transparent 56%);box-shadow:inset 0 0 0 1.5px var(--gold-deep)}
+.tile-say{flex:none;margin-top:var(--s2);padding:var(--s2) var(--s3);background:var(--vellum-warm);box-shadow:inset 0 0 0 .5px var(--rule)}
+.tile-say[hidden]{display:none}
+.tile-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 var(--s3)}
+.tile-kind{font:700 var(--fs-body)/1.25 var(--serif)}
+.tile-when{font:400 var(--fs-micro)/1.3 var(--mono);color:var(--ink-muted)}
+.tile-means{margin-top:2px;font:400 var(--fs-small)/1.3 var(--serif);color:var(--ink-soft)}
+.tile-open{margin-top:var(--s2)}
+.wall-legend{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px var(--s3);margin-top:var(--s2);font:400 var(--fs-micro)/1.25 var(--mono);color:var(--ink-soft)}
+.wall-legend li{display:flex;align-items:center;gap:6px;min-width:0}
+.wall-legend li[data-none=true]{opacity:.62}
+.legend-tile{flex:none}
+.legend-word{min-width:0}
+.legend-n{margin-left:auto;color:var(--ink-muted)}
+.renown-why{flex:none;margin-top:var(--s2)}
 
 /* The folio's strip: a few rows of the wall, and a door to the rest. */
 .strip-box{flex:none;padding-top:var(--s1)}
@@ -382,11 +387,15 @@
 .mosaic-column{height:100%;padding:var(--s5) var(--s4);color:var(--text-on-night)}
 .mosaic-column .wall-body{flex:none;background:none;box-shadow:none}
 .mosaic-column .panel-title{color:var(--vellum)}
-.mosaic-column .panel-title::first-letter{color:var(--vellum);font-weight:700}
+.mosaic-column .panel-aside{color:var(--text-on-night-soft)}
 .mosaic-column .panel-say{color:var(--text-on-night-soft)}
 .mosaic-column .renown{padding:0;background:none}
 .mosaic-column .wall-body{padding:0}
-.mosaic-column .wall-cap,.mosaic-column .wall-legend{color:var(--text-on-night-soft)}
+.mosaic-column .wall-legend,.mosaic-column .wall-count,.mosaic-column .legend-n,.mosaic-column .renown-why{color:var(--text-on-night-soft)}
+.mosaic-column .wall-name{color:var(--vellum);text-decoration-color:var(--iron-engrave-vellum)}
+.mosaic-column .tile-say{background:var(--iron);box-shadow:inset 0 0 0 1px var(--iron-rim)}
+.mosaic-column .tile-kind{color:var(--vellum)}
+.mosaic-column .tile-when,.mosaic-column .tile-means{color:var(--text-on-night-soft)}
 
 /* Mariegola */
 .laws{counter-reset:law;display:flex;flex-direction:column;gap:var(--s3);margin-bottom:var(--s2)}
@@ -518,7 +527,6 @@
 /* A sheet has a third of the height a column has, so the head folds to one line, and the actions
    stay on Now, which is where a phone goes to act. */
 :root[data-layout=phone] .folio-head,:root[data-layout=landscape] .folio-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;column-gap:var(--s2);padding-top:var(--s1);padding-bottom:0}
-:root[data-layout=phone] .hull-switch,:root[data-layout=landscape] .hull-switch{width:auto;margin:0}
 :root[data-layout=phone] .hull-sub,:root[data-layout=landscape] .hull-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :root[data-layout=phone] .street,:root[data-layout=landscape] .street{grid-column:1/-1;margin-top:var(--s1)}
 :root[data-layout=phone] .tabs,:root[data-layout=landscape] .tabs{margin-top:var(--s1)}
@@ -528,29 +536,19 @@
 /* On its side the book starts at the very top of the screen, so its close key needs the room. */
 :root[data-layout=landscape] .run-head{padding-top:var(--s2)}
 :root[data-layout=landscape] .scrub-say{display:none}
-:root[data-layout=landscape] .fore-edge{overflow-y:auto;scrollbar-width:none}
-:root[data-layout=landscape] .fore-edge::-webkit-scrollbar{display:none}
-:root[data-layout=landscape] .edge-key{flex:none;padding:var(--s2) 0}
 /* The shortest phones: the sheet is a slit, so only what you came for stays. */
 @media (max-height:700px){
   :root[data-layout=phone] .street{display:none}
   :root[data-layout=phone] .scrub:not(.in-past) .scrub-row{display:none}
-  :root[data-layout=phone] .fore-edge{overflow-y:auto;scrollbar-width:none}
-  :root[data-layout=phone] .fore-edge::-webkit-scrollbar{display:none}
-  :root[data-layout=phone] .edge-key{flex:none;padding:var(--s2) 0}
 }
 
 /* ------------------------------------------------- the sheet: real rows, nothing overprints */
 
 /* A sheet's rows, top to bottom: head, tabs, what scrolls, the composer, the deck's own tab. The
    content always comes first. New idea moves up to the running head, so nothing sits on Stop. */
-:root[data-layout=phone] .head-new,:root[data-layout=landscape] .head-new{display:block;min-height:32px;min-width:0;padding:0 var(--s2)}
-:root[data-layout=phone] .head-new[hidden],:root[data-layout=landscape] .head-new[hidden]{display:none}
-:root[data-layout=phone] .foot-new,:root[data-layout=landscape] .foot-new{display:none}
 :root[data-layout=phone] .folio-foot[data-bare=true],:root[data-layout=landscape] .folio-foot[data-bare=true]{display:none}
 :root[data-layout=phone] .folio-foot,:root[data-layout=landscape] .folio-foot{gap:var(--s3);margin-top:0}
 :root[data-layout=phone] .run-title,:root[data-layout=landscape] .run-title{display:none}
-:root[data-layout=phone] .fol,:root[data-layout=landscape] .fol{flex:1}
 :root[data-layout=phone] .run-head{padding-bottom:0;min-height:32px}
 :root[data-layout=phone] .x{min-height:32px;margin:0 -12px 0 0}
 
@@ -571,15 +569,52 @@
 
 
 /* An empty lagoon at night: the lion is the only lit thing, so the folio goes out with the lamps. */
-#slot-folio:has(.folio-empty:not([hidden])),
-.folio:has(.folio-empty:not([hidden])) .folio-page{background:var(--lagoon-deep);box-shadow:none}
-.folio:has(.folio-empty:not([hidden])) .folio-page,
-.folio:has(.folio-empty:not([hidden])) .folio-empty-big{color:var(--text-on-night-soft)}
-.folio:has(.folio-empty:not([hidden])) .folio-empty-say{color:var(--text-on-night-soft)}
-.folio:has(.folio-empty:not([hidden])) .folio-empty .act{background:none;box-shadow:inset 0 0 0 1px var(--text-on-night-soft);color:var(--text-on-night-soft)}
-.folio:has(.folio-empty:not([hidden])) .fore-edge{background:var(--lagoon-deep);box-shadow:inset 1px 0 0 color-mix(in srgb,var(--text-on-night-soft) 30%,transparent)}
-.folio:has(.folio-empty:not([hidden])) .edge-key{color:var(--text-on-night-soft);background:none;box-shadow:none}
-.folio:has(.folio-empty:not([hidden])) .run-title,.folio:has(.folio-empty:not([hidden])) .fol{color:var(--text-on-night-soft)}
-#slot-folio:has(.folio-empty:not([hidden])) :focus-visible{outline-color:var(--vellum)}
 
 .now-failed { margin: 0 0 12px; padding: 8px 10px; border-left: 3px solid var(--vermilion, #C8391F); }
+
+/* ----------------------------------------------------------- Projects: the front page */
+
+.proj-group+.proj-group{margin-top:var(--s4)}
+.proj-group .rub{margin-top:0}
+.proj-list{display:flex;flex-direction:column;gap:var(--s2)}
+.proj{--tone:var(--ink-muted);position:relative;background:var(--vellum-warm);box-shadow:inset 0 0 0 .5px var(--rule-soft),inset 3px 0 0 var(--tone)}
+.proj[data-tone=need]{--tone:var(--amber)}
+.proj[data-tone=work],.proj[data-tone=ready],.proj[data-tone=live]{--tone:var(--verdigris-ink)}
+.proj[data-tone=stop]{--tone:var(--vermilion-ink)}
+.proj-open{display:flex;flex-direction:column;gap:3px;width:100%;min-height:var(--tap);padding:var(--s2) var(--s3) var(--s2) var(--s4);text-align:left}
+.proj-open:focus-visible{outline-offset:-3px}
+@media (hover:hover){.proj-open:hover{background:rgba(28,99,85,.07)}}
+.proj-top{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);min-width:0}
+.proj-name{font:700 var(--fs-read)/1.2 var(--serif);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-name::after{content:' \203A';font-weight:400;color:var(--ink-muted)}
+.proj-status{flex:none;max-width:62%;font:500 var(--fs-micro)/1.2 var(--mono);color:var(--ink-soft);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj[data-tone=stop] .proj-status{color:var(--vermilion-ink)}
+.proj[data-tone=live] .proj-status,.proj[data-tone=ready] .proj-status{color:var(--verdigris-ink)}
+.proj-idea{font:italic 400 var(--fs-small)/1.3 var(--serif);color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-steps{display:flex;gap:3px;margin-top:2px}
+.proj-steps li{flex:1;height:3px;background:var(--rule-soft)}
+.proj-steps li[data-at=past]{background:var(--ink-muted)}
+.proj-steps li[data-at=here]{background:var(--tone)}
+.proj-live{display:block;padding:0 var(--s3) var(--s2) var(--s4);min-height:24px;font:400 var(--fs-label)/1.3 var(--mono);color:var(--verdigris-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-live[hidden]{display:none}
+.projects-empty{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);padding:var(--s4) 0}
+.projects-empty[hidden]{display:none}
+
+/* -------------------------------------------------------------------------------- Help */
+
+.help-first{counter-reset:first;display:flex;flex-direction:column;gap:var(--s1);font:400 var(--fs-small)/1.3 var(--serif)}
+.help-first li{counter-increment:first;position:relative;padding-left:22px}
+.help-first li::before{content:counter(first);position:absolute;left:0;top:0;font:700 var(--fs-small)/1.3 var(--serif);color:var(--verdigris-ink)}
+.help-list{display:flex;flex-direction:column;gap:5px;font:400 var(--fs-small)/1.28 var(--serif);color:var(--ink-soft)}
+.help-list li{display:flex;align-items:flex-start;gap:var(--s2)}
+.help-list b{color:var(--ink)}
+.help-num{flex:none;width:24px;font:700 var(--fs-label)/1.5 var(--serif);font-style:normal;color:var(--vermilion-ink)}
+.help-word{flex:none;width:44px}
+.help-tile{flex:none}
+.help-lamp{flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:4px;font:700 var(--fs-small)/1 var(--mono);font-style:normal;color:var(--iron-well);background:var(--lamp-off)}
+.help-lamp[data-colour=amber]{background:var(--lamp-amber)}
+.help-lamp[data-colour=red]{background:var(--lamp-red)}
+.help-lamp[data-colour=green]{background:var(--lamp-green)}
+.help-lamp[data-colour=blue]{background:var(--lamp-blue)}
+.help-lamp[data-colour=white]{background:var(--lamp-white)}
+.page-help .panel-note{margin-bottom:var(--s1)}

@@ -48,14 +48,15 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
     button.dataset.st = id;
     const numeral = element('i', '', ROMAN[index]);
     const name = element('span');
+    const plainName = element('em', 'w-st-plain');
     const count = element('b', 'w-st-n');
-    button.append(numeral, name, count);
+    button.append(numeral, name, plainName, count);
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleWho(id);
     });
     marks.append(button);
-    return { id, index, button, name, count, box: null, ships: [] };
+    return { id, index, button, name, plainName, count, box: null, ships: [] };
   });
 
   /* The basin counts its own: one tag for every finished hull, however many there are. */
@@ -189,19 +190,19 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
     const plaque = atBasin ? basin : plaques.find((entry) => entry.id === whoStation);
     who.replaceChildren();
     const head = element('p', 'w-who-head');
-    if (atBasin) head.append(element('span', '', plain() ? 'Finished' : 'The basin'));
-    else head.append(element('i', '', ROMAN[plaque.index]), element('span', '', word(store, whoStation)));
-    const blurb = element('p', 'w-who-blurb', atBasin ? (plain() ? 'Projects that have finished.' : 'Finished hulls at their moorings.') : STATION[whoStation].blurb);
+    if (atBasin) head.append(element('span', '', 'Finished'));
+    else head.append(element('i', '', ROMAN[plaque.index]), element('span', '', plain() ? word(store, whoStation) : `${word(store, whoStation)} \u00b7 ${STATION[whoStation].plain}`));
+    const blurb = element('p', 'w-who-blurb', atBasin ? 'Projects that have finished. All of them are on the Projects page too.' : STATION[whoStation].blurb);
     who.append(head, blurb);
     if (plaque.ships.length === 0) {
-      who.append(element('p', 'w-who-none', `No ${word(store, 'ship').toLowerCase()}s here.`));
+      who.append(element('p', 'w-who-none', 'No projects here.'));
     } else {
       const list = element('ul');
       for (const hull of plaque.ships) {
         const item = element('li');
         const button = element('button');
         button.type = 'button';
-        button.append(element('span', '', hull.name), element('em', '', hull.badge || (hull.moored ? 'moored' : '')));
+        button.append(element('span', '', hull.name), element('em', '', hull.badge || (hull.moored ? 'finished' : '')));
         button.addEventListener('click', (event) => {
           event.stopPropagation();
           toggleWho(null);
@@ -235,7 +236,16 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
   /* ------------------------------------------------------------------------------ the HUD */
 
   const hud = element('header', 'w-hud');
-  const purse = element('div', 'w-purse');
+  const hudButton = (node, panel, label) => {
+    node.type = 'button';
+    node.setAttribute('aria-label', label);
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      store.view.set({ panel });
+    });
+    return node;
+  };
+  const purse = hudButton(element('button', 'w-purse'), 'treasury', 'Usage left. Open Budget');
   const purseKey = element('span', 'w-k');
   const purseValue = element('div', 'w-v');
   const purseFigure = element('b');
@@ -244,22 +254,22 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
   const meter = element('div', 'w-meter');
   for (let i = 0; i < METER_STEPS; i++) meter.append(element('i'));
   purse.append(purseKey, purseValue, meter);
-  const title = element('div', 'w-title');
+  const title = hudButton(element('button', 'w-title'), 'mosaic', 'Verified tiles. Open Results');
   const tiles = element('div', 'w-tiles');
   const tally = element('span', 'w-tally');
   const tileRow = element('div', 'w-tilerow');
   tileRow.append(tiles, tally);
   title.append(element('span', 'w-venetie', 'VENETIE'), tileRow);
-  const fame = element('div', 'w-purse w-fame');
-  const fameKey = element('span', 'w-k w-k-gold', 'Renown');
+  const fame = hudButton(element('button', 'w-purse w-fame'), 'mosaic', 'Verified points. Open Results');
+  const fameKey = element('span', 'w-k w-k-gold', 'Verified points');
   const fameValue = element('div', 'w-v');
   const fameFigure = element('b');
-  fameValue.append(fameFigure);
+  fameValue.append(fameFigure, element('span', 'w-u w-u-points', 'points'));
   const fameRank = element('span', 'w-s');
   fame.append(fameKey, fameValue, fameRank);
   hud.append(purse, title, fame);
 
-  const weatherNote = element('div', 'w-weather');
+  const weatherNote = hudButton(element('button', 'w-weather'), 'treasury', 'Weather. Open Budget');
   const weatherName = element('b');
   const weatherLine = element('span');
   weatherNote.append(weatherName, weatherLine);
@@ -277,13 +287,13 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
     const key = [left, weather.id, refill, renown.total, rank.id, plain()].join('|');
     if (key !== hudKey) {
       hudKey = key;
-      purseKey.textContent = plain() ? 'Limit left' : 'Treasury';
+      purseKey.textContent = 'Usage left';
       purseFigure.textContent = `${left}%`;
       [...meter.children].forEach((tick, index) => tick.classList.toggle('on', index < Math.round(left / 5)));
       fameFigure.textContent = renown.total.toLocaleString('en-US');
-      fameRank.textContent = plain() ? rank.plain : rank.fiction;
+      fameRank.textContent = `Rank: ${rank.plain}`;
       weatherName.textContent = plain() ? weather.plain : weather.fiction;
-      weatherLine.textContent = `${used}% used${refill ? `, ${refill}` : ''}`;
+      weatherLine.textContent = `${used}% of limit used${refill ? `, ${refill}` : ''}`;
     }
     const shown = tesserae.slice(-MAX_TILES);
     const nextTiles = shown.map((tile) => `${tile.seq}${tile.gold ? 'g' : 'd'}${tile.dimmed ? 'x' : ''}`).join();
@@ -325,8 +335,9 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
   function wordPlaques() {
     for (const plaque of plaques) {
       plaque.name.textContent = word(store, plaque.id);
+      plaque.plainName.textContent = plain() ? '' : STATION[plaque.id].plain;
     }
-    bocca.setAttribute('aria-label', plain() ? 'Add an idea to the intake' : 'Speak an idea into the lion\'s mouth');
+    bocca.setAttribute('aria-label', 'New idea');
   }
 
   const offWords = store.view.subscribe((value, previous) => {
@@ -346,9 +357,9 @@ export function createMarks(root, stage, store, { onShip, onBocca }) {
       return;
     }
     const fresh = moored.filter((hull) => hull.ship.unread).length;
-    moorName.textContent = `${n} ${plain() ? 'finished' : 'moored'}`;
+    moorName.textContent = `${n} finished`;
     moorNew.textContent = fresh > 0 ? `${fresh} new` : '';
-    moor.setAttribute('aria-label', `${n} finished ${word(store, 'ship').toLowerCase()}${n > 1 ? 's' : ''}${fresh > 0 ? `, ${fresh} new` : ''}. Show the list`);
+    moor.setAttribute('aria-label', `${n} finished project${n > 1 ? 's' : ''}${fresh > 0 ? `, ${fresh} new` : ''}. Show the list`);
     const width = moor.offsetWidth;
     const height = moor.offsetHeight;
     // Never under the deck: above its edge, wherever the chart has put the basin.

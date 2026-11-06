@@ -110,7 +110,10 @@
   --tap:44px;            /* the smallest hit target anywhere */
 
   /* --- the shell --- */
-  --folio-w:clamp(300px,30vw,372px);
+  --folio-w:clamp(280px,29vw,372px);
+  --rail-w:66px;         /* the navigation on tablet and desktop, the book's fore-edge */
+  --nav-h:52px;          /* the navigation bar on a phone */
+  --nav-col:58px;        /* the navigation column on a phone on its side */
   --mosaic-w:300px;
   --deck-col:clamp(244px,38vw,316px);
   --deck-max:860px;
@@ -127,6 +130,7 @@
   /* --- stacking, lowest first --- */
   --z-world:0;
   --z-sheet:20;
+  --z-nav:45;
   --z-card:30;
   --z-deck:40;
   --z-intake:50;

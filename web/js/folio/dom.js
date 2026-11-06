@@ -13,6 +13,7 @@ export function h(tag, props, ...kids) {
     if (value === undefined || value === null || value === false) continue;
     if (key === 'class') element.className = value;
     else if (key === 'text') element.textContent = value;
+    else if (key === 'html') element.innerHTML = value;
     else if (key === 'data') Object.assign(element.dataset, value);
     else if (key.startsWith('on')) element.addEventListener(key.slice(2).toLowerCase(), value);
     else if (key in element && key !== 'list' && key !== 'form') element[key] = value;
@@ -91,19 +92,30 @@ export const usd = (value) => `$${(value ?? 0).toFixed(value >= 100 ? 0 : 2)}`;
 export const shortHash = (hash) => String(hash ?? '').slice(0, 7);
 export const plural = (count, word, many = `${word}s`) => `${count} ${count === 1 ? word : many}`;
 
-const ROMAN = [[1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'], [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'], [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
-
-/** Folios were numbered in Roman numerals, lower case. */
-export function roman(value) {
-  let left = Math.max(1, Math.floor(value));
-  let out = '';
-  for (const [size, mark] of ROMAN) {
-    while (left >= size) {
-      out += mark;
-      left -= size;
-    }
-  }
-  return out;
+/**
+ * The head of a page: what a person would call it, then the fiction as a quiet aside, then one
+ * or two sentences on what the page is for. `fiction` drops out in plain mode.
+ * @param {string} name
+ * @param {string|null} fiction
+ * @param {string} [say]
+ */
+export function pageHead(name, fiction, say = '') {
+  const aside = fiction ? h('span', { class: 'panel-aside', text: `\u00b7 ${fiction}` }) : null;
+  const title = h('h2', { class: 'panel-title', tabIndex: -1 }, h('span', { class: 'panel-name', text: name }), aside);
+  const line = h('p', { class: 'panel-say', text: say, hidden: !say });
+  return {
+    title,
+    say: line,
+    /** @param {boolean} plain */
+    sync(plain) {
+      if (aside) aside.hidden = plain;
+    },
+    /** @param {string} text */
+    tell(text) {
+      setText(line, text);
+      line.hidden = !text;
+    },
+  };
 }
 
 /** A readable colour from the tokens, so a canvas never invents one. */

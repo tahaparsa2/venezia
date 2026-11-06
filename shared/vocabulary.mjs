@@ -9,12 +9,12 @@ const freezeAll = (list) => Object.freeze(list.map((entry) => Object.freeze(entr
 /** @type {readonly Term[]} */
 export const TERMS = freezeAll([
   { id: 'ship', fiction: 'Hull', plain: 'Project', blurb: 'One idea moving through the factory.' },
-  { id: 'bocca', fiction: 'Bocca', plain: 'Intake', blurb: "Lion's-mouth slot. The idea goes in and the gaps are named." },
+  { id: 'bocca', fiction: 'Bocca', plain: 'Intake', blurb: 'Your idea goes in, and Venezia asks about anything unclear.' },
   { id: 'disegno', fiction: 'Disegno', plain: 'Contract', blurb: 'What "done" means, written before any code.' },
-  { id: 'cantiere', fiction: 'Cantiere', plain: 'Build', blurb: 'Workers build, one work item at a time.' },
-  { id: 'collaudo', fiction: 'Collaudo', plain: 'Prove', blurb: 'Host-run gate, repair loop and independent review.' },
-  { id: 'varo', fiction: 'Varo', plain: 'Launch', blurb: 'The prototype is running and the publish decision is yours.' },
-  { id: 'portolano', fiction: 'Portolano', plain: 'Learn', blurb: 'Chronicle, lessons and memory.' },
+  { id: 'cantiere', fiction: 'Cantiere', plain: 'Build', blurb: 'AI workers build it, one piece at a time.' },
+  { id: 'collaudo', fiction: 'Collaudo', plain: 'Prove', blurb: 'Venezia runs the checks itself, failures get repaired, and an independent reviewer reads it.' },
+  { id: 'varo', fiction: 'Varo', plain: 'Launch', blurb: 'It runs on your Mac for you to try, and publishing is your call.' },
+  { id: 'portolano', fiction: 'Portolano', plain: 'Learn', blurb: 'The story is written up, and lessons are kept for later projects.' },
   { id: 'gondola', fiction: 'Gondola', plain: 'Sketch', blurb: 'A well-defined tiny idea. Skips human contract review.' },
   { id: 'galley', fiction: 'Galley', plain: 'Build', blurb: 'A normal project.' },
   { id: 'galleass', fiction: 'Galleass', plain: 'Platform', blurb: 'A larger project with several contract milestones.' },
@@ -263,7 +263,7 @@ export const TESSERA_KINDS = freezeAll([
   { id: 'gate', gold: true, plain: 'Gate passed' },
   { id: 'receipt', gold: true, plain: 'Receipt issued' },
   { id: 'live', gold: true, plain: 'Live check passed' },
-  { id: 'law', gold: true, plain: 'Lesson confirmed as law' },
+  { id: 'law', gold: true, plain: 'Rule confirmed' },
   { id: 'dark', gold: false, plain: 'Gate failed' },
 ]);
 export const TESSERA_KIND = byId(TESSERA_KINDS);

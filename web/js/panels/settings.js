@@ -3,7 +3,7 @@
 
 import { cmd } from '/js/commands.js';
 import { AUTONOMY, DEFAULT_AUTONOMY } from '/shared/vocabulary.mjs';
-import { dayMonth, h, setText, syncList } from '/js/folio/dom.js';
+import { dayMonth, h, pageHead, setText, syncList } from '/js/folio/dom.js';
 import { ASKING } from '/js/folio/words.js';
 import {
   DEMO_PAIRING, LINK_CHECKS, LINK_STEPS, LOOPBACK_NOTE, NOT_TRIED, PROFILE_LINE, VPN_WARNING,
@@ -24,7 +24,7 @@ function toggle(name, blurb, onChange) {
 
 export function createSettingsPanel(ctx) {
   const { store } = ctx;
-  const plain = toggle('Plain words', 'Turns the fiction off everywhere: Hull becomes Project, Bocca becomes Intake.', (on) => store.view.set({ plain: on }));
+  const plain = toggle('Plain words only', 'Plain words always come first. This also hides the Venetian names: Bocca on the map becomes Intake, Marangone becomes Builder.', (on) => store.view.set({ plain: on }));
   const sound = toggle('Sound', 'Bells, water and the ring. Nothing depends on it.', (on) => store.view.set({ sound: on }));
   const keys = toggle('Single-key shortcuts', 'Y approves, N rejects, S steers, and 1 to 6 pick a lamp, when no field has focus.', (on) => store.view.set({ shortcuts: on }));
 
@@ -48,8 +48,9 @@ export function createSettingsPanel(ctx) {
   const onPhone = h('div', { class: 'on-phone', hidden: true },
     h('p', { class: 'panel-note', text: 'This phone is linked.' }),
     h('p', { class: 'panel-note' }, PROFILE_LINE, ' ', h('a', { href: '/pair', text: 'Install' })));
+  const head = pageHead('Settings', null, 'How Venezia behaves on this device, how often it asks you, and linking a phone.');
   const el = h('section', { class: 'page page-settings', 'aria-label': 'Settings' },
-    h('header', { class: 'panel-head' }, h('h2', { class: 'panel-title', text: 'Settings' })),
+    h('header', { class: 'panel-head' }, head.title, head.say),
     h('div', { class: 'panel-body' },
       plain.el, sound.el, keys.el,
       h('h3', { class: 'rub', text: 'How often to ask you' }),
