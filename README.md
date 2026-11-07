@@ -5,6 +5,8 @@ writes a contract for it, builds it, and your Mac tests the result in a real bro
 that passes those mechanical checks gets a receipt, and only you can publish it. No model decides
 that something is done.
 
+Built one-shot with minimal prompting to test Opus 5.5 harness creation.
+
 ## Start here
 
 Open Terminal, go to this folder, and run `./vz`:
@@ -176,21 +178,14 @@ before you turn on phone access. Changes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Acknowledgements
 
-Venezia took inspiration from [3DMK](https://3dmk.com/), the agentic development stack documented
-by Nick Olson. The research notes in [docs/research/01-3dmk.md](docs/research/01-3dmk.md) summarise
-its documents, and the worker rule that a report is a claim, not proof, comes from it. That material
-is under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit: "Nick Olson, 3dmk.com".
-Venezia is an independent project, and it is not affiliated with or endorsed by Nick Olson or 3DMK.
+Venezia took inspiration from [3DMK](https://3dmk.com/), and agentic coding harnesses like Cursor, 
+Factory and Cognition.
 
 The idea of a plain-code outer loop owes a lot to
 [bmad-loop](https://github.com/bmad-code-org/bmad-loop) (MIT).
 
 Fonts in `web/fonts/` are Cardo and DM Mono, under the SIL Open Font License 1.1. Runtime
 dependencies are `ws` (MIT), `qrcode-generator` (MIT) and `playwright-core` (Apache-2.0).
-
-## Licence
-
-Not chosen yet, so for now all rights are reserved. See [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Licence
 
