@@ -2,7 +2,7 @@
 
 Notable changes to Venezia. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.1.3
 
 ### Added
 
